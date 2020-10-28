@@ -21,7 +21,7 @@ def confining(array, V_0, l):
     V = (V_0/l) * (np.exp(-(array - len(array)/2) ** 2 / (l**2)) + np.exp(-(array + len(array)/2) ** 2 / (l**2)))
     return V
 
-def time(dt, t_units, N_steps, i1, i2, secondarystep):
+def time(dt, N_steps, i1, i2, secondarystep):
     lengthindex = i2-i1
     length = lengthindex//secondarystep + 1
     t = np.zeros(length)
