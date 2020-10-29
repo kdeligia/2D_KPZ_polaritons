@@ -99,7 +99,7 @@ class GrossPitaevskii:
 # Definition of the split steps
 # =============================================================================
     def prefactor_x(self, wave_fn):
-        return np.exp(-1j*0.5*dt*((self.rc + 1j*self.rd)+(-self.uc - 1j*self.ud)*wave_fn*np.conjugate(wave_fn)))
+        return np.exp(-1j*0.5*dt*((self.rc + 1j*self.rd)+(self.uc - 1j*self.ud)*wave_fn*np.conjugate(wave_fn)))
 
     def prefactor_k(self):
         return np.exp(-1j*dt*((self.KX**2 + self.KY**2)*(self.Kc - 1j*self.Kd)-(self.KX**4 + self.KY**4)*self.Kc2))
@@ -108,19 +108,19 @@ class GrossPitaevskii:
 # Time evolution and Phase unwinding
 # =============================================================================
     def time_evolution(self, realisation):
-        #mylist=[]
+        mylist=[]
         for i in range(N_steps+1):
-            #if i%500==0:
-            #    print(i)
+            if i%10000==0:
+                print(i)
             self.psi_x += np.sqrt(self.sigma) * np.sqrt(dt) * ext.noise(self.psi_x.shape)
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
             self.psi_mod_x = ifft2(self.psi_mod_k)
             self.psi_x *= self.prefactor_x(self.psi_x)
-            #density = np.abs(self.psi_x * np.conjugate(self.psi_x))
-            #if i>=i1 and i<=i2 and i%secondarystep==0:
-            #    mylist.append(density[int(N/2), int(N/2)])
+            density = np.abs(self.psi_x * np.conjugate(self.psi_x))
+            if i>=i1 and i<=i2 and i%secondarystep==0:
+                mylist.append(density[int(N/2), int(N/2)])
             '''
             if i%500==0:
                 fig,ax = pl.subplots(1,1, figsize=(8,8))
@@ -130,22 +130,22 @@ class GrossPitaevskii:
                 fig.colorbar(c, ax=ax)
                 pl.show()
             '''
-        return self.psi_x
+        return mylist
 
 # =============================================================================
 # Input typical values
 # =============================================================================
 tstar=0.1 #should typically be much lower than typical polariton lifetime in 2D which is 6 up until 150
 xstar=1
-mstar=3.4E-6
+mstar=-3.4E-6
 
 gamma_0star=90 #can be lower for better 2D sample, ask experimentalists
 gamma_2star=1E4
 gamma_rstar=5
-gammastar=4
-gstar=1
-grstar=2
-p=1.4
+gammastar=8
+gstar=0.0000001
+grstar=4
+p=10
 
 # =============================================================================
 # Adimensional parameters
@@ -182,7 +182,7 @@ def params(hatx, hatt, hatpsi):
     return Kc, Kd, rc, rd, uc, ud
 Kc, Kd, rc, rd, uc, ud = params(hatx, hatt,hatpsi)
 
-
+print('-----PARAMS-----')
 print('Kc', Kc)
 print('Kd', Kd)
 print('rc', rc)
@@ -202,18 +202,23 @@ x, kx =  arrays()
 X,Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
-N_steps = 80000
+N_steps = 10000
 dt = tstar/10
-print(dt)
 
 secondarystep = 50
 i1 = 0
 i2 = N_steps
 lengthwindow = i2-i1
 
+'''
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
-GP = GrossPitaevskii(Kc=Kc, Kd=0, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=0.0001)
+GP = GrossPitaevskii(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=0.001)
 
+r = np.array(GP.time_evolution(1))
+np.savetxt('/Users/delis/Desktop/r.dat', r, fmt='%.5f')
+pl.plot(t,r)
+pl.title(r'$\gamma_0^*=90$, $\gamma_r^*=2.19$, $g*=0.0000001$, $g_r^*=4$, $\tilde{\gamma}=8$, $p=10$')
+'''
 # =============================================================================
 # Computation
 # =============================================================================
@@ -226,23 +231,24 @@ def g1(i_batch):
     sqrtrho_batch = np.zeros((int(N/2)))
     correlator_batch = np.zeros((int(N/2)), dtype=complex)
     for i_n in range(n_internal):
-        if i_n>0 and i_n%5==0:
+        if i_n>0:
             print('The core', i_batch, 'is on the realisation number', i_n)
-        GP = GrossPitaevskii(Kc=Kc, Kd=0, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=0.0001)
+        GP = GrossPitaevskii(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=0.001)
         psi = GP.time_evolution(i_n)[int(N/2), int(N/2):]
         sqrtrho = np.sqrt(np.abs(psi*np.conjugate(psi)))
-        correlator_batch += (np.conjugate(psi[0]) * psi) / n_internal
-        sqrtrho_batch += (sqrtrho[0] * sqrtrho) / n_internal
-    name_full1 = '/scratch/konstantinos'+os.sep+'test_spatial'+os.sep+'numerator_batch'+str(i_batch+1)+'.dat'
-    name_full2 = '/scratch/konstantinos'+os.sep+'test_spatial'+os.sep+'denominator_batch'+str(i_batch+1)+'.dat'
-    np.savetxt(name_full1, correlator_batch)
-    np.savetxt(name_full2, sqrtrho_batch)
+        correlator_batch += (np.conjugate(psi[0])*psi) / n_internal
+        sqrtrho_batch += (sqrtrho[0]*sqrtrho) / n_internal
+    name_full1 = '/scratch/konstantinos'+os.sep+'numerator_batch'+str(i_batch+1)+'.dat'
+    name_full2 = '/scratch/konstantinos'+os.sep+'denominator_batch'+str(i_batch+1)+'.dat'
+    np.savetxt(name_full1, correlator_batch, fmt='%.5f')
+    np.savetxt(name_full2, sqrtrho_batch, fmt='%.5f')
 
+'''
 qutip.settings.num_cpus = n_batch
 parallel_map(g1, range(n_batch))
 
-path1 = r"/scratch/konstantinos/test_spatial/numerator_batch"
-path2 = r"/scratch/konstantinos/test_spatial/denominator_batch"
+path1 = r"/scratch/konstantinos/numerator_batch"
+path2 = r"/scratch/konstantinos/denominator_batch"
 
 def ensemble_average(path):
     countavg = 0
@@ -273,3 +279,11 @@ numerator = ensemble_average(path1)
 denominator = ensemble_average(path2)
 result = -2*np.log(np.absolute(numerator)/denominator)
 np.savetxt('/home6/konstantinos/correlation_spatial.dat', result)
+'''
+
+cor =np.exp(-np.loadtxt('/Users/delis/Desktop/correlation_spatial.dat'))
+dx = x[int(N/2):] - x[int(N/2)]
+fig, ax = pl.subplots(1,1, figsize=(8,8))
+#ax.set_xscale('log')
+#ax.set_yscale('log')
+ax.plot(dx, cor)
