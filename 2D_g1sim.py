@@ -190,7 +190,6 @@ print('rd', rd)
 print('uc', uc)
 print('ud', ud)
 
-
 def arrays():
     x_0 = - N * dx / 2
     kx0 = - np.pi / dx

@@ -197,11 +197,13 @@ i2 = N_steps
 lengthwindow = i2-i1
 
 X, Y = np.meshgrid(x,y)
-GP = GrossPitaevskii(Kc=Kc, Kd=0, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=0.01)
 
+'''
+GP = GrossPitaevskii(Kc=Kc, Kd=0, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=0.01)
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
 r = GP.time_evolution(1)
 pl.plot(t, np.array(r))
+'''
 
 n_tasks = 1000
 n_batch = 25
