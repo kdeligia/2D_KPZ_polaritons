@@ -16,9 +16,9 @@ from mpl_toolkits import mplot3d
 #from scipy import signal
 
 class GrossPitaevskii:
-    def __init__(self, Kc, Kd, Kc2, rc, rd, uc, ud, sigma, psi_x=0):
-        self.X, self.Y= np.meshgrid(x,y)
-        self.KX, self.KY = np.meshgrid(kx, ky)
+    def __init__(self, Kc, Kd, Kc2, rc, uc, sigma, psi_x=0):
+        self.X, self.Y= np.meshgrid(x,x)
+        self.KX, self.KY = np.meshgrid(kx, kx)
 
         self.L = L
         self.N = N
@@ -26,9 +26,7 @@ class GrossPitaevskii:
         self.Kd = Kd
         self.Kc2 = Kc2
         self.rc = rc
-        self.rd = rd
         self.uc = uc
-        self.ud = ud
         self.sigma = sigma
 
         self.psi_x = psi_x
@@ -99,7 +97,7 @@ class GrossPitaevskii:
 # Definition of the split steps
 # =============================================================================
     def prefactor_x(self, wave_fn):
-        return np.exp(-1j*0.5*dt*(1j*self.rd + (self.uc-1j*self.ud)*wave_fn*np.conjugate(wave_fn)))
+        return np.exp(-1j*0.5*dt*(self.uc * wave_fn*np.conjugate(wave_fn) + 1j*(P/(1+wave_fn*np.conjugate(wave_fn)/n_s)-gamma)))
 
     def prefactor_k(self):
         return np.exp(-1j*dt*((self.KX**2 + self.KY ** 2) * (self.Kc - 1j * self.Kd) - (self.KX ** 4 + self.KY ** 4) * self.Kc2))
@@ -108,28 +106,26 @@ class GrossPitaevskii:
 # Time evolution and Phase unwinding
 # =============================================================================
     def time_evolution(self, realisation):
-        #mylist=[]
+        #mylist1=[]
+        #mylist2=[]
+        #mylist3=[]
         for i in range(N_steps+1):
-            '''
-            if t == 0:
-                V = 0
-            elif t != 0:
-                V = 0
-            if i%50==0:
-                print(i)
-            '''
+            #density = self.psi_x * np.conjugate(self.psi_x)
+            #if i>=i1 and i<=i2 and i%secondarystep==0:
+                #mylist1.append(density[int(N/2), int(N/2)])
+                #mylist2.append(density[int(N/2), int(3*N/4)])
+                #mylist3.append(density[int(N/2), -1])
             self.psi_x += np.sqrt(self.sigma) * np.sqrt(dt) * ext.noise(self.psi_x.shape)
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
             self.psi_mod_x = ifft2(self.psi_mod_k)
             self.psi_x *= self.prefactor_x(self.psi_x)
-            #density = np.abs(self.psi_x * np.conjugate(self.psi_x))
-            #if i>=i1 and i<=i2 and i%secondarystep==0:
-            #    mylist.append(density[int(N/2), int(N/2)])
-            '''
-            t += 0.001
-            density = (self.psi_x * np.conjugate(self.psi_x)).real
+        #pl.plot(t, np.array(mylist1))
+        #pl.plot(t, np.array(mylist2))
+        #pl.plot(t, np.array(mylist3))
+        #pl.ylim(0,2)
+        '''
             if i%500==0:
                 fig,ax = pl.subplots(1,1, figsize=(8,8))
                 c = ax.pcolormesh(X, Y, density, cmap='viridis')
@@ -137,7 +133,7 @@ class GrossPitaevskii:
                 ax.axis([x.min(), x.max(), y.min(), y.max()])
                 fig.colorbar(c, ax=ax)
                 pl.show()
-            '''
+        '''
         return self.psi_x
 
 # =============================================================================
@@ -162,60 +158,47 @@ def params(m, g, P, gamma):
     Kc = 1/(2*m)
     Kd = 0
     rc = 0
-    rd = P - gamma
     uc = g
-    ud = P/n_s
-    return Kc, Kd, rc, rd, uc, ud
-Kc, Kd, rc, rd, uc, ud = params(m, g, P, gamma)
+    return Kc, Kd, rc, uc
+Kc, Kd, rc, uc = params(m, g, P, gamma)
 
 print('-----PARAMS-----')
 print('Kc', Kc)
 print('Kd', Kd)
 print('rc', rc)
-print('rd', rd)
 print('uc', uc)
-print('ud', ud)
 
-def grids():
+def arrays():
     x_0 = - N * dx / 2
-    y_0 = - N * dy / 2
     kx0 = - np.pi / dx
-    ky0 = -np.pi / dy
     x = x_0 + dx * np.arange(N)
-    y = y_0 + dx * np.arange(N)
     kx = kx0 + dkx * np.arange(N)
-    ky = ky0 + dky * np.arange(N)
-    return x, y, kx, ky
+    return x, kx
 
-x, y, kx, ky =  grids()
+x, kx =  arrays()
+X,Y = np.meshgrid(x, x)
 
 N_steps = 10000
-
 secondarystep = 50
 i1 = 0
 i2 = N_steps
 lengthwindow = i2-i1
 
-X, Y = np.meshgrid(x,y)
-
-'''
-GP = GrossPitaevskii(Kc=Kc, Kd=0, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=0.01)
+#GP = GrossPitaevskii(Kc=Kc, Kd=0, Kc2=0, rc=rc, uc=uc, sigma=0.01)
+#GP.time_evolution(1)
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
-r = GP.time_evolution(1)
-pl.plot(t, np.array(r))
-'''
 
-n_tasks = 1000
-n_batch = 25
+n_tasks = 2000
+n_batch = 40
 n_internal = n_tasks//n_batch
 
 def g1(i_batch):
     sqrtrho_batch = np.zeros((int(N/2)))
     correlator_batch = np.zeros((int(N/2)), dtype=complex)
     for i_n in range(n_internal):
-        if i_n>0:
+        if i_n>0 and i_n%5==0:
             print('The core', i_batch, 'is on the realisation number', i_n)
-        GP = GrossPitaevskii(Kc=Kc, Kd=0, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=0.01)
+        GP = GrossPitaevskii(Kc=Kc, Kd=0, Kc2=0, rc=rc, uc=uc, sigma=0.01)
         psi = GP.time_evolution(i_n)[int(N/2), int(N/2):]
         sqrtrho = np.sqrt(np.abs(psi*np.conjugate(psi)))
         correlator_batch += (np.conjugate(psi[0])*psi) / n_internal
@@ -262,10 +245,16 @@ result = -2*np.log(np.absolute(numerator)/denominator)
 np.savetxt('/home6/konstantinos/correlation_spatial_wouters.dat', result)
 
 '''
-cor =np.exp(-np.loadtxt('/Users/delis/Desktop/correlation_spatial.dat'))
+cor = np.exp(-np.loadtxt('/Users/delis/Desktop/correlation_spatial_wouters.dat')/2)
 dx = x[int(N/2):] - x[int(N/2)]
-fig, ax = pl.subplots(1,1, figsize=(8,8))
-#ax.set_xscale('log')
-#ax.set_yscale('log')
-ax.plot(dx, cor)
+fig, ax = pl.subplots(1,1, figsize=(8,5))
+ax.set_xscale('log')
+ax.set_yscale('log')
+#ax.set_yticks([1, 0.8, 0.6, 0.4])
+ax.plot(dx, cor, 'o')
+ax.plot(dx, np.exp(-(dx/60)**(0.8)))
+pl.subplots_adjust(left=0.15, right=0.95)
+ax.set_ylim(0.2, 1)
+ax.set_xlim(1, 100)
+pl.show()
 '''
