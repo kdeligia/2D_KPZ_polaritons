@@ -5,7 +5,7 @@ Created on Fri Aug 30 11:03:50 2019
 
 @author: delis
 """
-
+import matplotlib.pyplot as pl
 import numpy as np
 
 def noise(shape):
@@ -29,3 +29,18 @@ def time(dt, N_steps, i1, i2, secondarystep):
         if i>=i1 and i<=i2 and i%secondarystep==0:
             t[(i-i1)//secondarystep] = i*dt
     return t
+
+'''
+ar = np.zeros((512,512))
+cor = np.zeros((512,512), dtype=complex)
+for i in range(10000):
+    xi = noise(ar.shape)
+    cor += xi * np.conjugate(xi) / 10000
+
+pl.plot(cor[0])
+pl.plot(cor[126])
+pl.plot(cor [256])
+pl.plot(cor[:,0])
+pl.plot(cor[:, 126])
+pl.plot(cor[:, 256])
+'''
