@@ -99,7 +99,6 @@ class GrossPitaevskii:
 # =============================================================================
     def time_evolution(self, realisation):
         sample_psi= np.zeros((len(t), int(N/2)), dtype=complex)
-        sample_rho= np.zeros((len(t), int(N/2)), dtype=float)
         for i in range(N_steps+1):
             self.psi_x += np.sqrt(sigma) * np.sqrt(dt) * ext.noise((N, N))
             self.psi_x *= self.prefactor_x(self.psi_x)
@@ -109,7 +108,6 @@ class GrossPitaevskii:
             self.psi_x *= self.prefactor_x(self.psi_x)
             if i>=i1 and i<=i2 and i%secondarystep==0:
                 sample_psi[(i-i1)//secondarystep] = self.psi_x[int(N/2), int(N/2):]
-                sample_rho[(i-i1)//secondarystep] = np.sqrt(np.conjugate(self.psi_x[int(N/2), int(N/2):])*self.psi_x[int(N/2), int(N/2):])
         '''
             if i%500==0:
                 fig,ax = pl.subplots(1,1, figsize=(8,8))
@@ -119,18 +117,20 @@ class GrossPitaevskii:
                 fig.colorbar(c, ax=ax)
                 pl.show()
         '''
-        return sample_psi, sample_rho
+        return sample_psi
 
 # =============================================================================
 # Input
 # =============================================================================
-dt=0.1
+dt=0.02
 g = 0
 m = 1
 P = 20
 ns = 1
 gamma = P/2
-sigma = 0.01
+sigma = 0.02
+GAMMA = gamma*(P-gamma)/P
+mu = g*ns
 
 N = 2**6
 L = 2**6
@@ -165,8 +165,7 @@ def arrays():
 
 x, kx =  arrays()
 X,Y = np.meshgrid(x, x)
-
-N_steps = 600000
+N_steps = 400000
 
 secondarystep = 10000
 i1 = 10000
@@ -174,71 +173,66 @@ i2 = N_steps
 lengthwindow = i2-i1
 
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
-GP = GrossPitaevskii()
+#GP = GrossPitaevskii()
 #psi, rho = GP.time_evolution(1)
+#print(rho[-1], np.mean(rho, axis=1))
 
-n_tasks = 20
-n_batch = 4
+'''
+import matplotlib.pyplot as pl
+dx = x[int(N/2):] - x[int(N/2)]
+fig, ax = pl.subplots(1,1, figsize=(8,5))
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.plot(dx[1:], dx[1:]**(-m*sigma*(mu**2+GAMMA**2)/(np.pi*mu*GAMMA)))
+pl.subplots_adjust(left=0.15, right=0.95)
+'''
+
+n_tasks = 800
+n_batch = 40
 n_internal = n_tasks//n_batch
 
 def g1(i_batch):
-    rho0_batch = np.zeros((len(t), int(N/2)))
     correlator_batch = np.zeros((len(t), int(N/2)), dtype=complex)
     for i_n in range(n_internal):
         if i_n>0:
             print('The core', i_batch+1, 'is on the realisation number', i_n)
         GP = GrossPitaevskii()
-        psi, rho = GP.time_evolution(i_n)
+        psi = GP.time_evolution(i_n)
         for i in range(len(t)):
             psi[i] *= np.conjugate(psi[i,0])
-            rho[i] *= rho[i,0]
         correlator_batch += psi / n_internal
-        rho0_batch += rho.real / n_internal
     name_full1 = '/scratch/konstantinos/numerator_batch'+os.sep+'n_batch'+str(i_batch+1)+'.dat'
-    name_full2 = '/scratch/konstantinos/denominator_batch'+os.sep+'d_batch'+str(i_batch+1)+'.dat'
     np.savetxt(name_full1, correlator_batch, fmt='%.5f')
-    np.savetxt(name_full2, rho0_batch, fmt='%.5f')
 
-qutip.settings.num_cpus = n_batch
-parallel_map(g1, range(n_batch))
+#qutip.settings.num_cpus = n_batch
+#parallel_map(g1, range(n_batch))
 
 path1 = r"/scratch/konstantinos/numerator_batch"
-path2 = r"/scratch/konstantinos/denominator_batch"
 
 def ensemble_average(path):
     countavg = 0
     for file in os.listdir(path):
        if '.dat' in file:
            countavg += 1
-    if path == path1:
-        for file in os.listdir(path):
-            if '.dat' in file:
-                avg = np.zeros_like(np.loadtxt(path+os.sep+file, dtype=np.complex_), dtype=np.complex_)
-            continue
-        for file in os.listdir(path):
-            if '.dat' in file:
-                numerator = np.loadtxt(path+os.sep+file, dtype=np.complex_)
-                avg += numerator / countavg
-    elif path == path2:
-        for file in os.listdir(path):
-            if '.dat' in file:
-                avg = np.zeros_like(np.loadtxt(path+os.sep+file))
-            continue
-        for file in os.listdir(path):
-            if '.dat' in file:
-                denominator = np.loadtxt(path+os.sep+file)
-                avg += denominator / countavg
+    for file in os.listdir(path):
+        if '.dat' in file:
+            avg = np.zeros_like(np.loadtxt(path+os.sep+file, dtype=np.complex_), dtype=np.complex_)
+        continue
+    for file in os.listdir(path):
+        if '.dat' in file:
+            numerator = np.loadtxt(path+os.sep+file, dtype=np.complex_)
+            avg += numerator / countavg
     return avg
 
 numerator = ensemble_average(path1)
-denominator = ensemble_average(path2)
-result = np.absolute(numerator)/denominator
-np.savetxt('/home6/konstantinos/cor.dat', result)
+result = np.absolute(numerator)/ns
+np.savetxt('/home6/konstantinos/test.dat', result)
 
 '''
-cor = np.loadtxt('/Users/delis/Desktop/evolcor.dat')
+cor = np.loadtxt('/Users/delis/Desktop/02.dat')
+c = -2*np.log(cor/ns)
+
 import matplotlib.pyplot as pl
-dx = x[int(N/2):] - x[int(N/2)]
 fig, ax = pl.subplots(1,1, figsize=(8,5))
 ax.set_xscale('log')
 ax.set_yscale('log')
