@@ -122,13 +122,13 @@ class GrossPitaevskii:
 # =============================================================================
 # Input
 # =============================================================================
-dt=0.02
+dt=0.001
 g = 0
 m = 1
 P = 20
 ns = 1
 gamma = P/2
-sigma = 0.02
+sigma = 0.01
 GAMMA = gamma*(P-gamma)/P
 mu = g*ns
 
@@ -165,7 +165,7 @@ def arrays():
 
 x, kx =  arrays()
 X,Y = np.meshgrid(x, x)
-N_steps = 400000
+N_steps = 200000
 
 secondarystep = 10000
 i1 = 10000
@@ -176,19 +176,20 @@ t = ext.time(dt, N_steps, i1, i2, secondarystep)
 #GP = GrossPitaevskii()
 #psi, rho = GP.time_evolution(1)
 #print(rho[-1], np.mean(rho, axis=1))
-
 '''
 import matplotlib.pyplot as pl
 dx = x[int(N/2):] - x[int(N/2)]
 fig, ax = pl.subplots(1,1, figsize=(8,5))
 ax.set_xscale('log')
 ax.set_yscale('log')
-ax.plot(dx[1:], dx[1:]**(-m*sigma*(mu**2+GAMMA**2)/(np.pi*mu*GAMMA)))
+ax.plot(dx, 0.946*dx**(-m*sigma*(mu**2+GAMMA**2)/(np.pi*mu*GAMMA)))
+ax.set_yticks((0.9, 0.92, 0.94, 0.96, 0.98, 1))
 pl.subplots_adjust(left=0.15, right=0.95)
+ax.grid()
 '''
-
-n_tasks = 800
-n_batch = 40
+'''
+n_tasks = 20
+n_batch = 4
 n_internal = n_tasks//n_batch
 
 def g1(i_batch):
@@ -201,13 +202,13 @@ def g1(i_batch):
         for i in range(len(t)):
             psi[i] *= np.conjugate(psi[i,0])
         correlator_batch += psi / n_internal
-    name_full1 = '/scratch/konstantinos/numerator_batch'+os.sep+'n_batch'+str(i_batch+1)+'.dat'
+    name_full1 = '/Users/delis/Desktop/numerator_batch'+os.sep+'n_batch'+str(i_batch+1)+'.dat'
     np.savetxt(name_full1, correlator_batch, fmt='%.5f')
 
-#qutip.settings.num_cpus = n_batch
-#parallel_map(g1, range(n_batch))
+qutip.settings.num_cpus = n_batch
+parallel_map(g1, range(n_batch))
 
-path1 = r"/scratch/konstantinos/numerator_batch"
+path1 = r"/Users/delis/Desktop/numerator_batch"
 
 def ensemble_average(path):
     countavg = 0
@@ -226,12 +227,12 @@ def ensemble_average(path):
 
 numerator = ensemble_average(path1)
 result = np.absolute(numerator)/ns
-np.savetxt('/home6/konstantinos/test.dat', result)
+np.savetxt('/Users/delis/Desktop/test.dat', result)
+'''
 
 '''
-cor = np.loadtxt('/Users/delis/Desktop/02.dat')
-c = -2*np.log(cor/ns)
-
+cor = np.loadtxt('/Users/delis/Desktop/sigma_0.02.dat')
+dx = x[int(N/2):] - x[int(N/2)]
 import matplotlib.pyplot as pl
 fig, ax = pl.subplots(1,1, figsize=(8,5))
 ax.set_xscale('log')
