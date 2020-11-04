@@ -233,12 +233,24 @@ np.savetxt('/Users/delis/Desktop/test.dat', result)
 '''
 cor = np.loadtxt('/Users/delis/Desktop/sigma_0.02.dat')
 dx = x[int(N/2):] - x[int(N/2)]
+
 import matplotlib.pyplot as pl
 fig, ax = pl.subplots(1,1, figsize=(8,5))
 ax.set_xscale('log')
 ax.set_yscale('log')
 for i in range(len(t)):
     ax.plot(dx, cor[i])
+ax.set_xlabel(r'$x$')
+pl.subplots_adjust(left=0.15, right=0.95)
+pl.show()
+
+fig, ax = pl.subplots(1,1, figsize=(8,5))
+ax.set_xscale('log')
+ax.set_yscale('log')
+for i in range(len(t)):
+    ax.plot(dx, -2*np.log(cor[i]))
+ax.set_xlabel(r'$x$')
+ax.plot(dx, 0.02*dx**0.8, color='black', linewidth=2)
 pl.subplots_adjust(left=0.15, right=0.95)
 pl.show()
 '''
