@@ -11,7 +11,6 @@ from qutip import *
 import os
 import numpy as np
 import external as ext
-from scipy.optimize import curve_fit
 from scipy.fftpack import fft2, ifft2
 warnings.filterwarnings("ignore", message="Casting complex values to real discards the imaginary part")
 
@@ -71,7 +70,7 @@ class GrossPitaevskii:
 # =============================================================================
 # Input
 # =============================================================================
-dt=0.001
+dt=0.005
 g = 2
 m = 1
 P = 20
@@ -89,26 +88,6 @@ dy = 0.5
 dkx = 2 * np.pi / (N * dx)
 dky = 2 * np.pi / (N * dy)
 
-def bogoliubov(x, a):
-    eta = m * sigma * (mu**2 + GAMMA**2) / (np.pi * mu * GAMMA)
-    return a * np.exp(- eta * x)
-
-'''
-def params(m, g, P, gamma):
-    Kc = 1/(2*m)
-    rd = P - gamma
-    uc = g
-    ud = P/(2*ns)
-    return Kc, rd, uc, ud
-Kc, rd, uc, ud = params(m, g, P, gamma)
-
-print('-----PARAMS-----')
-print('Kc', Kc)
-print('rd', rd)
-print('uc', uc)
-print('ud', ud)
-'''
-
 def arrays():
     x_0 = - N * dx / 2
     kx0 = - np.pi / dx
@@ -118,36 +97,34 @@ def arrays():
 
 x, kx =  arrays()
 X,Y = np.meshgrid(x, x)
-N_steps = 1000000
 
-secondarystep = 50000
-i1 = 50000
+N_steps = 200000
+secondarystep = 10000
+i1 = 10000
 i2 = N_steps
 lengthwindow = i2-i1
 
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
 
-n_tasks = 800
-n_batch = 40
+n_tasks = 200
+n_batch = 20
 n_internal = n_tasks//n_batch
 
 def g1(i_batch):
     correlator_batch = np.zeros((len(t), int(N/2)), dtype=complex)
     for i_n in range(n_internal):
-        if i_n>0:
-            print('The core', i_batch+1, 'is on the realisation number', i_n)
         GP = GrossPitaevskii()
         psi = GP.time_evolution(i_n)
         for i in range(len(t)):
             psi[i] *= np.conjugate(psi[i,0])
         correlator_batch += psi / n_internal
-    name_full1 = '/scratch/konstantinos/auxiliary'+os.sep+'n_batch'+str(i_batch+1)+'.dat'
+    name_full1 = '/scratch/konstantinos/g_2'+os.sep+'n_batch'+str(i_batch+1)+'.dat'
     np.savetxt(name_full1, correlator_batch, fmt='%.5f')
 
 qutip.settings.num_cpus = n_batch
 parallel_map(g1, range(n_batch))
 
-path1 = r"/scratch/konstantinos/auxiliary"
+path1 = r"/scratch/konstantinos/g_2"
 
 def ensemble_average(path):
     countavg = 0

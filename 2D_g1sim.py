@@ -112,12 +112,12 @@ class GrossPitaevskii:
         for i in range(N_steps+1):
             if i%10000==0:
                 print(i)
-            self.psi_x += np.sqrt(self.sigma) * np.sqrt(dt) * ext.noise(self.psi_x.shape)
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
             self.psi_mod_x = ifft2(self.psi_mod_k)
             self.psi_x *= self.prefactor_x(self.psi_x)
+            self.psi_x += np.sqrt(self.sigma) * np.sqrt(dt) * ext.noise((N,N))
             density = np.abs(self.psi_x * np.conjugate(self.psi_x))
             if i>=i1 and i<=i2 and i%secondarystep==0:
                 mylist.append(density[int(N/2), int(N/2)])
@@ -142,10 +142,10 @@ mstar=-3.4E-6
 gamma_0star=90 #can be lower for better 2D sample, ask experimentalists
 gamma_2star=1E4
 gamma_rstar=5
-gammastar=8
-gstar=0.0000001
+gamma=8
+gstar=4
 grstar=4
-p=10
+p=1.2
 
 # =============================================================================
 # Adimensional parameters
@@ -175,10 +175,10 @@ dky = 2 * np.pi / (N * dy)
 def params(hatx, hatt, hatpsi):
     Kc = hbar*hatt/(2*hatm*hatx**2/c**2)
     Kd = hatgamma_l2*hatt/(2*hatx**2)
-    rc = 2*hatt*hatgamma_l0*gammastar*p
+    rc = 2*hatt*hatgamma_l0*gamma*p
     rd = (p-1)*hatt*hatgamma_l0/2
-    uc = hatg*hatt/(hbar*hatx**2)*(1 - 2*hatgamma_l0*hatg_r*p/(hatgamma_r*hatg))
-    ud = (p*hatt/(2*hatx**2))*hatgamma_l0*hatg_r/(hbar*gammastar*hatgamma_r)
+    uc = hatg*hatt/(hbar*hatx**2)*(0 - 2*hatgamma_l0*hatg_r*p/(hatgamma_r*hatg))
+    ud = (p*hatt/(2*hatx**2))*hatgamma_l0*hatg_r/(hbar*gamma*hatgamma_r)
     return Kc, Kd, rc, rd, uc, ud
 Kc, Kd, rc, rd, uc, ud = params(hatx, hatt,hatpsi)
 
@@ -189,6 +189,11 @@ print('rc', rc)
 print('rd', rd)
 print('uc', uc)
 print('ud', ud)
+
+print('----STEADY STATE----')
+print(r'$2p\dfrac{\gamma_l}{\gamma_r}\dfrac{g_r}{g}$', 2*hatgamma_l0*hatg_r*p/(hatgamma_r*hatg))
+print('-rc/uc', -rc/uc)
+print('rd/ud', rd/ud)
 
 def arrays():
     x_0 = - N * dx / 2
@@ -201,27 +206,30 @@ x, kx =  arrays()
 X,Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
-N_steps = 10000
-dt = tstar/10
+N_steps = 100000
+dt = tstar/1
 
 secondarystep = 50
 i1 = 0
 i2 = N_steps
 lengthwindow = i2-i1
 
-'''
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
-GP = GrossPitaevskii(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=0.001)
+#GP = GrossPitaevskii(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=0.001)
+#r = np.array(GP.time_evolution(1))
+#pl.plot(t,r)
 
-r = np.array(GP.time_evolution(1))
-np.savetxt('/Users/delis/Desktop/r.dat', r, fmt='%.5f')
-pl.plot(t,r)
-pl.title(r'$\gamma_0^*=90$, $\gamma_r^*=2.19$, $g*=0.0000001$, $g_r^*=4$, $\tilde{\gamma}=8$, $p=10$')
-'''
+r = np.load('/Users/delis/Desktop/a.npy')
+fig,ax = pl.subplots(1,1, figsize=(8,6))
+ax.plot(t,r)
+ax.set_xlabel(r't')
+ax.set_ylabel(r'$\rho(L/2, L/2, t)$')
+ax.set_yticks((np.mean(r[500:]), 5, 10, 15, 20, 25))
+ax.hlines(y=np.mean(r[500:]), xmin=t[0], xmax=t[-1], linestyle='--')
 # =============================================================================
 # Computation
 # =============================================================================
-
+'''
 n_tasks = 1000
 n_batch = 40
 n_internal = n_tasks//n_batch
@@ -242,7 +250,6 @@ def g1(i_batch):
     np.savetxt(name_full1, correlator_batch, fmt='%.5f')
     np.savetxt(name_full2, sqrtrho_batch, fmt='%.5f')
 
-'''
 qutip.settings.num_cpus = n_batch
 parallel_map(g1, range(n_batch))
 
@@ -279,10 +286,3 @@ denominator = ensemble_average(path2)
 result = -2*np.log(np.absolute(numerator)/denominator)
 np.savetxt('/home6/konstantinos/correlation_spatial.dat', result)
 '''
-
-cor =np.exp(-np.loadtxt('/Users/delis/Desktop/correlation_spatial.dat'))
-dx = x[int(N/2):] - x[int(N/2)]
-fig, ax = pl.subplots(1,1, figsize=(8,8))
-#ax.set_xscale('log')
-#ax.set_yscale('log')
-ax.plot(dx, cor)
