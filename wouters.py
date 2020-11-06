@@ -5,7 +5,7 @@ Created on Thu Oct 22 13:08:30 2020
 
 @author: delis
 """
-
+import matplotlib.pyplot as pl
 from qutip import *
 import os
 import numpy as np
@@ -22,7 +22,7 @@ class GrossPitaevskii:
         self.L = L
         self.N = N
         self.psi_x = psi_x
-        self.psi_x = np.full((N, N), 5)
+        self.psi_x = np.full((N, N), 1)
         '''
         self.initcond = np.full((N,N),np.sqrt(n_s))
         self.initcond[int(N/2),int(N/4)] = 0
@@ -89,7 +89,7 @@ class GrossPitaevskii:
 # Definition of the split steps
 # =============================================================================
     def prefactor_x(self, wave_fn):
-        return np.exp(-1j*0.5*dt*(g*wave_fn*np.conjugate(wave_fn) + 1j*(P/(1+wave_fn*np.conjugate(wave_fn)/ns)-gamma)))
+        return np.exp(-1j*dt*(g*wave_fn*np.conjugate(wave_fn) + 1j*(P/(1+wave_fn*np.conjugate(wave_fn)/ns)-gamma)))
 
     def prefactor_k(self):
         return np.exp(-1j*dt*((self.KX**2 + self.KY ** 2) * (1/2*m)))
@@ -98,16 +98,15 @@ class GrossPitaevskii:
 # Time evolution and Phase unwinding
 # =============================================================================
     def time_evolution(self, realisation):
-        sample_psi= np.zeros((len(t), int(N/2)), dtype=complex)
+        sample= np.zeros(int(N/2), dtype=complex)
         for i in range(N_steps+1):
             self.psi_x += np.sqrt(sigma) * np.sqrt(dt) * ext.noise((N, N))
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
             self.psi_mod_x = ifft2(self.psi_mod_k)
-            self.psi_x *= self.prefactor_x(self.psi_x)
             if i>=i1 and i<=i2 and i%secondarystep==0:
-                sample_psi[(i-i1)//secondarystep] = self.psi_x[int(N/2), int(N/2):]
+                sample += (np.conjugate(self.psi_x[int(N/2), int(N/2)])*self.psi_x[int(N/2), int(N/2):])/len(t)
         '''
             if i%500==0:
                 fig,ax = pl.subplots(1,1, figsize=(8,8))
@@ -117,13 +116,13 @@ class GrossPitaevskii:
                 fig.colorbar(c, ax=ax)
                 pl.show()
         '''
-        return sample_psi
+        return sample
 
 # =============================================================================
 # Input
 # =============================================================================
 dt=0.001
-g = 0.5
+g = 2
 m = 1
 P = 20
 ns = 1
@@ -155,9 +154,6 @@ print('rd', rd)
 print('uc', uc)
 print('ud', ud)
 '''
-def bogoliubov(x, a):
-    eta = m * sigma * (mu**2 + GAMMA**2) / (np.pi * mu * GAMMA)
-    return a * np.exp(- eta * x)
 
 def arrays():
     x_0 = - N * dx / 2
@@ -168,31 +164,21 @@ def arrays():
 
 x, kx =  arrays()
 X,Y = np.meshgrid(x, x)
-N_steps = 200000
+N_steps = 1000000
 
-secondarystep = 10000
+secondarystep = 1000
 i1 = 10000
 i2 = N_steps
 lengthwindow = i2-i1
 
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
-#GP = GrossPitaevskii()
-#psi, rho = GP.time_evolution(1)
-#print(rho[-1], np.mean(rho, axis=1))
-'''
-import matplotlib.pyplot as pl
-dx = x[int(N/2):] - x[int(N/2)]
-fig, ax = pl.subplots(1,1, figsize=(8,5))
-ax.set_xscale('log')
-ax.set_yscale('log')
-ax.plot(dx, 0.946*dx**(-m*sigma*(mu**2+GAMMA**2)/(np.pi*mu*GAMMA)))
-ax.set_yticks((0.9, 0.92, 0.94, 0.96, 0.98, 1))
-pl.subplots_adjust(left=0.15, right=0.95)
-ax.grid()
-'''
 
-n_tasks = 200
-n_batch = 20
+GP = GrossPitaevskii()
+psi = GP.time_evolution(1)
+pl.plot(dx, np.abs(psi))
+
+n_tasks = 400
+n_batch = 40
 n_internal = n_tasks//n_batch
 
 def g1(i_batch):
@@ -201,17 +187,15 @@ def g1(i_batch):
         if i_n>0:
             print('The core', i_batch+1, 'is on the realisation number', i_n)
         GP = GrossPitaevskii()
-        psi = GP.time_evolution(i_n)
-        for i in range(len(t)):
-            psi[i] *= np.conjugate(psi[i,0])
-        correlator_batch += psi / n_internal
-    name_full1 = '/Users/delis/Desktop/numerator_batch'+os.sep+'n_batch'+str(i_batch+1)+'.dat'
+        sample = GP.time_evolution(i_n)
+        correlator_batch += sample / n_internal
+    name_full1 = '/hone6/konstantinos/test'+os.sep+'n_batch'+str(i_batch+1)+'.dat'
     np.savetxt(name_full1, correlator_batch, fmt='%.5f')
 
 qutip.settings.num_cpus = n_batch
 parallel_map(g1, range(n_batch))
 
-path1 = r"/Users/delis/Desktop/numerator_batch"
+path1 = r"/home6/konstantinos/test"
 
 def ensemble_average(path):
     countavg = 0
@@ -230,29 +214,38 @@ def ensemble_average(path):
 
 numerator = ensemble_average(path1)
 result = np.absolute(numerator)/ns
-np.savetxt('/Users/delis/Desktop/g_0.5.dat', result)
+np.savetxt('/home6/konstantinos/test.dat', result)
+
+#dx = x[int(N/2):] - x[int(N/2)]
+#result = np.loadtxt('/Users/delis/Desktop/test.dat')
+#pl.loglog(dx, result)
 
 '''
-cor = np.loadtxt('/Users/delis/Desktop/sigma_0.02.dat')
-dx = x[int(N/2):] - x[int(N/2)]
-
 import matplotlib.pyplot as pl
-fig, ax = pl.subplots(1,1, figsize=(8,5))
-ax.set_xscale('log')
-ax.set_yscale('log')
-for i in range(len(t)):
-    ax.plot(dx, cor[i])
-ax.set_xlabel(r'$x$')
-pl.subplots_adjust(left=0.15, right=0.95)
-pl.show()
+g_2 = np.mean(np.loadtxt('/Users/delis/Desktop/g_2.dat'), axis=0)
+g_1 = np.mean(np.loadtxt('/Users/delis/Desktop/g_1.dat'), axis=0)
+g_05 = np.mean(np.loadtxt('/Users/delis/Desktop/g_0_5.dat'), axis=0)
+g_02 = np.mean(np.loadtxt('/Users/delis/Desktop/g_0_2.dat'), axis=0)
+g_01 = np.mean(np.loadtxt('/Users/delis/Desktop/g_0_1.dat'), axis=0)
+g_0 = np.mean(np.loadtxt('/Users/delis/Desktop/g_0.dat'), axis=0)
+small = np.loadtxt('/Users/delis/Desktop/64x64.txt')
 
 fig, ax = pl.subplots(1,1, figsize=(8,5))
 ax.set_xscale('log')
 ax.set_yscale('log')
-for i in range(len(t)):
-    ax.plot(dx, -2*np.log(cor[i]))
+#ax.plot(dx, g_0, label=r'$g=0$')
+#ax.plot(dx, g_01, label=r'$g=0.1$')
+#ax.plot(dx, g_02, label=r'$g=0.2$')
+#ax.plot(dx, g_05, label=r'$g=0.5$')
+#ax.plot(dx, g_1, label=r'$g=1$')
+ax.plot(dx, g_2, label=r'$g=2$')
+#ax.plot(small[int(N/2):, 0], small[int(N/2):, 1])
 ax.set_xlabel(r'$x$')
-ax.plot(dx, 0.02*dx**0.8, color='black', linewidth=2)
+pl.legend()
 pl.subplots_adjust(left=0.15, right=0.95)
 pl.show()
+
+g_2 = np.loadtxt('/Users/delis/Desktop/g_2.dat')
+for i in range(len(t)):
+    pl.loglog(dx, g_2[i])
 '''

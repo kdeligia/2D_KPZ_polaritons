@@ -12,11 +12,16 @@ import numpy as np
 import external as ext
 from scipy.fftpack import fft2, ifft2
 import matplotlib.pyplot as pl
-import seaborn as sns
 from mpl_toolkits import mplot3d
+import warnings
+import matplotlib.pyplot as plt
+from matplotlib import animation
+import matplotlib.gridspec as gridspec
+warnings.filterwarnings("ignore", message="Casting complex values to real discards the imaginary part")
 
 class GrossPitaevskii:
     def __init__(self, Kc, Kd, Kc2, rc, rd, uc, ud, sigma, psi_x=0):
+
         self.X, self.Y= np.meshgrid(x,x)
         self.KX, self.KY = np.meshgrid(kx, kx)
 
@@ -34,6 +39,7 @@ class GrossPitaevskii:
         self.psi_x = psi_x
         self.psi_x = np.full((N, N), 5*hatpsi)
         self.psi_x /= hatpsi
+        self.psi_mod_k = fft2(self.psi_mod_x)
 # =============================================================================
 # Vortices
 # =============================================================================
@@ -108,7 +114,7 @@ class GrossPitaevskii:
 # Time evolution and Phase unwinding
 # =============================================================================
     def time_evolution(self, realisation):
-        mylist=[]
+        #rhomid = np.zeros(len(t))
         for i in range(N_steps+1):
             if i%10000==0:
                 print(i)
@@ -118,20 +124,24 @@ class GrossPitaevskii:
             self.psi_mod_x = ifft2(self.psi_mod_k)
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_x += np.sqrt(self.sigma) * np.sqrt(dt) * ext.noise((N,N))
-            density = np.abs(self.psi_x * np.conjugate(self.psi_x))
+            #if i==N_steps:
+                #np.savetxt('/Users/delis/Desktop/phase.dat', np.angle(self.psi_x))
+            #if i>=i1 and i<=i2 and i%secondarystep==0:
+                #rhomid[(i-i1)//secondarystep] = self.psi_x[int(N/2), int(N/2)] * np.conjugate(self.psi_x[int(N/2), int(N/2)])
             if i>=i1 and i<=i2 and i%secondarystep==0:
-                mylist.append(density[int(N/2), int(N/2)])
-            '''
-            if i%500==0:
-                fig,ax = pl.subplots(1,1, figsize=(8,8))
-                c = ax.pcolormesh(X, Y, density, cmap='viridis')
-                ax.set_title('Density')
-                ax.axis([x.min(), x.max(), x.min(), x.max()])
-                fig.colorbar(c, ax=ax)
+                name = '/Users/delis/Desktop/figures'+os.sep+'f'+str((i-i1)//secondarystep)+'.png'
+                fig,ax = pl.subplots(2,1, figsize=(8,8))
+                c1 = ax[0].pcolormesh(X, Y, np.abs(self.psi_x*np.conjugate(self.psi_x)), cmap='viridis')
+                ax[0].set_title('Density')
+                ax[0].axis([x.min(), x.max(), x.min(), x.max()])
+                fig.colorbar(c1, ax=ax[0])
+                c2 = ax[1].pcolormesh(X, Y, np.angle(self.psi_x), cmap='cividis')
+                ax[1].set_title('Phase')
+                ax[1].axis([x.min(), x.max(), x.min(), x.max()])
+                fig.colorbar(c2, ax=ax[1])
+                pl.savefig(name, format='png')
                 pl.show()
-            '''
-        return mylist
-
+        return self.psi_x
 # =============================================================================
 # Input typical values
 # =============================================================================
@@ -182,6 +192,7 @@ def params(hatx, hatt, hatpsi):
     return Kc, Kd, rc, rd, uc, ud
 Kc, Kd, rc, rd, uc, ud = params(hatx, hatt,hatpsi)
 
+'''
 print('-----PARAMS-----')
 print('Kc', Kc)
 print('Kd', Kd)
@@ -194,6 +205,7 @@ print('----STEADY STATE----')
 print(r'$2p\dfrac{\gamma_l}{\gamma_r}\dfrac{g_r}{g}$', 2*hatgamma_l0*hatg_r*p/(hatgamma_r*hatg))
 print('-rc/uc', -rc/uc)
 print('rd/ud', rd/ud)
+'''
 
 def arrays():
     x_0 = - N * dx / 2
@@ -206,26 +218,16 @@ x, kx =  arrays()
 X,Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
-N_steps = 100000
-dt = tstar/1
-
-secondarystep = 50
+N_steps = 10000
+dt = tstar/10
+secondarystep = 1000
 i1 = 0
 i2 = N_steps
 lengthwindow = i2-i1
-
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
-#GP = GrossPitaevskii(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=0.001)
-#r = np.array(GP.time_evolution(1))
-#pl.plot(t,r)
 
-r = np.load('/Users/delis/Desktop/a.npy')
-fig,ax = pl.subplots(1,1, figsize=(8,6))
-ax.plot(t,r)
-ax.set_xlabel(r't')
-ax.set_ylabel(r'$\rho(L/2, L/2, t)$')
-ax.set_yticks((np.mean(r[500:]), 5, 10, 15, 20, 25))
-ax.hlines(y=np.mean(r[500:]), xmin=t[0], xmax=t[-1], linestyle='--')
+GP = GrossPitaevskii(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=0.1)
+GP.time_evolution(1)
 # =============================================================================
 # Computation
 # =============================================================================
