@@ -23,6 +23,7 @@ class GrossPitaevskii:
         self.N = N
         self.psi_x = psi_x
         self.psi_x = np.full((N, N), 1)
+        self.psi_mod_k = fft2(self.psi_mod_x)
         '''
         self.initcond = np.full((N,N),np.sqrt(n_s))
         self.initcond[int(N/2),int(N/4)] = 0
@@ -89,7 +90,7 @@ class GrossPitaevskii:
 # Definition of the split steps
 # =============================================================================
     def prefactor_x(self, wave_fn):
-        return np.exp(-1j*dt*(g*wave_fn*np.conjugate(wave_fn) + 1j*(P/(1+wave_fn*np.conjugate(wave_fn)/ns)-gamma)))
+        return np.exp(-1j*(dt/2)*(g*wave_fn*np.conjugate(wave_fn) + 1j*(P/(1+wave_fn*np.conjugate(wave_fn)/ns)-gamma)))
 
     def prefactor_k(self):
         return np.exp(-1j*dt*((self.KX**2 + self.KY ** 2) * (1/2*m)))
@@ -100,22 +101,16 @@ class GrossPitaevskii:
     def time_evolution(self, realisation):
         sample= np.zeros(int(N/2), dtype=complex)
         for i in range(N_steps+1):
-            self.psi_x += np.sqrt(sigma) * np.sqrt(dt) * ext.noise((N, N))
+            if i%1000==0:
+                print(i)
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
             self.psi_mod_x = ifft2(self.psi_mod_k)
+            self.psi_x *= self.prefactor_x(self.psi_x)
+            self.psi_x += np.sqrt(sigma) * np.sqrt(dt) * ext.noise((N, N))
             if i>=i1 and i<=i2 and i%secondarystep==0:
-                sample += (np.conjugate(self.psi_x[int(N/2), int(N/2)])*self.psi_x[int(N/2), int(N/2):])/len(t)
-        '''
-            if i%500==0:
-                fig,ax = pl.subplots(1,1, figsize=(8,8))
-                c = ax.pcolormesh(X, Y, density, cmap='viridis')
-                ax.set_title('Density')
-                ax.axis([x.min(), x.max(), y.min(), y.max()])
-                fig.colorbar(c, ax=ax)
-                pl.show()
-        '''
+                sample += np.conjugate(self.psi_x[int(N/2), int(N/2)])*self.psi_x[int(N/2), int(N/2):]/len(t)
         return sample
 
 # =============================================================================
@@ -164,17 +159,17 @@ def arrays():
 
 x, kx =  arrays()
 X,Y = np.meshgrid(x, x)
-N_steps = 1000000
+N_steps = 200000
 
 secondarystep = 1000
-i1 = 10000
+i1 = 100
 i2 = N_steps
 lengthwindow = i2-i1
 
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
-
 GP = GrossPitaevskii()
 psi = GP.time_evolution(1)
+dx = x[int(N/2):] - x[int(N/2)]
 pl.plot(dx, np.abs(psi))
 
 n_tasks = 400
@@ -189,7 +184,7 @@ def g1(i_batch):
         GP = GrossPitaevskii()
         sample = GP.time_evolution(i_n)
         correlator_batch += sample / n_internal
-    name_full1 = '/hone6/konstantinos/test'+os.sep+'n_batch'+str(i_batch+1)+'.dat'
+    name_full1 = '/home6/konstantinos/test'+os.sep+'n_batch'+str(i_batch+1)+'.dat'
     np.savetxt(name_full1, correlator_batch, fmt='%.5f')
 
 qutip.settings.num_cpus = n_batch
@@ -214,7 +209,7 @@ def ensemble_average(path):
 
 numerator = ensemble_average(path1)
 result = np.absolute(numerator)/ns
-np.savetxt('/home6/konstantinos/test.dat', result)
+np.savetxt('/home6/konstantinos/test200.dat', result)
 
 #dx = x[int(N/2):] - x[int(N/2)]
 #result = np.loadtxt('/Users/delis/Desktop/test.dat')
