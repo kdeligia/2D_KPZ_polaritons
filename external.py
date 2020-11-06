@@ -33,9 +33,9 @@ def time(dt, N_steps, i1, i2, secondarystep):
 '''
 ar = np.zeros((512,512))
 cor = np.zeros((512,512), dtype=complex)
-for i in range(10000):
+for i in range(100):
     xi = noise(ar.shape)
-    cor += xi * np.conjugate(xi) / 10000
+    cor += xi * np.conjugate(xi) / 100
 
 pl.plot(cor[0])
 pl.plot(cor[126])
