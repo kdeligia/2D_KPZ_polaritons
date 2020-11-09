@@ -110,7 +110,7 @@ class GrossPitaevskii:
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_x += np.sqrt(sigma) * np.sqrt(dt) * ext.noise((N, N))
             if i>=i1 and i<=i2 and i%secondarystep==0:
-                sample += np.conjugate(self.psi_x[int(N/2), int(N/2)])*self.psi_x[int(N/2), int(N/2):]/len(t)
+                sample += np.conjugate(self.psi_x[int(N/2), int(N/2)])*self.psi_x[int(N/2), int(N/2):] / len(t)
         return sample
 
 # =============================================================================
@@ -122,7 +122,7 @@ m = 1
 P = 20
 ns = 1
 gamma = P/2
-sigma = 0.02
+sigma = 0.04
 GAMMA = gamma*(P-gamma)/P
 mu = g*ns
 
@@ -159,21 +159,23 @@ def arrays():
 
 x, kx =  arrays()
 X,Y = np.meshgrid(x, x)
-N_steps = 500000
+N_steps = 1000000
 
 secondarystep = 1000
-i1 = 10000
+i1 = 100000
 i2 = N_steps
 lengthwindow = i2-i1
 
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
+
 #GP = GrossPitaevskii()
 #psi = GP.time_evolution(1)
+
 #dx = x[int(N/2):] - x[int(N/2)]
-#pl.plot(dx, np.abs(psi))
-'''
-n_tasks = 20
-n_batch = 4
+#pl.plot(t, np.abs(psi[:,0]))
+
+n_tasks = 400
+n_batch = 40
 n_internal = n_tasks//n_batch
 
 def g1(i_batch):
@@ -184,12 +186,12 @@ def g1(i_batch):
         GP = GrossPitaevskii()
         sample = GP.time_evolution(i_n)
         correlator_batch += sample/n_internal
-    name_full1 = '/Users/delis/Desktop/numerator_batch'+os.sep+'n_batch'+str(i_batch+1)+'.dat'
+    name_full1 = '/scratch/konstantinos/numerator_batch'+os.sep+'n_batch'+str(i_batch+1)+'.dat'
     np.savetxt(name_full1, correlator_batch, fmt='%.5f')
 
 qutip.settings.num_cpus = n_batch
 parallel_map(g1, range(n_batch))
-path1 = r"/Users/delis/Desktop/numerator_batch"
+path1 = r"/scratch/konstantinos/numerator_batch"
 
 def ensemble_average(path):
     countavg = 0
@@ -205,43 +207,13 @@ def ensemble_average(path):
             numerator = np.loadtxt(path+os.sep+file, dtype=np.complex_)
             avg += numerator / countavg
     return avg
-'''
-#numerator = ensemble_average(path1)
-#result = np.abs(numerator)/ns
-#np.savetxt('/Users/delis/Desktop/test1.dat', result)
 
+numerator = ensemble_average(path1)
+result = np.abs(numerator)/ns
+np.savetxt('/home6/konstantinos/g_2.dat', result)
+
+'''
+test = np.loadtxt('/Users/delis/Desktop/test.dat')
 dx = x[int(N/2):] - x[int(N/2)]
-
-g_2 = np.mean(np.loadtxt('/Users/delis/Desktop/g_2.dat'), axis=0)
-g_1 = np.mean(np.loadtxt('/Users/delis/Desktop/g_1.dat'), axis=0)
-g_05 = np.mean(np.loadtxt('/Users/delis/Desktop/g_0_5.dat'), axis=0)
-g_02 = np.mean(np.loadtxt('/Users/delis/Desktop/g_0_2.dat'), axis=0)
-g_01 = np.mean(np.loadtxt('/Users/delis/Desktop/g_0_1.dat'), axis=0)
-g_0 = np.loadtxt('/Users/delis/Desktop/g_0.dat')
-small = np.loadtxt('/Users/delis/Desktop/64x64.txt')
-print(g_2.shape, g_1.shape, g_05.shape, g_02.shape, g_01.shape, g_0.shape)
-pl.loglog(dx, g_0[0])
-pl.loglog(dx, g_0[2])
-pl.loglog(dx, g_0[4])
-pl.loglog(dx, g_0[6])
-pl.loglog(dx, g_0[8])
-pl.loglog(dx, g_0[10])
-pl.loglog(dx, g_0[15])
-pl.loglog(dx, g_0[-1])
-'''
-fig, ax = pl.subplots(1,1, figsize=(8,5))
-ax.set_xscale('log')
-ax.set_yscale('log')
-ax.plot(dx, g_0[-1], label=r'$g=0$')
-#ax.plot(dx, g_01, label=r'$g=0.1$')
-#ax.plot(dx, g_02, label=r'$g=0.2$')
-#ax.plot(dx, g_05, label=r'$g=0.5$')
-#ax.plot(dx, g_1, label=r'$g=1$')
-#ax.plot(dx, g_2, label=r'$g=2$')
-#ax.plot(small[int(N/2):, 0], small[int(N/2):, 1], linestyle='--', color='black')
-#ax.plot(dx, 0.01*dx**0.8)
-ax.set_xlabel(r'$x$')
-pl.legend()
-pl.subplots_adjust(left=0.15, right=0.95)
-pl.show()
+pl.loglog(dx, test)
 '''

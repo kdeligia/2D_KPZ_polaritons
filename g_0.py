@@ -76,7 +76,7 @@ m = 1
 P = 20
 ns = 1
 gamma = P/2
-sigma = 0.01
+sigma = 40
 GAMMA = gamma*(P-gamma)/P
 mu = g*ns
 
@@ -98,14 +98,14 @@ def arrays():
 x, kx =  arrays()
 X,Y = np.meshgrid(x, x)
 
-N_steps = 1500000
+N_steps = 100000
 secondarystep = 10000
 i1 = 10000
 i2 = N_steps
 lengthwindow = i2-i1
 
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
-
+'''
 n_tasks = 1000
 n_batch = 40
 n_internal = n_tasks//n_batch
@@ -144,3 +144,4 @@ def ensemble_average(path):
 numerator = ensemble_average(path1)
 result = np.absolute(numerator)/ns
 np.savetxt('/home6/konstantinos/g_0_new.dat', result)
+'''
