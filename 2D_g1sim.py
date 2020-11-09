@@ -7,16 +7,13 @@ Created on Fri Jul  3 14:02:54 2020
 """
 
 from qutip import *
+from mpl_toolkits import mplot3d
+from scipy.fftpack import fft2, ifft2
 import os
 import numpy as np
 import external as ext
-from scipy.fftpack import fft2, ifft2
 import matplotlib.pyplot as pl
-from mpl_toolkits import mplot3d
 import warnings
-import matplotlib.pyplot as plt
-from matplotlib import animation
-import matplotlib.gridspec as gridspec
 warnings.filterwarnings("ignore", message="Casting complex values to real discards the imaginary part")
 
 class GrossPitaevskii:
@@ -114,20 +111,17 @@ class GrossPitaevskii:
 # Time evolution and Phase unwinding
 # =============================================================================
     def time_evolution(self, realisation):
-        #rhomid = np.zeros(len(t))
+        psi = np.zeros((len(t),int(N/2)), dtype=complex)
         for i in range(N_steps+1):
-            if i%10000==0:
-                print(i)
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
             self.psi_mod_x = ifft2(self.psi_mod_k)
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_x += np.sqrt(self.sigma) * np.sqrt(dt) * ext.noise((N,N))
-            #if i==N_steps:
-                #np.savetxt('/Users/delis/Desktop/phase.dat', np.angle(self.psi_x))
-            #if i>=i1 and i<=i2 and i%secondarystep==0:
-                #rhomid[(i-i1)//secondarystep] = self.psi_x[int(N/2), int(N/2)] * np.conjugate(self.psi_x[int(N/2), int(N/2)])
+            if i>=i1 and i<=i2 and i%secondarystep==0:
+                psi[(i-i1)//secondarystep]= self.psi_x[int(N/2), int(N/2):]
+            '''
             if i>=i1 and i<=i2 and i%secondarystep==0:
                 name = '/Users/delis/Desktop/figures'+os.sep+'f'+str((i-i1)//secondarystep)+'.png'
                 fig,ax = pl.subplots(2,1, figsize=(8,8))
@@ -141,7 +135,8 @@ class GrossPitaevskii:
                 fig.colorbar(c2, ax=ax[1])
                 pl.savefig(name, format='png')
                 pl.show()
-        return self.psi_x
+            '''
+        return psi
 # =============================================================================
 # Input typical values
 # =============================================================================
@@ -153,9 +148,9 @@ gamma_0star=90 #can be lower for better 2D sample, ask experimentalists
 gamma_2star=1E4
 gamma_rstar=5
 gamma=8
-gstar=4
+gstar=2
 grstar=4
-p=1.2
+p=1.4
 
 # =============================================================================
 # Adimensional parameters
@@ -189,20 +184,19 @@ def params(hatx, hatt, hatpsi):
     rd = (p-1)*hatt*hatgamma_l0/2
     uc = hatg*hatt/(hbar*hatx**2)*(0 - 2*hatgamma_l0*hatg_r*p/(hatgamma_r*hatg))
     ud = (p*hatt/(2*hatx**2))*hatgamma_l0*hatg_r/(hbar*gamma*hatgamma_r)
-    return Kc, Kd, rc, rd, uc, ud
-Kc, Kd, rc, rd, uc, ud = params(hatx, hatt,hatpsi)
+    sigma = 0.1
+    print('-----PARAMS-----')
+    print('Kc', Kc)
+    print('Kd', Kd)
+    print('rc', rc)
+    print('rd', rd)
+    print('uc', uc)
+    print('ud', ud)
+    return Kc, Kd, rc, rd, uc, ud, sigma
+Kc, Kd, rc, rd, uc, ud, sigma = params(hatx, hatt,hatpsi)
 
 '''
-print('-----PARAMS-----')
-print('Kc', Kc)
-print('Kd', Kd)
-print('rc', rc)
-print('rd', rd)
-print('uc', uc)
-print('ud', ud)
-
 print('----STEADY STATE----')
-print(r'$2p\dfrac{\gamma_l}{\gamma_r}\dfrac{g_r}{g}$', 2*hatgamma_l0*hatg_r*p/(hatgamma_r*hatg))
 print('-rc/uc', -rc/uc)
 print('rd/ud', rd/ud)
 '''
@@ -218,37 +212,39 @@ x, kx =  arrays()
 X,Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
-N_steps = 10000
-dt = tstar/10
+N_steps = 200000
+dt = tstar/20
 secondarystep = 1000
-i1 = 0
+i1 = 50000
 i2 = N_steps
 lengthwindow = i2-i1
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
 
-GP = GrossPitaevskii(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=0.1)
-GP.time_evolution(1)
+#GP = GrossPitaevskii(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=0.1)
 # =============================================================================
 # Computation
 # =============================================================================
-'''
-n_tasks = 1000
-n_batch = 40
+
+n_tasks = 750
+n_batch = 50
 n_internal = n_tasks//n_batch
 
 def g1(i_batch):
-    sqrtrho_batch = np.zeros((int(N/2)))
-    correlator_batch = np.zeros((int(N/2)), dtype=complex)
+    sqrtrho_batch = np.zeros((len(t), int(N/2)), dtype=complex)
+    correlator_batch = np.zeros((len(t), int(N/2)), dtype=complex)
     for i_n in range(n_internal):
+        GP = GrossPitaevskii(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sigma)
+        psi = GP.time_evolution(i_n)
+        sqrtrho = np.sqrt(np.conjugate(psi) * psi)
+        for i in range(len(t)):
+            psi[i] *= np.conjugate(psi[i,0])
+            sqrtrho[i] *= sqrtrho[i,0]
+        correlator_batch += psi / n_internal
+        sqrtrho_batch += sqrtrho / n_internal
         if i_n>0:
-            print('The core', i_batch, 'is on the realisation number', i_n)
-        GP = GrossPitaevskii(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=0.001)
-        psi = GP.time_evolution(i_n)[int(N/2), int(N/2):]
-        sqrtrho = np.sqrt(np.abs(psi*np.conjugate(psi)))
-        correlator_batch += (np.conjugate(psi[0])*psi) / n_internal
-        sqrtrho_batch += (sqrtrho[0]*sqrtrho) / n_internal
-    name_full1 = '/scratch/konstantinos'+os.sep+'numerator_batch'+str(i_batch+1)+'.dat'
-    name_full2 = '/scratch/konstantinos'+os.sep+'denominator_batch'+str(i_batch+1)+'.dat'
+            print('The core', i_batch, 'has completed realisation number', i_n)
+    name_full1 = '/scratch/konstantinos/numerator_batch'+os.sep+'n'+str(i_batch+1)+'.dat'
+    name_full2 = '/scratch/konstantinos/denominator_batch'+os.sep+'d'+str(i_batch+1)+'.dat'
     np.savetxt(name_full1, correlator_batch, fmt='%.5f')
     np.savetxt(name_full2, sqrtrho_batch, fmt='%.5f')
 
@@ -258,33 +254,10 @@ parallel_map(g1, range(n_batch))
 path1 = r"/scratch/konstantinos/numerator_batch"
 path2 = r"/scratch/konstantinos/denominator_batch"
 
-def ensemble_average(path):
-    countavg = 0
-    for file in os.listdir(path):
-       if '.dat' in file:
-           countavg += 1
-    if path == path1:
-        for file in os.listdir(path):
-            if '.dat' in file:
-                avg = np.zeros_like(np.loadtxt(path+os.sep+file, dtype=np.complex_), dtype=np.complex_)
-            continue
-        for file in os.listdir(path):
-            if '.dat' in file:
-                numerator = np.loadtxt(path+os.sep+file, dtype=np.complex_)
-                avg += numerator / countavg
-    elif path == path2:
-        for file in os.listdir(path):
-            if '.dat' in file:
-                avg = np.zeros_like(np.loadtxt(path+os.sep+file))
-            continue
-        for file in os.listdir(path):
-            if '.dat' in file:
-                denominator = np.loadtxt(path+os.sep+file)
-                avg += denominator / countavg
-    return avg
+numerator = ext.ensemble_average(path1)
+denominator = ext.ensemble_average(path2)
+result = np.absolute(numerator)/denominator
 
-numerator = ensemble_average(path1)
-denominator = ensemble_average(path2)
-result = -2*np.log(np.absolute(numerator)/denominator)
-np.savetxt('/home6/konstantinos/correlation_spatial.dat', result)
-'''
+tosave = '/home6/konstantinos'+os.sep+'σ'+str(sigma)+'_p'+str(p) + \
+    '_γ'+str(gamma)+'_g'+str(gstar)+'_gr'+str(grstar)+'_spatial'+'.dat'
+np.savetxt(tosave, result)

@@ -5,6 +5,7 @@ Created on Fri Aug 30 11:03:50 2019
 
 @author: delis
 """
+import os
 import matplotlib.pyplot as pl
 import numpy as np
 
@@ -29,6 +30,21 @@ def time(dt, N_steps, i1, i2, secondarystep):
         if i>=i1 and i<=i2 and i%secondarystep==0:
             t[(i-i1)//secondarystep] = i*dt
     return t
+
+def ensemble_average(path):
+    countavg = 0
+    for file in os.listdir(path):
+        if '.dat' in file:
+           countavg += 1
+    for file in os.listdir(path):
+        if '.dat' in file:
+            avg = np.zeros_like(np.loadtxt(path+os.sep+file, dtype=np.complex_), dtype=np.complex_)
+        continue
+    for file in os.listdir(path):
+        if '.dat' in file:
+            numerator = np.loadtxt(path+os.sep+file, dtype=np.complex_)
+            avg += numerator / countavg
+    return avg
 
 '''
 ar = np.zeros((512,512))
