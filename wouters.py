@@ -117,7 +117,7 @@ class GrossPitaevskii:
 # Input
 # =============================================================================
 dt=0.001
-g = 2
+g = 0
 m = 1
 P = 20
 ns = 1
@@ -210,10 +210,10 @@ def ensemble_average(path):
 
 numerator = ensemble_average(path1)
 result = np.abs(numerator)/ns
-np.savetxt('/home6/konstantinos/g_2.dat', result)
+np.savetxt('/home6/konstantinos/g_0.dat', result)
 
 '''
-test = np.loadtxt('/Users/delis/Desktop/test.dat')
+test = np.loadtxt('/Users/delis/Desktop/g_2.dat')
 dx = x[int(N/2):] - x[int(N/2)]
 pl.loglog(dx, test)
 '''

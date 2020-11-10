@@ -184,7 +184,7 @@ def params(hatx, hatt, hatpsi):
     rd = (p-1)*hatt*hatgamma_l0/2
     uc = hatg*hatt/(hbar*hatx**2)*(0 - 2*hatgamma_l0*hatg_r*p/(hatgamma_r*hatg))
     ud = (p*hatt/(2*hatx**2))*hatgamma_l0*hatg_r/(hbar*gamma*hatgamma_r)
-    sigma = 0.1
+    sigma = (p+1)/2 * hatgamma_l0*hatt
     print('-----PARAMS-----')
     print('Kc', Kc)
     print('Kd', Kd)
@@ -192,6 +192,7 @@ def params(hatx, hatt, hatpsi):
     print('rd', rd)
     print('uc', uc)
     print('ud', ud)
+    print('σ', sigma)
     return Kc, Kd, rc, rd, uc, ud, sigma
 Kc, Kd, rc, rd, uc, ud, sigma = params(hatx, hatt,hatpsi)
 
@@ -224,7 +225,7 @@ t = ext.time(dt, N_steps, i1, i2, secondarystep)
 # =============================================================================
 # Computation
 # =============================================================================
-
+'''
 n_tasks = 750
 n_batch = 50
 n_internal = n_tasks//n_batch
@@ -261,3 +262,4 @@ result = np.absolute(numerator)/denominator
 tosave = '/home6/konstantinos'+os.sep+'σ'+str(sigma)+'_p'+str(p) + \
     '_γ'+str(gamma)+'_g'+str(gstar)+'_gr'+str(grstar)+'_spatial'+'.dat'
 np.savetxt(tosave, result)
+'''
