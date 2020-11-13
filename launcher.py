@@ -8,13 +8,11 @@ Created on Tue Nov 10 15:09:50 2020
 
 import external as ext
 import g1 as g1
-import matplotlib.pyplot as pl
 import os
 import numpy as np
 import pickle
 from qutip import *
 from toolbox_launcher import *
-from qutip import *
 
 c = 3E8
 hbar = 6.582119569 * 1E-16 # eV times second
@@ -124,21 +122,12 @@ GP=g1.GrossPitaevskii(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sig
                       L=L, N=N, dx=dx, dkx=dkx, x=x, kx=kx, hatpsi=hatpsi,
                       dt=dt, N_steps=N_steps, secondarystep=secondarystep, i1=i1, i2=i2, t=t)
 
-#psi = GP.time_evolution(1)
-#pl.plot(t, psi[:,0]*np.conjugate(psi[:,0]))
 
-'''
-g_2 = np.loadtxt('/Users/delis/Desktop/g_2.dat')
-fig, ax = pl.subplots(1,1, figsize=(8,6))
-ax.set_xscale('log')
-ax.set_yscale('log')
-ax.loglog(g_2, 'o')
-'''
-
-n_tasks = 4
+n_tasks = 16
 n_batch = 4
 n_internal = n_tasks//n_batch
 qutip.settings.num_cpus = n_batch
+print('A total of', n_internal, 'realisations will be performed per core.')
 parallel_map(g1.compute_g1, range(n_batch), task_kwargs=dict(Kc=Kc, Kd=0, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sigma,
                                                               L=L, N=N, dx=dx, dkx=dkx, x=x, kx=kx, hatpsi=hatpsi,
                                                               dt=dt, N_steps=N_steps, secondarystep=secondarystep, i1=i1, i2=i2, t=t,

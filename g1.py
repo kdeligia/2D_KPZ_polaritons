@@ -161,14 +161,14 @@ class GrossPitaevskii:
         return psi
 
 def compute_g1(i_batch, Kc, Kd, Kc2, rc, rd, uc, ud, sigma,
-               L, N, dx, dy, dkx, dky, x, kx, hatpsi,
+               L, N, dx, dkx, x, kx, hatpsi,
                dt, N_steps, secondarystep, i1, i2, t, 
                n_internal):
     sqrtrho_batch = np.zeros((len(t), int(N/2)), dtype=complex)
     correlator_batch = np.zeros((len(t), int(N/2)), dtype=complex)
     for i_n in range(n_internal):
         GP = GrossPitaevskii(Kc=Kc, Kd=Kd, Kc2=Kc2, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sigma,
-                             L=L, N=N, dx=dx, dy=dy, dkx=dkx, dky=dky, x=x, kx=kx, hatpsi=hatpsi,
+                             L=L, N=N, dx=dx, dkx=dkx, x=x, kx=kx, hatpsi=hatpsi,
                              dt=dt, N_steps=N_steps, secondarystep=secondarystep, i1=i1, i2=i2, t=t)
         psi = GP.time_evolution(i_n)
         sqrtrho = np.sqrt(np.conjugate(psi) * psi)
