@@ -12,33 +12,6 @@ import numpy as np
 import external as ext
 from scipy.fftpack import fft2, ifft2
 warnings.filterwarnings("ignore", message="Casting complex values to real discards the imaginary part")
-#from scipy import signal
-
-N = 2**6
-L = 2**6
-
-dx = 0.5
-dy = 0.5
-dkx = 2 * np.pi / (N * dx)
-dky = 2 * np.pi / (N * dy)
-
-def arrays():
-    x_0 = - N * dx / 2
-    kx0 = - np.pi / dx
-    x = x_0 + dx * np.arange(N)
-    kx = kx0 + dkx * np.arange(N)
-    return x, kx
-
-x, kx =  arrays()
-X,Y = np.meshgrid(x, x)
-N_steps = 1000000
-
-secondarystep = 1000
-i1 = 100000
-i2 = N_steps
-lengthwindow = i2-i1
-
-t = ext.time(dt, N_steps, i1, i2, secondarystep)
 
 class GrossPitaevskii:
     def __init__(self, psi_x=0):
@@ -187,18 +160,12 @@ x, kx =  arrays()
 X,Y = np.meshgrid(x, x)
 N_steps = 1000000
 
-secondarystep = 1000
+secondarystep = 100
 i1 = 100000
 i2 = N_steps
 lengthwindow = i2-i1
 
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
-
-#GP = GrossPitaevskii()
-#psi = GP.time_evolution(1)
-
-#dx = x[int(N/2):] - x[int(N/2)]
-#pl.plot(t, np.abs(psi[:,0]))
 
 n_tasks = 400
 n_batch = 40
