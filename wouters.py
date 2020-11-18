@@ -164,9 +164,9 @@ secondarystep = 100
 i1 = 100000
 i2 = N_steps
 lengthwindow = i2-i1
-
+np.savetxt('/Users/delis/Desktop/dx,dat', x[int(N/2):]-x[int(N/2)])
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
-
+'''
 n_tasks = 400
 n_batch = 40
 n_internal = n_tasks//n_batch
@@ -204,7 +204,7 @@ def ensemble_average(path):
 numerator = ensemble_average(path1)
 result = np.abs(numerator)/ns
 np.savetxt('/home6/konstantinos/g_0.dat', result)
-
+'''
 '''
 test = np.loadtxt('/Users/delis/Desktop/g_2.dat')
 dx = x[int(N/2):] - x[int(N/2)]

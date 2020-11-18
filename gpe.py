@@ -7,13 +7,12 @@ Created on Fri Jul  3 14:02:54 2020
 """
 
 from scipy.fftpack import fft2, ifft2
-import os
 import numpy as np
 import external as ext
 import warnings
 warnings.filterwarnings("ignore", message="Casting complex values to real discards the imaginary part")
 
-class GrossPitaevskii:
+class gpe:
     def __init__(self, Kc, Kd, Kc2, rc, rd, uc, ud, sigma, 
                  L, N, dx, dkx, x, kx, hatpsi, 
                  dt, N_steps, secondarystep, i1, i2, t,
@@ -57,6 +56,7 @@ class GrossPitaevskii:
         self.psi_x = np.full((self.N, self.N), 5*self.hatpsi)
         self.psi_x /= self.hatpsi
         self.psi_mod_k = fft2(self.psi_mod_x)
+
 # =============================================================================
 # Vortices
 # =============================================================================
@@ -131,10 +131,9 @@ class GrossPitaevskii:
 # Time evolution and Phase unwinding
 # =============================================================================
     def time_evolution(self, realisation):
-        psi = np.zeros((len(self.t),int(self.N/2)), dtype=complex)
+        #theta = np.zeros(len(self.t), int(self.N))
+        psi = np.zeros((len(self.t), int(self.N/2)), dtype=complex)
         for i in range(self.N_steps+1):
-            #if i%100==0:
-                #print(i)
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
@@ -142,9 +141,9 @@ class GrossPitaevskii:
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_x += np.sqrt(self.sigma) * np.sqrt(self.dt) * ext.noise((self.N,self.N))
             if i>=self.i1 and i<=self.i2 and i%self.secondarystep==0:
-                psi[(i-self.i1)//self.secondarystep]= self.psi_x[int(self.N/2), int(self.N/2):]
-            '''
-            if i>=i1 and i<=i2 and i%secondarystep==0:
+                #theta[(i-self.i1)//self.secondarystep] = np.angle(self.psi_x)
+                psi[(i-self.i1)//self.secondarystep] = self.psi_x[int(self.N/2), int(self.N/2):]
+                '''
                 name = '/Users/delis/Desktop/figures'+os.sep+'f'+str((i-i1)//secondarystep)+'.png'
                 fig,ax = pl.subplots(2,1, figsize=(8,8))
                 c1 = ax[0].pcolormesh(X, Y, np.abs(self.psi_x*np.conjugate(self.psi_x)), cmap='viridis')
@@ -157,29 +156,5 @@ class GrossPitaevskii:
                 fig.colorbar(c2, ax=ax[1])
                 pl.savefig(name, format='png')
                 pl.show()
-            '''
+                '''
         return psi
-
-def compute_g1(i_batch, Kc, Kd, Kc2, rc, rd, uc, ud, sigma,
-               L, N, dx, dkx, x, kx, hatpsi,
-               dt, N_steps, secondarystep, i1, i2, t, 
-               n_internal):
-    sqrtrho_batch = np.zeros((len(t), int(N/2)), dtype=complex)
-    correlator_batch = np.zeros((len(t), int(N/2)), dtype=complex)
-    for i_n in range(n_internal):
-        GP = GrossPitaevskii(Kc=Kc, Kd=Kd, Kc2=Kc2, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sigma,
-                             L=L, N=N, dx=dx, dkx=dkx, x=x, kx=kx, hatpsi=hatpsi,
-                             dt=dt, N_steps=N_steps, secondarystep=secondarystep, i1=i1, i2=i2, t=t)
-        psi = GP.time_evolution(i_n)
-        sqrtrho = np.sqrt(np.conjugate(psi) * psi)
-        for i in range(len(t)):
-            psi[i] *= np.conjugate(psi[i,0])
-            sqrtrho[i] *= sqrtrho[i,0]
-        correlator_batch += psi / n_internal
-        sqrtrho_batch += sqrtrho / n_internal
-        if i_n>0:
-            print('The core', i_batch, 'has completed realisation number', i_n)
-    name_full1 = '/Users/delis/Desktop/numerator_batch'+os.sep+'n'+str(i_batch+1)+'.dat'
-    name_full2 = '/Users/delis/Desktop/denominator_batch'+os.sep+'d'+str(i_batch+1)+'.dat'
-    np.savetxt(name_full1, correlator_batch, fmt='%.5f')
-    np.savetxt(name_full2, sqrtrho_batch, fmt='%.5f')

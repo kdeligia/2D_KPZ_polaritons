@@ -7,7 +7,7 @@ Created on Tue Nov 10 15:09:50 2020
 """
 
 import external as ext
-import g1 as g1
+import g1_func as g1
 import os
 import numpy as np
 import pickle
@@ -78,7 +78,7 @@ def arrays():
     kx = kx0 + dkx * np.arange(N)
     return x, kx
 
-def gp(hatx, hatt, hatpsi):
+def finalparams(hatx, hatt, hatpsi):
     Kc = hbar*hatt/(2*hatm*hatx**2/c**2)
     Kd = hatgamma_l2*hatt/(2*hatx**2)
     rc = 2*hatt*hatgamma_l0*gamma*p
@@ -108,7 +108,7 @@ dx = L / N
 dkx = 2 * np.pi / (N * dx)
 
 x, kx =  arrays()
-Kc, Kd, rc, rd, uc, ud, sigma = gp(hatx, hatt, hatpsi)
+Kc, Kd, rc, rd, uc, ud, sigma = finalparams(hatx, hatt, hatpsi)
 
 N_steps = 200000
 dt = tstar/10
@@ -118,21 +118,23 @@ i2 = N_steps
 lengthwindow = i2-i1
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
 
-GP=g1.GrossPitaevskii(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sigma,
-                      L=L, N=N, dx=dx, dkx=dkx, x=x, kx=kx, hatpsi=hatpsi,
-                      dt=dt, N_steps=N_steps, secondarystep=secondarystep, i1=i1, i2=i2, t=t)
-
-
-n_tasks = 16
+n_tasks = 100
 n_batch = 4
 n_internal = n_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 print('A total of', n_internal, 'realisations will be performed per core.')
-parallel_map(g1.compute_g1, range(n_batch), task_kwargs=dict(Kc=Kc, Kd=0, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sigma,
+parallel_map(g1.g1_alt, range(n_batch), task_kwargs=dict(Kc=Kc, Kd=0, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sigma,
                                                               L=L, N=N, dx=dx, dkx=dkx, x=x, kx=kx, hatpsi=hatpsi,
                                                               dt=dt, N_steps=N_steps, secondarystep=secondarystep, i1=i1, i2=i2, t=t,
                                                               n_internal=n_internal))
 
+'''
+myGPE = gpe.gpe(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sigma,
+                      L=L, N=N, dx=dx, dkx=dkx, x=x, kx=kx, hatpsi=hatpsi,
+                      dt=dt, N_steps=N_steps, secondarystep=secondarystep, i1=i1, i2=i2, t=t)
+'''
+
+'''
 path1 = r"/Users/delis/Desktop/numerator_batch"
 path2 = r"/Users/delis/Desktop/denominator_batch"
 
@@ -141,3 +143,4 @@ denominator = ext.ensemble_average(path2)
 result = -2*np.log(np.absolute(numerator)/denominator)
 
 np.savetxt('/Users/delis/Desktop/spatial_correlation.dat', result.real)
+'''
