@@ -139,7 +139,7 @@ class gpe:
             self.psi_k *= self.prefactor_k()
             self.psi_mod_x = ifft2(self.psi_mod_k)
             self.psi_x *= self.prefactor_x(self.psi_x)
-            self.psi_x += np.sqrt(self.sigma) * np.sqrt(self.dt) * ext.noise((self.N,self.N))
+            self.psi_x += np.sqrt(self.sigma) * np.sqrt(self.dt) * ext.noise((self.N,self.N)) / self.dx**2
             if i>=self.i1 and i<=self.i2 and i%self.secondarystep==0:
                 #theta[(i-self.i1)//self.secondarystep] = np.angle(self.psi_x)
                 psi[(i-self.i1)//self.secondarystep] = self.psi_x[int(self.N/2), int(self.N/2):]

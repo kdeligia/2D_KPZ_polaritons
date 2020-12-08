@@ -31,19 +31,15 @@ def time(dt, N_steps, i1, i2, secondarystep):
             t[(i-i1)//secondarystep] = i*dt
     return t
 
-def ensemble_average(path):
-    countavg = 0
+def ensemble_average(path, batches):
     for file in os.listdir(path):
         if '.dat' in file:
-           countavg += 1
-    for file in os.listdir(path):
-        if '.dat' in file:
-            avg = np.zeros_like(np.loadtxt(path+os.sep+file, dtype=np.complex_), dtype=np.complex_)
+            avg = np.zeros_like(np.load(path+os.sep+file))
         continue
     for file in os.listdir(path):
         if '.dat' in file:
-            numerator = np.loadtxt(path+os.sep+file, dtype=np.complex_)
-            avg += numerator / countavg
+            item = np.load(path+os.sep+file)
+            avg += item / batches
     return avg
 
 '''

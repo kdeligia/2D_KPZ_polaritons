@@ -29,7 +29,7 @@ def g1(i_batch, Kc, Kd, Kc2, rc, rd, uc, ud, sigma,
         sqrtrho_batch += sqrtrho / n_internal
         if i_n>0:
             print('The core', i_batch, 'has completed realisation number', i_n)
-    #name_full1 = '/Users/delis/Desktop/numerator_batch'+os.sep+'n'+str(i_batch+1)+'.dat'
-    #name_full2 = '/Users/delis/Desktop/denominator_batch'+os.sep+'d'+str(i_batch+1)+'.dat'
-    #np.savetxt(name_full1, correlator_batch, fmt='%.5f')
-    #np.savetxt(name_full2, sqrtrho_batch, fmt='%.5f')
+    #name_full1 = '/Users/delis/Desktop/numerator_batch'+os.sep+'n'+str(i_batch+1)+'.npy'
+    #name_full2 = '/Users/delis/Desktop/denominator_batch'+os.sep+'d'+str(i_batch+1)+'.npy'
+    #np.save(name_full1, correlator_batch)
+    #np.save(name_full2, sqrtrho_batch)

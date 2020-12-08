@@ -6,6 +6,7 @@ Created on Tue Nov 10 15:09:50 2020
 @author: delis
 """
 
+import matplotlib.pyplot as pl
 import external as ext
 import g1_func as g1
 import os
@@ -86,16 +87,14 @@ def finalparams(hatx, hatt, hatpsi):
     uc = hatg*hatt/(hbar*hatx**2)*(0 - 2*hatgamma_l0*hatg_r*p/(hatgamma_r*hatg))
     ud = (p*hatt/(2*hatx**2))*hatgamma_l0*hatg_r/(hbar*gamma*hatgamma_r)
     sigma = hatgamma_l0 * hatt * (p+1) / 2
-    '''
-    print('-----PARAMS-----')
-    print('Kc', Kc)
-    print('Kd', Kd)
-    print('rc', rc)
-    print('rd', rd)
-    print('uc', uc)
-    print('ud', ud)
-    print('σ', sigma)
-    '''
+    #print('-----PARAMS-----')
+    #print('Kc', Kc)
+    #print('Kd', Kd)
+    #print('rc', rc)
+    #print('rd', rd)
+    #print('uc', uc)
+    #print('ud', ud)
+    #print('σ', sigma)
     return Kc, Kd, rc, rd, uc, ud, sigma
 
 N, L, xstar, tstar = init_system()
@@ -118,6 +117,7 @@ i2 = N_steps
 lengthwindow = i2-i1
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
 
+'''
 n_tasks = 100
 n_batch = 4
 n_internal = n_tasks//n_batch
@@ -127,7 +127,7 @@ parallel_map(g1.g1_alt, range(n_batch), task_kwargs=dict(Kc=Kc, Kd=0, Kc2=0, rc=
                                                               L=L, N=N, dx=dx, dkx=dkx, x=x, kx=kx, hatpsi=hatpsi,
                                                               dt=dt, N_steps=N_steps, secondarystep=secondarystep, i1=i1, i2=i2, t=t,
                                                               n_internal=n_internal))
-
+'''
 '''
 myGPE = gpe.gpe(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sigma,
                       L=L, N=N, dx=dx, dkx=dkx, x=x, kx=kx, hatpsi=hatpsi,
