@@ -6,6 +6,7 @@ Created on Fri Jul  3 14:02:54 2020
 @author: delis
 """
 
+import matplotlib.pyplot as pl
 from scipy.fftpack import fft2, ifft2
 import numpy as np
 import external as ext
@@ -131,30 +132,30 @@ class gpe:
 # Time evolution and Phase unwinding
 # =============================================================================
     def time_evolution(self, realisation):
-        #theta = np.zeros(len(self.t), int(self.N))
-        psi = np.zeros((len(self.t), int(self.N/2)), dtype=complex)
+        psix = np.zeros((len(self.t), int(self.N/2)), dtype=complex)
+        #l=np.zeros(len(self.t))
         for i in range(self.N_steps+1):
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
             self.psi_mod_x = ifft2(self.psi_mod_k)
             self.psi_x *= self.prefactor_x(self.psi_x)
-            self.psi_x += np.sqrt(self.sigma) * np.sqrt(self.dt) * ext.noise((self.N,self.N)) / self.dx**2
+            self.psi_x += np.sqrt(self.sigma * self.dt / self.dx**2) * ext.noise((self.N,self.N))
             if i>=self.i1 and i<=self.i2 and i%self.secondarystep==0:
-                #theta[(i-self.i1)//self.secondarystep] = np.angle(self.psi_x)
-                psi[(i-self.i1)//self.secondarystep] = self.psi_x[int(self.N/2), int(self.N/2):]
+                #l[(i-self.i1)//self.secondarystep] = np.abs(self.psi_x*np.conjugate(self.psi_x))[int(self.N/2), int(self.N/2)]
+                psix[(i-self.i1)//self.secondarystep] = self.psi_x[int(self.N/2), int(self.N/2):]
                 '''
-                name = '/Users/delis/Desktop/figures'+os.sep+'f'+str((i-i1)//secondarystep)+'.png'
+                #name = '/Users/delis/Desktop/figures'+os.sep+'f'+str((i-i1)//secondarystep)+'.png'
                 fig,ax = pl.subplots(2,1, figsize=(8,8))
-                c1 = ax[0].pcolormesh(X, Y, np.abs(self.psi_x*np.conjugate(self.psi_x)), cmap='viridis')
+                c1 = ax[0].pcolormesh(self.X, self.Y, np.abs(self.psi_x*np.conjugate(self.psi_x)), cmap='viridis')
                 ax[0].set_title('Density')
-                ax[0].axis([x.min(), x.max(), x.min(), x.max()])
+                ax[0].axis([self.x.min(), self.x.max(), self.x.min(), self.x.max()])
                 fig.colorbar(c1, ax=ax[0])
-                c2 = ax[1].pcolormesh(X, Y, np.angle(self.psi_x), cmap='cividis')
+                c2 = ax[1].pcolormesh(self.X, self.Y, np.angle(self.psi_x), cmap='cividis')
                 ax[1].set_title('Phase')
-                ax[1].axis([x.min(), x.max(), x.min(), x.max()])
+                ax[1].axis([self.x.min(), self.x.max(), self.x.min(), self.x.max()])
                 fig.colorbar(c2, ax=ax[1])
-                pl.savefig(name, format='png')
+                #pl.savefig(name, format='png')
                 pl.show()
                 '''
-        return psi
+        return psix

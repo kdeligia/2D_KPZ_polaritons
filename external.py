@@ -31,17 +31,6 @@ def time(dt, N_steps, i1, i2, secondarystep):
             t[(i-i1)//secondarystep] = i*dt
     return t
 
-def ensemble_average(path, batches):
-    for file in os.listdir(path):
-        if '.dat' in file:
-            avg = np.zeros_like(np.load(path+os.sep+file))
-        continue
-    for file in os.listdir(path):
-        if '.dat' in file:
-            item = np.load(path+os.sep+file)
-            avg += item / batches
-    return avg
-
 '''
 ar = np.zeros((512,512))
 cor = np.zeros((512,512), dtype=complex)

@@ -6,9 +6,9 @@ Created on Tue Nov 10 15:09:50 2020
 @author: delis
 """
 
-import matplotlib.pyplot as pl
+#import gpe
 import external as ext
-import g1_func as g1
+import g1_func
 import os
 import numpy as np
 import pickle
@@ -19,8 +19,8 @@ c = 3E8
 hbar = 6.582119569 * 1E-16 # eV times second
 
 systemdict = {}
-systemdict['N'] = [int(2**6)]
-systemdict['L'] = [int(2**6)]
+systemdict['N'] = [int(2**7)]
+systemdict['L'] = [int(2**7)]
 systemdict['t_star'] = [0.1]
 systemdict['x_star'] = [1]
 
@@ -87,14 +87,16 @@ def finalparams(hatx, hatt, hatpsi):
     uc = hatg*hatt/(hbar*hatx**2)*(0 - 2*hatgamma_l0*hatg_r*p/(hatgamma_r*hatg))
     ud = (p*hatt/(2*hatx**2))*hatgamma_l0*hatg_r/(hbar*gamma*hatgamma_r)
     sigma = hatgamma_l0 * hatt * (p+1) / 2
-    #print('-----PARAMS-----')
-    #print('Kc', Kc)
-    #print('Kd', Kd)
-    #print('rc', rc)
-    #print('rd', rd)
-    #print('uc', uc)
-    #print('ud', ud)
-    #print('σ', sigma)
+    '''
+    print('-----PARAMS-----')
+    print('Kc', Kc)
+    print('Kd', Kd)
+    print('rc', rc)
+    print('rd', rd)
+    print('uc', uc)
+    print('ud', ud)
+    print('σ', sigma)
+    '''
     return Kc, Kd, rc, rd, uc, ud, sigma
 
 N, L, xstar, tstar = init_system()
@@ -103,44 +105,51 @@ hatx, hatpsi, hatt, hatm, hatgamma_l0, hatgamma_l2, hatgamma_r, hatg, hatg_r = h
 
 L *= hatx
 L /= hatx
-dx = L / N
+dx = 0.5
 dkx = 2 * np.pi / (N * dx)
 
 x, kx =  arrays()
 Kc, Kd, rc, rd, uc, ud, sigma = finalparams(hatx, hatt, hatpsi)
 
-N_steps = 200000
+N_steps = 300000
 dt = tstar/10
-secondarystep = 200
-i1 = 0
+secondarystep = 250
+i1 = 50000
 i2 = N_steps
 lengthwindow = i2-i1
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
 
-'''
-n_tasks = 100
-n_batch = 4
+n_tasks = 300
+n_batch = 60
 n_internal = n_tasks//n_batch
 qutip.settings.num_cpus = n_batch
-print('A total of', n_internal, 'realisations will be performed per core.')
-parallel_map(g1.g1_alt, range(n_batch), task_kwargs=dict(Kc=Kc, Kd=0, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sigma,
+parallel_map(g1_func.g1, range(n_batch), task_kwargs=dict(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sigma,
                                                               L=L, N=N, dx=dx, dkx=dkx, x=x, kx=kx, hatpsi=hatpsi,
                                                               dt=dt, N_steps=N_steps, secondarystep=secondarystep, i1=i1, i2=i2, t=t,
                                                               n_internal=n_internal))
-'''
+
+path1 = r"/scratch/konstantinos/g1_batch"
+path2 = r"/scratch/konstantinos/avg_nx_batch"
+path3 = r"/scratch/konstantinos/g2_batch"
+
+def ensemble_average(path, batches, arg):
+    avg = np.zeros((len(t), int(N/2)))
+    for file in os.listdir(path):
+        if '.npy' in file:
+            item = np.load(path+os.sep+file)
+            avg += item / batches
+    return avg
+
+g1 = ensemble_average(path1, n_batch)
+avg = ensemble_average(path2, n_batch)
+g2 = ensemble_average(path3, n_batch)
+
+np.savetxt('/home6/konstantinos/g1.dat', g1)
+np.savetxt('/home6/konstantinos/avg_nx.dat', avg)
+np.savetxt('/home6/konstantinos/g2.dat', g2)
+
 '''
 myGPE = gpe.gpe(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sigma,
                       L=L, N=N, dx=dx, dkx=dkx, x=x, kx=kx, hatpsi=hatpsi,
                       dt=dt, N_steps=N_steps, secondarystep=secondarystep, i1=i1, i2=i2, t=t)
-'''
-
-'''
-path1 = r"/Users/delis/Desktop/numerator_batch"
-path2 = r"/Users/delis/Desktop/denominator_batch"
-
-numerator = ext.ensemble_average(path1)
-denominator = ext.ensemble_average(path2)
-result = -2*np.log(np.absolute(numerator)/denominator)
-
-np.savetxt('/Users/delis/Desktop/spatial_correlation.dat', result.real)
 '''
