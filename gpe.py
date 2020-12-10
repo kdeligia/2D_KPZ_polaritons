@@ -133,7 +133,6 @@ class gpe:
 # =============================================================================
     def time_evolution(self, realisation):
         psix = np.zeros((len(self.t), int(self.N/2)), dtype=complex)
-        #l=np.zeros(len(self.t))
         for i in range(self.N_steps+1):
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_mod_k = fft2(self.psi_mod_x)
@@ -142,20 +141,5 @@ class gpe:
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_x += np.sqrt(self.sigma * self.dt / self.dx**2) * ext.noise((self.N,self.N))
             if i>=self.i1 and i<=self.i2 and i%self.secondarystep==0:
-                #l[(i-self.i1)//self.secondarystep] = np.abs(self.psi_x*np.conjugate(self.psi_x))[int(self.N/2), int(self.N/2)]
-                psix[(i-self.i1)//self.secondarystep] = self.psi_x[int(self.N/2), int(self.N/2):]
-                '''
-                #name = '/Users/delis/Desktop/figures'+os.sep+'f'+str((i-i1)//secondarystep)+'.png'
-                fig,ax = pl.subplots(2,1, figsize=(8,8))
-                c1 = ax[0].pcolormesh(self.X, self.Y, np.abs(self.psi_x*np.conjugate(self.psi_x)), cmap='viridis')
-                ax[0].set_title('Density')
-                ax[0].axis([self.x.min(), self.x.max(), self.x.min(), self.x.max()])
-                fig.colorbar(c1, ax=ax[0])
-                c2 = ax[1].pcolormesh(self.X, self.Y, np.angle(self.psi_x), cmap='cividis')
-                ax[1].set_title('Phase')
-                ax[1].axis([self.x.min(), self.x.max(), self.x.min(), self.x.max()])
-                fig.colorbar(c2, ax=ax[1])
-                #pl.savefig(name, format='png')
-                pl.show()
-                '''
+                psix = self.psi_x[int(self.N/2), int(self.N/2):]
         return psix

@@ -6,7 +6,7 @@ Created on Tue Nov 10 15:09:50 2020
 @author: delis
 """
 
-#import gpe
+import gpe
 import external as ext
 import g1_func
 import os
@@ -14,6 +14,7 @@ import numpy as np
 import pickle
 from qutip import *
 from toolbox_launcher import *
+import matplotlib.pyplot as pl
 
 c = 3E8
 hbar = 6.582119569 * 1E-16 # eV times second
@@ -119,8 +120,13 @@ i2 = N_steps
 lengthwindow = i2-i1
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
 
-n_tasks = 300
-n_batch = 60
+#np.savetxt('/Users/delis/Desktop/dt_50k_250_300k.dat', t-t[0])
+#np.savetxt('/Users/delis/Desktop/dx_N2_N_2**7.dat', x[int(N/2):] - x[int(N/2)])
+
+print('---VALIDITY OF WIGNER---:', dx**2, g_star / gamma0_star)
+
+n_tasks = 200
+n_batch = 50
 n_internal = n_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 parallel_map(g1_func.g1, range(n_batch), task_kwargs=dict(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sigma,
@@ -128,28 +134,34 @@ parallel_map(g1_func.g1, range(n_batch), task_kwargs=dict(Kc=Kc, Kd=Kd, Kc2=0, r
                                                               dt=dt, N_steps=N_steps, secondarystep=secondarystep, i1=i1, i2=i2, t=t,
                                                               n_internal=n_internal))
 
-path1 = r"/scratch/konstantinos/g1_batch"
-path2 = r"/scratch/konstantinos/avg_nx_batch"
-path3 = r"/scratch/konstantinos/g2_batch"
-
-def ensemble_average(path, batches, arg):
+def ensemble_average(path):
     avg = np.zeros((len(t), int(N/2)))
     for file in os.listdir(path):
         if '.npy' in file:
             item = np.load(path+os.sep+file)
-            avg += item / batches
+            avg += item / n_batch
     return avg
 
-g1 = ensemble_average(path1, n_batch)
-avg = ensemble_average(path2, n_batch)
-g2 = ensemble_average(path3, n_batch)
+path1 = r"/home6/konstantinos/C1_batch"
+path2 = r"/home6/konstantinos/C2_batch"
 
-np.savetxt('/home6/konstantinos/g1.dat', g1)
-np.savetxt('/home6/konstantinos/avg_nx.dat', avg)
-np.savetxt('/home6/konstantinos/g2.dat', g2)
+C1 = ensemble_average(path1)
+C1_final = np.sqrt(C1[0,0] * C1)
+C2= ensemble_average(path2)
+
+np.savetxt('/home6/konstantinos/C1_test.npy', C1_final)
+np.savetxt('/home6/konstantinos/C2_test.npy', C2)
 
 '''
-myGPE = gpe.gpe(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sigma,
-                      L=L, N=N, dx=dx, dkx=dkx, x=x, kx=kx, hatpsi=hatpsi,
-                      dt=dt, N_steps=N_steps, secondarystep=secondarystep, i1=i1, i2=i2, t=t)
+g1 = np.loadtxt('/Users/delis/Desktop/2^7/g1.dat', dtype=complex)
+g2 = np.loadtxt('/Users/delis/Desktop/2^7/g2.dat', dtype=complex)
+avg = np.loadtxt('/Users/delis/Desktop/2^7/avg_nx.dat', dtype=complex)
+g1_full = np.zeros_like(g1)
+
+for i in range(len(t)):
+    for j in range(int(N/2)):
+        g1_full[i,j] = g1[i,j] / np.sqrt((avg[0,0] * avg[i, j]))
+
+result = - 2 * np.log(g1_full)
+np.savetxt('/Users/delis/Desktop/final_g1.dat', result)
 '''
