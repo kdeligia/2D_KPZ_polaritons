@@ -6,6 +6,8 @@ Created on Tue Nov 10 15:09:50 2020
 @author: delis
 """
 
+import gpe
+import matplotlib.pyplot as pl
 import external as ext
 import g1_func
 import os
@@ -88,6 +90,9 @@ i2 = N_steps
 lengthwindow = i2-i1
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
 
+#np.savetxt('/Users/delis/Desktop/dt_50k_200_200k.dat', t-t[0])
+#np.savetxt('/Users/delis/Desktop/dr_2_7,dat', x[int(N/2):]-x[int(N/2)])
+
 keyword = 'yes'
 if keyword == 'yes':
     pump = 'no'
@@ -140,32 +145,32 @@ if keyword == 'yes':
     Kc, Kd, rc, rd, uc, ud, sigma, z = finalparams(pump)
     '''
     model = gpe.gpe(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sigma, z=z,
-                      L=L, N=N, dx=dx, dkx=dkx, x=x, kx=kx, hatpsi=hatpsi,
-                      dt=dt, N_steps=N_steps, secondarystep=secondarystep, i1=i1, i2=i2, t=t)
-    dens_avg, num, denom = model.time_evolution(0)
+                      L=L, N=N, dx=dx, dkx=dkx, x=x, kx=kx, hatpsi=hatpsi, dt=dt)
+    dens_avg, num, denom, avg, n00 = model.time_evolution(0)
     pl.plot(t, avg, label=r'$\overline{n}$')
     pl.plot(t, n00, label=r'$n(0,0)$')
     pl.axhline(y=n0, xmin=t[0], xmax=t[-1], color='red', label=r'$n_{steady state, th}$')
     pl.legend()
     '''
-    n_tasks = 256
+    n_tasks = 1024
     n_batch = 64
     n_internal = n_tasks//n_batch
     qutip.settings.num_cpus = n_batch
     parallel_map(g1_func.g1, range(n_batch), task_kwargs=dict(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sigma, z=z,
                                                                   L=L, N=N, dx=dx, dkx=dkx, x=x, kx=kx, hatpsi=hatpsi,
-                                                                  dt=dt, N_steps=N_steps, secondarystep=secondarystep, i1=i1, i2=i2, t=t, n_internal=n_internal))
-    path1 = r"/scratch/konstantinos/g1_numerator"
-    path2 = r"/scratch/konstantinos/g1_denominator"
-    path3 = r"/scratch/konstantinos/avg_sqrt_density"
-    numerator = ext.ensemble_average(path1, t, N, n_batch)
-    denominator = ext.ensemble_average(path2, t, N, n_batch)
-    avg_sqrt_density = ext.ensemble_average(path3, t, N, n_batch)
-    avg_sqrt_density *= avg_sqrt_density[0,0]
-    np.savetxt('/home6/konstantinos/g1_v1_50k_200_200k.dat', -2*np.log(np.abs(numerator)/denominator))
-    np.savetxt('/home6/konstantinos/g1_v2_50k_200_200k.dat', -2*np.log(np.abs(numerator)/avg_sqrt_density))
-    np.savetxt('/home6/konstantinos/denominator_50k_200_200k.dat', denominator)
-    np.savetxt('/home6/konstantinos/avg_sqrt_density_50k_200_200k.dat', avg_sqrt_density)
+                                                                  dt=dt, n_internal=n_internal))
+    path_cor_psi = r"/scratch/konstantinos/cor_psi"
+    path_d1 = r"/scratch/konstantinos/d1"
+    path_d2 = r"/scratch/konstantinos/d2"
+    cor_psi = ext.ensemble_average(path_cor_psi, t, N, n_batch) 
+    cor_psi[:,0] -= np.ones(len(t))/(2*dx**2)
+    d1 = ext.ensemble_average(path_d1, t, N, n_batch)
+    D1 = np.sqrt(d1[0,0]*d1)
+    D2 = ext.ensemble_average(path_d2, t, N, n_batch)
+    np.savetxt('/home6/konstantinos/g1_D1_50k_200_200k.dat', np.abs(cor_psi)/D1)
+    np.savetxt('/home6/konstantinos/g1_D2_50k_200_200k.dat', np.abs(cor_psi)/D2)
+    np.savetxt('/home6/konstantinos/D1_50k_200_200k.dat', D1)
+    np.savetxt('/home6/konstantinos/D2_50k_200_200k.dat', D2)
 
 '''
 elif keyword == 'no':
@@ -203,8 +208,7 @@ elif keyword == 'no':
     pl.axhline(y=n0, xmin=t[0], xmax=t[-1], color='red', label=r'$n_{steady state, th}$')
     pl.legend()
     pl.show()
-'''
-'''
+
     def bogoliubov():
         r = (1/z).real
         q = (1/z).imag

@@ -4,11 +4,15 @@ import external as ext
 import warnings
 warnings.filterwarnings("ignore", message="Casting complex values to real discards the imaginary part")
 
+time_steps = 400000
+every = 200
+i1 = 50000
+i2 = time_steps
+lengthwindow = i2-i1
+
 class gpe:
     def __init__(self, Kc, Kd, Kc2, rc, rd, uc, ud, sigma, z,
-                 L, N, dx, dkx, x, kx, hatpsi, 
-                 dt, N_steps, secondarystep, i1, i2, t,
-                 psi_x=0):
+                 L, N, dx, dkx, x, kx, hatpsi, dt, psi_x=0):
 # =============================================================================
 #       Initialitze
 # =============================================================================
@@ -24,12 +28,8 @@ class gpe:
 # =============================================================================
 #       Time
 # =============================================================================
-        self.dt=dt
-        self.N_steps=N_steps
-        self.secondarystep=secondarystep
-        self.i1=i1
-        self.i2=i2
-        self.t=t
+        self.dt = dt
+        self.t = ext.time(self.dt, time_steps, i1, i2, every)
 # =============================================================================
 #       Params
 # =============================================================================
@@ -115,7 +115,8 @@ class gpe:
 # Definition of the split steps
 # =============================================================================
     def prefactor_x(self, wave_fn):
-        return np.exp(-1j*0.5*self.dt*((self.rc + 1j*self.rd) + (self.uc - 1j*self.ud)*wave_fn*np.conjugate(wave_fn))/self.z)
+        n_red = wave_fn * np.conjugate(wave_fn) - 1/(2*self.dx**2)
+        return np.exp(-1j*0.5*self.dt*((self.rc + 1j*self.rd) + (self.uc - 1j*self.ud)*n_red)/self.z)
 
     def prefactor_k(self):
         return np.exp(-1j*self.dt*((self.KX**2 + self.KY**2)*(self.Kc - 1j*self.Kd)-(self.KX**4 + self.KY**4)*self.Kc2)/self.z)
@@ -124,39 +125,40 @@ class gpe:
 # Time evolution and Phase unwinding
 # =============================================================================
     def time_evolution(self, realisation):
-        num = np.zeros((len(self.t), int(self.N/2)), dtype=complex)
-        num_row = np.zeros(int(self.N/2), dtype=complex)
-        denom = np.zeros((len(self.t), int(self.N/2)))
-        denom_row = np.zeros(int(self.N/2))
-        dens_avg = np.zeros((len(self.t), int(self.N/2)))
-        dens_avg_row = np.zeros(int(self.N/2))
-        for i in range(self.N_steps+1):
+        cor_psi = np.zeros((len(self.t), int(self.N/2)), dtype=complex)
+        cor_psi_row = np.zeros(int(self.N/2), dtype=complex)
+        d1 = np.zeros((len(self.t), int(self.N/2)))
+        d1_row = np.zeros(int(self.N/2))
+        d2 = np.zeros((len(self.t), int(self.N/2)))
+        d2_row = np.zeros(int(self.N/2))
+        for i in range(time_steps+1):
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
             self.psi_mod_x = ifft2(self.psi_mod_k)
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_x += np.sqrt(self.dt) * np.sqrt(self.sigma) * ext.noise((self.N,self.N)) / self.z
-            if i>=self.i1 and i<=self.i2 and i%self.secondarystep==0:
-                n = np.abs(self.psi_x * np.conjugate(self.psi_x))
-                if i == self.i1:
-                    ref_num = np.conjugate(self.psi_x[int(self.N/2), int(self.N/2)])
-                    ref_denom = n[int(self.N/2), int(self.N/2)]
+            if i>=i1 and i<=i2 and i%every==0:
+                #print(i)
+                n = np.abs(self.psi_x * np.conjugate(self.psi_x)) - 1/(2*self.dx**2)
+                if i == i1:
+                    ref_cor_psi = np.conjugate(self.psi_x[int(self.N/2), int(self.N/2)])
+                    ref_d2 = np.sqrt(n[int(self.N/2), int(self.N/2)])
                 for j in range(int(self.N/2)):
                     if j == 0:
-                        dens_avg_row[j] = np.sqrt(n[int(self.N/2), int(self.N/2)])
-                        num_row[j] = ref_num * self.psi_x[int(self.N/2), int(self.N/2)]
-                        denom_row[j] = np.sqrt(ref_denom * n[int(self.N/2), int(self.N/2)])
+                        cor_psi_row[j] = ref_cor_psi * self.psi_x[int(self.N/2), int(self.N/2)]
+                        d2_row[j] = ref_d2 * np.sqrt(n[int(self.N/2), int(self.N/2)])
+                        d1_row[j] = n[int(self.N/2), int(self.N/2)]
                     else:
-                        dens_avg_row[j] = (np.sqrt(n[int(self.N/2), int(self.N/2)+j]) + np.sqrt(n[int(self.N/2), int(self.N/2)-j]) 
-                                           + np.sqrt(n[int(self.N/2)+j, int(self.N/2)]) + np.sqrt(n[int(self.N/2)-j, int(self.N/2)])) / 4
-                        num_row[j] = ref_num * (self.psi_x[int(self.N/2), int(self.N/2)+j] + self.psi_x[int(self.N/2), int(self.N/2)-j] + 
-                                                self.psi_x[int(self.N/2)+j, int(self.N/2)] + self.psi_x[int(self.N/2)-j, int(self.N/2)]) / 4
-                        denom_row[j] = np.sqrt(ref_denom) * (np.sqrt(n[int(self.N/2), int(self.N/2)+j]) + np.sqrt(n[int(self.N/2), int(self.N/2)-j]) +
-                                                             np.sqrt(n[int(self.N/2)+j, int(self.N/2)]) + np.sqrt(n[int(self.N/2)-j, int(self.N/2)])) / 4
-                dens_avg[(i-self.i1)//self.secondarystep] = dens_avg_row
-                num[(i-self.i1)//self.secondarystep] = num_row
-                denom[(i-self.i1)//self.secondarystep] = denom_row
+                        cor_psi_row[j] = ref_cor_psi * (self.psi_x[int(self.N/2), int(self.N/2)+j] + self.psi_x[int(self.N/2), int(self.N/2)-j] + 
+                                                        self.psi_x[int(self.N/2)+j, int(self.N/2)] + self.psi_x[int(self.N/2)-j, int(self.N/2)]) / 4
+                        d2_row[j] = ref_d2 * (np.sqrt(n[int(self.N/2), int(self.N/2)+j]) + np.sqrt(n[int(self.N/2), int(self.N/2)-j]) 
+                                              + np.sqrt(n[int(self.N/2)+j, int(self.N/2)]) + np.sqrt(n[int(self.N/2)-j, int(self.N/2)])) / 4
+                        d1_row[j] = (n[int(self.N/2), int(self.N/2)+j] + n[int(self.N/2), int(self.N/2)-j] +
+                                     n[int(self.N/2)+j, int(self.N/2)] + n[int(self.N/2)-j, int(self.N/2)]) / 4
+                cor_psi[(i-i1)//every] = cor_psi_row
+                d2[(i-i1)//every] = d2_row
+                d1[(i-i1)//every] = d1_row
                 '''
                 --- VORTICES ---
                 theta = np.angle(self.psi_x)
@@ -184,4 +186,4 @@ class gpe:
                 #pl.colorbar(im2, ax=ax[1])
                 pl.show()
                 '''
-        return dens_avg, num, denom
+        return cor_psi, d2, d1
