@@ -88,9 +88,9 @@ i2 = N_steps
 lengthwindow = i2-i1
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
 
-keyword = input('Taylor expand? ')
+keyword = 'yes'
 if keyword == 'yes':
-    pump = input('Use frequency-dependent pump? ')
+    pump = 'no'
     p = P*R / (gamma0*gammar)
     nsat = gammar/R
     n0 = nsat*(p-1)/p
