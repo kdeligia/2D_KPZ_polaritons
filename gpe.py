@@ -4,11 +4,12 @@ import external as ext
 import warnings
 warnings.filterwarnings("ignore", message="Casting complex values to real discards the imaginary part")
 
-time_steps = 400000
-every = 200
+time_steps = 100000
+every = 500
 i1 = 50000
 i2 = time_steps
 lengthwindow = i2-i1
+import matplotlib.pyplot as pl
 
 class gpe:
     def __init__(self, Kc, Kd, Kc2, rc, rd, uc, ud, sigma, z,
@@ -125,7 +126,11 @@ class gpe:
 # Time evolution and Phase unwinding
 # =============================================================================
     def time_evolution(self, realisation):
-        cor_psi = np.zeros((len(self.t), int(self.N/2)), dtype=complex)
+        #v = np.zeros(len(self.t))
+        #av = np.zeros(len(self.t))
+        #fuckoff = np.zeros(len(self.t))
+        #n00 = np.zeros(len(self.t))
+        cor_psi = np.zeros((len(t), int(N/2)), dtype=complex)
         cor_psi_row = np.zeros(int(self.N/2), dtype=complex)
         d1 = np.zeros((len(self.t), int(self.N/2)))
         d1_row = np.zeros(int(self.N/2))
@@ -139,8 +144,11 @@ class gpe:
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_x += np.sqrt(self.dt) * np.sqrt(self.sigma) * ext.noise((self.N,self.N)) / self.z
             if i>=i1 and i<=i2 and i%every==0:
-                #print(i)
+                print(i)
                 n = np.abs(self.psi_x * np.conjugate(self.psi_x)) - 1/(2*self.dx**2)
+                #fuckoff[(i-i1)//every] = np.sum(n)/self.N**2
+                #n00[(i-i1)//every] = n[int(self.N/2), int(self.N/2)]
+                '''
                 if i == i1:
                     ref_cor_psi = np.conjugate(self.psi_x[int(self.N/2), int(self.N/2)])
                     ref_d2 = np.sqrt(n[int(self.N/2), int(self.N/2)])
@@ -160,30 +168,26 @@ class gpe:
                 d2[(i-i1)//every] = d2_row
                 d1[(i-i1)//every] = d1_row
                 '''
-                --- VORTICES ---
+                '''
+                count_p = 0
+                count_n = 0
                 theta = np.angle(self.psi_x)
                 grad = np.gradient(theta, self.dx)
-                count = 0
-                countmatrix = np.ones_like(theta)
-                for i in range(1, len(self.x)-1):
-                    for j in range(1, len(self.x)-1):
-                        loop = self.dx * np.sum(grad[0][i+1, j-1]*self.Y[i+1,j-1] + grad[1][i+1, j-1]*self.X[i+1,j-1]
-                                                + grad[0][i+1, j]*self.Y[i+1,j] + grad[1][i+1, j]*self.X[i+1,j]
-                                                + grad[0][i+1, j+1]*self.Y[i+1,j+1] + grad[1][i+1, j+1]*self.X[i+1,j+1]
-                                                + grad[0][i-1, j-1]*self.Y[i-1,j-1] + grad[1][i-1, j-1]*self.X[i-1,j-1]
-                                                + grad[0][i-1, j]*self.Y[i-1,j] + grad[1][i-1, j-1]*self.X[i-1,j]
-                                                + grad[0][i-1, j+1]*self.Y[i-1,j+1] + grad[1][i-1, j+1]*self.X[i-1,j+1]
-                                                + grad[0][i, j-1]*self.Y[i,j-1] + grad[1][i, j-1]*self.X[i,j-1]
-                                                + grad[0][i, j+1]*self.Y[i,j+1] + grad[1][i, j+1]*self.X[i,j+1])
-                        if loop >= 2 * np.pi or loop <= -2 * np.pi:
-                            count += 1
-                            countmatrix[i, j] = 0
-                fig, ax = pl.subplots(1,1, figsize=(8,8))
-                c1 = ax.pcolormesh(self.X, self.Y, density)
-                #c2 = ax.pcolormesh(self.x, self.Y, countmatrix)
-                pl.colorbar(c1, ax=ax)
-                #im2 = ax[1].pcolormesh(self.X, self.Y, filterdensity)
-                #pl.colorbar(im2, ax=ax[1])
-                pl.show()
+                for k in range(1, len(self.x)-1):
+                    for l in range(1, len(self.x)-1):
+                        loop = self.dx * np.sum(grad[0][k+1, l-1]*self.Y[k+1, l-1] + grad[1][k+1, l-1]*self.X[k+1, l-1]
+                                                + grad[0][k+1, l]*self.Y[k+1, l] + grad[1][k+1, l]*self.X[k+1, l]
+                                                + grad[0][k+1, l+1]*self.Y[k+1, l+1] + grad[1][k+1, l+1]*self.X[k+1, l+1]
+                                                + grad[0][k-1, l-1]*self.Y[k-1, l-1] + grad[1][k-1, l-1]*self.X[k-1, l-1]
+                                                + grad[0][k-1, l]*self.Y[k-1, l] + grad[1][k-1, l]*self.X[k-1, l]
+                                                + grad[0][k-1, l+1]*self.Y[k-1, l+1] + grad[1][k-1, l+1]*self.X[k-1, l+1]
+                                                + grad[0][k, l-1]*self.Y[k, l-1] + grad[1][k, l-1]*self.X[k, l-1]
+                                                + grad[0][k, l+1]*self.Y[k, l+1] + grad[1][k, l+1]*self.X[k, l+1])
+                        if loop >= 2 * np.pi:
+                            count_p += 1
+                        elif loop <= -2 * np.pi:
+                            count_n += 1
+                v[(i-i1)//every] = count_p
+                av[(i-i1)//every] = count_n
                 '''
         return cor_psi, d2, d1
