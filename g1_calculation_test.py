@@ -16,7 +16,7 @@ from qutip import *
 #pl.rc('font', family='sans-serif')
 #pl.rc('text', usetex=True)
 
-parallel_tasks = 1024
+parallel_tasks = 256
 n_batch = 64
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
@@ -104,7 +104,7 @@ def finalparams():
     rd = hatt * gamma0*(p-1)/2
     ud = hatt/(hatx**2) * p*R*gamma0/(2*gammar)
     uc = hatt/(hbar*hatx**2) * g*(1 - p*(gr/g)*(gamma0/gammar))
-    sigma = hatt * gamma0*(p+1)/(4*dx**2)
+    sigma = hatt * gamma0*(p+1)/(2*dx**2)
     z = alpha + beta*1j
     print('--- Simulation Parameters ---')
     print('Kc', Kc)
@@ -238,13 +238,13 @@ class model:
         index = 0
         for i in range(1, len(t)):
             if t[i]%1000==0:
-                psi_t_list.append(psi_t[index:i+1])
+                psi_t_list.append(np.conjugate(psi_t[index])*psi_t[index:i+1])
                 n_t_list.append(n_t[index:i+1])
                 index = i
-        g1_t = np.mean(np.array(psi_t_list)*np.conjugate(np.array(psi_t_list)[:, 0]), axis=0)
+        g1_t = np.mean(np.array(psi_t_list), axis=0)
         d1_t = np.mean(np.array(n_t_list), axis=0)
         ######################################################################################
-        n_x = np.abs(np.conjugate(self.psi_x)*self.psi_x)
+        n_x = np.abs(np.conjugate(self.psi_x)*self.psi_x) - 1/(2*dx**2)
         for i in range(N):
             g1_x += np.conjugate(self.psi_x[i, 0]) * self.psi_x[i] / (2*N) + np.conjugate(self.psi_x[0, i]) * self.psi_x[:, i] / (2*N)
             d1_x += n_x[i]/(2*N) + n_x[:, i]/(2*N)
@@ -277,15 +277,14 @@ def g1(i_batch):
 parallel_map(g1, range(n_batch))
 g1_x = ext.ensemble_average_space(r'/scratch/konstantinos/g1_x', N, n_batch)
 g1_t = ext.ensemble_average_time(r'/scratch/konstantinos/g1_t', t, n_batch)
-d1_x = ext.ensemble_average(r'/scratch/konstantinos/d1_x', N, n_batch)
+d1_x = ext.ensemble_average_space(r'/scratch/konstantinos/d1_x', N, n_batch)
 d1_t = ext.ensemble_average_time(r'/scratch/konstantinos/d1_t', t, n_batch)
-g1_x[0] -= 1/(2*dx**2)
-D1_x = np.sqrt(d1_x[0,0]*d1_x)
-D1_t = np.sqrt(d1_t[0,0]*d1_t)
-np.save('/home6/konstantinos/g1_x_p_1pt89.npy', np.abs(g1_x)/D1_x)
-np.save('/home6/konstantinos/g1_t_p_1pt89.npy', np.abs(g1_t)/D1_t)
-np.save('/home6/konstantinos/D1_x_p_1pt89.npy', D1_x)
-np.save('/home6/konstantinos/D1_t_p_1pt89.npy', D1_t)
+D1_x = np.sqrt(d1_x[0]*d1_x)
+D1_t = np.sqrt(d1_t[0]*d1_t)
+np.save('/scratch/konstantinos/g1_x_p_1pt89.npy', np.abs(g1_x))
+np.save('/scratch/konstantinos/g1_t_p_1pt89.npy', np.abs(g1_t))
+np.save('/scratch/konstantinos/D1_x_p_1pt89.npy', D1_x)
+np.save('/scratch/konstantinos/D1_t_p_1pt89.npy', D1_t)
 
 '''
 gpe = model(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sigma, z=z)
