@@ -59,7 +59,7 @@ star_gamma_l0 = (gamma0*hbar)  # μeV
 star_gamma_l2 = (gamma2*hbar) # μeV μm^2 
 star_gamma_r = (gammar*hbar) # μeV
 
-time_steps = 1000000
+time_steps = 60000
 dt = hatt/100
 every = 100
 i1 = 100000
@@ -67,8 +67,8 @@ i2 = time_steps
 lengthwindow = i2-i1
 t = ext.time(dt, time_steps, i1, i2, every)
 
-#np.savetxt('/Users/delis/Desktop/dt_50k_500_400k.dat', t-t[0])
-#np.savetxt('/Users/delis/Desktop/dr_2_7,dat', x[int(N/2):]-x[int(N/2)])
+#np.savetxt('/Users/delis/Desktop/dt.dat', np.arange(1001))
+#np.savetxt('/Users/delis/Desktop/dr_2_7,dat', x-x[0])
 
 p = P*R / (gamma0*gammar)
 nsat = gammar/R
@@ -198,20 +198,22 @@ class model:
     def time_evolution(self, realisation):
         psi_t = np.zeros(len(t), dtype=complex)
         n_t = np.zeros(len(t))
-        g1_x = np.zeros(N, dtype = complex)
-        d1_x = np.zeros(N)
+        g1_x = np.zeros(int(N/2), dtype = complex)
+        d1_x = np.zeros(int(N/2))
         for i in range(time_steps+1):
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
             self.psi_mod_x = ifft2(self.psi_mod_k)
             self.psi_x *= self.prefactor_x(self.psi_x)
-            self.psi_x += np.sqrt(dt) * np.sqrt(self.sigma) * ext.noise((N,N)) / z
-            if i>=i1 and i<=i2 and i%every==0:
-                n = np.abs(self.psi_x * np.conjugate(self.psi_x)) - 1/(2*dx**2)
-                psi_t[(i-i1)//every] = self.psi_x[int(N/2), int(N/2)]
-                n_t[(i-i1)//every] = n[int(N/2), int(N/2)]
-                '''
+            self.psi_x += np.sqrt(dt) * np.sqrt(self.sigma) * ext.noise((N,N)) / self.z
+            '''
+            #if i>=i1 and i<=i2 and i%every==0:
+                #n = np.abs(self.psi_x * np.conjugate(self.psi_x)) - 1/(2*dx**2)
+                #psi_t[(i-i1)//every] = self.psi_x[int(N/2), int(N/2)]
+                #n_t[(i-i1)//every] = n[int(N/2), int(N/2)]
+                
+                # --- Vortices ---
                 count_p = 0
                 count_n = 0
                 theta = np.angle(self.psi_x)
@@ -233,28 +235,30 @@ class model:
                 v[(i-i1)//every] = count_p
                 av[(i-i1)//every] = count_n
                 '''
-        n_t_list = []
-        psi_t_list = []
-        index = 0
-        for i in range(1, len(t)):
-            if t[i]%1000==0:
-                psi_t_list.append(np.conjugate(psi_t[index])*psi_t[index:i+1])
-                n_t_list.append(n_t[index:i+1])
-                index = i
-        g1_t = np.mean(np.array(psi_t_list), axis=0)
-        d1_t = np.mean(np.array(n_t_list), axis=0)
+        #n_t_list = []
+        #psi_t_list = []
+        #index = 0
+        #for i in range(1, len(t)):
+            #if t[i]%1000==0:
+                #psi_t_list.append(np.conjugate(psi_t[index])*psi_t[index:i+1])
+                #n_t_list.append(n_t[index:i+1])
+                #index = i
+        #g1_t = np.mean(np.array(psi_t_list), axis=0)
+        #d1_t = np.mean(np.array(n_t_list), axis=0)
         ######################################################################################
         n_x = np.abs(np.conjugate(self.psi_x)*self.psi_x) - 1/(2*dx**2)
-        for i in range(N):
-            g1_x += np.conjugate(self.psi_x[i, 0]) * self.psi_x[i] / (2*N) + np.conjugate(self.psi_x[0, i]) * self.psi_x[:, i] / (2*N)
-            d1_x += n_x[i]/(2*N) + n_x[:, i]/(2*N)
-        return g1_x, g1_t, d1_x, d1_t
+        g1_x = np.conjugate(self.psi_x[int(N/2), int(N/2)]) * self.psi_x[int(N/2), int(N/2):]
+        d1_x = n_x[int(N/2), int(N/2):]
+        #for i in range(int(N/2)):
+            #g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / (N) + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / (N)
+            #d1_x += n_x[i, int(N/2):]/(N) + n_x[int(N/2):, i]/(N)
+        return g1_x, 0, d1_x, 0
 
 Kc, Kd, rc, rd, uc, ud, sigma, z = finalparams()
 
 def g1(i_batch):
-    g1_x_batch = np.zeros(N, dtype=complex)
-    d1_x_batch = np.zeros(N)
+    g1_x_batch = np.zeros(int(N/2), dtype=complex)
+    d1_x_batch = np.zeros(int(N/2))
     g1_t_batch = np.zeros(int(10*every+1), dtype=complex)
     d1_t_batch = np.zeros(int(10*every+1))
     for i_n in range(n_internal):
@@ -262,29 +266,30 @@ def g1(i_batch):
         g1_x_run, g1_t_run, d1_x_run, d1_t_run = gpe.time_evolution(i_n)
         g1_x_batch += g1_x_run / n_internal
         d1_x_batch += d1_x_run / n_internal
-        g1_t_batch += g1_t_run / n_internal
-        d1_t_batch += d1_t_run / n_internal
+        #g1_t_batch += g1_t_run / n_internal
+        #d1_t_batch += d1_t_run / n_internal
         print('The core', i_batch, 'has completed realisation number', i_n)
     name_g1_x = '/scratch/konstantinos/g1_x'+os.sep+'g1_x'+str(i_batch+1)+'.npy'
     name_d1_x = '/scratch/konstantinos/d1_x'+os.sep+'d1_x'+str(i_batch+1)+'.npy'
-    name_g1_t = '/scratch/konstantinos/g1_t'+os.sep+'g1_t'+str(i_batch+1)+'.npy'
-    name_d1_t = '/scratch/konstantinos/d1_t'+os.sep+'d1_t'+str(i_batch+1)+'.npy'
+    #name_g1_t = '/Users/delis/Desktop/g1_t'+os.sep+'g1_t'+str(i_batch+1)+'.npy'
+    #name_d1_t = '/Users/delis/Desktop/d1_t'+os.sep+'d1_t'+str(i_batch+1)+'.npy'
     np.save(name_g1_x, g1_x_batch)
-    np.save(name_g1_t, g1_t_batch)
     np.save(name_d1_x, d1_x_batch)
-    np.save(name_d1_t, d1_t_batch)
+    #np.save(name_g1_t, g1_t_batch)
+    #np.save(name_d1_t, d1_t_batch)
 
-parallel_map(g1, range(n_batch))
-g1_x = ext.ensemble_average_space(r'/scratch/konstantinos/g1_x', N, n_batch)
-g1_t = ext.ensemble_average_time(r'/scratch/konstantinos/g1_t', t, n_batch)
+#parallel_map(g1, range(n_batch))
+g1_x = ext.ensemble_average_space(r'/scratch/konstantinos/Desktop/g1_x', N, n_batch)
 d1_x = ext.ensemble_average_space(r'/scratch/konstantinos/d1_x', N, n_batch)
-d1_t = ext.ensemble_average_time(r'/scratch/konstantinos/d1_t', t, n_batch)
+#g1_t = ext.ensemble_average_time(r'/Users/delis/Desktop/g1_t', t, n_batch)
+#d1_t = ext.ensemble_average_time(r'/Users/delis/Desktop/d1_t', t, n_batch)
 D1_x = np.sqrt(d1_x[0]*d1_x)
-D1_t = np.sqrt(d1_t[0]*d1_t)
-np.save('/scratch/konstantinos/g1_x_p_1pt89.npy', np.abs(g1_x))
-np.save('/scratch/konstantinos/g1_t_p_1pt89.npy', np.abs(g1_t))
-np.save('/scratch/konstantinos/D1_x_p_1pt89.npy', D1_x)
-np.save('/scratch/konstantinos/D1_t_p_1pt89.npy', D1_t)
+#D1_t = np.sqrt(d1_t[0]*d1_t)
+np.save('/home6/konstantinos/test_g1_x_p_1pt89.npy', np.abs(g1_x))
+#np.save('/Users/delis/Desktop/g1_t_p_1pt89.npy', np.abs(g1_t))
+np.save('/home6/konstantinos/test_D1_x_p_1pt89.npy', D1_x)
+#np.save('/Users/delis/Desktop/D1_t_p_1pt89.npy', D1_t)
+
 
 '''
 gpe = model(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sigma, z=z)

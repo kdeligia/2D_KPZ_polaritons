@@ -40,7 +40,7 @@ def ensemble_average_total(path, t, N, n_batch):
     return avg
 
 def ensemble_average_space(path, N, n_batch):
-    avg = np.zeros(N, dtype=complex)
+    avg = np.zeros(int(N/2), dtype=complex)
     for file in os.listdir(path):
         if '.npy' in file:
             item = np.load(path+os.sep+file)
