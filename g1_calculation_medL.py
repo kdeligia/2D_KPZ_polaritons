@@ -23,7 +23,7 @@ qutip.settings.num_cpus = n_batch
 
 c = 3E2 #μm/ps
 hbar = 6.582119569 * 1E2 # μeV ps
-a = 1 * 1E3 #μeV
+a = 1000 #μeV
 b = 0.1908
 
 N = 2**7
@@ -59,7 +59,7 @@ star_gamma_l0 = (gamma0*hbar)  # μeV
 star_gamma_l2 = (gamma2*hbar) # μeV μm^2 
 star_gamma_r = (gammar*hbar) # μeV
 
-time_steps = 60000
+time_steps = 100000
 dt = hatt/100
 every = 100
 i1 = 100000
@@ -275,16 +275,18 @@ def g1(i_batch):
     #np.save(name_g1_t, g1_t_batch)
     #np.save(name_d1_t, d1_t_batch)
 
+'''
 parallel_map(g1, range(n_batch))
 g1_x = ext.ensemble_average_space(r'/scratch/konstantinos/g1_x_smallg', N, n_batch)
 d1_x = ext.ensemble_average_space(r'/scratch/konstantinos/d1_x_smallg', N, n_batch)
+D1_x = np.sqrt(d1_x[0]*d1_x)
+np.save('/home6/konstantinos/g1_x_p_1pt89_smallg.npy', np.abs(g1_x))
+np.save('/home6/konstantinos/D1_x_p_1pt89_smallg.npy', D1_x)
+'''
 #g1_t = ext.ensemble_average_time(r'/scratch/konstantinos/g1_t', t, n_batch)
 #d1_t = ext.ensemble_average_time(r'/scratch/konstantinos/d1_t', t, n_batch)
-D1_x = np.sqrt(d1_x[0]*d1_x)
 #D1_t = np.sqrt(d1_t[0]*d1_t)
-np.save('/home6/konstantinos/g1_x_p_1pt89_smallg.npy', np.abs(g1_x))
 #np.save('/home6/konstantinos/g1_t_p_1pt89_smallg.npy', np.abs(g1_t))
-np.save('/home6/konstantinos/D1_x_p_1pt89_smallg.npy', D1_x)
 #np.save('/Users/delis/Desktop/D1_t_p_1pt89_smallg.npy', D1_t)
 
 

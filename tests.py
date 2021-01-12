@@ -18,10 +18,15 @@ pl.rc('text', usetex=True)
 
 dr = np.loadtxt('/Users/delis/Desktop/data/dr_2_7.dat')
 dt = np.loadtxt('/Users/delis/Desktop/data/dt.dat')
-testD1 = np.load('/Users/delis/Desktop/test_D1_x_p_1pt89_smallg.npy')
-testg1 = np.load('/Users/delis/Desktop/test_g1_x_p_1pt89_smallg.npy')
-testD1_ = np.load('/Users/delis/Desktop/test_D1_x_p_1pt89_largeg.npy')
-testg1_ = np.load('/Users/delis/Desktop/test_g1_x_p_1pt89_largeg.npy')
+g1_500_0_1908 = np.load('/Users/delis/Desktop/g1_x_500_0_1908.npy')
+D1_500_0_1908 = np.load('/Users/delis/Desktop/D1_x_500_0_1908.npy')
+g1_1000_1_908 = np.load('/Users/delis/Desktop/g1_x_1000_1_908.npy')
+D1_1000_1_908 = np.load('/Users/delis/Desktop/D1_x_1000_1_908.npy')
+g1_1000_1_908 = np.load('/Users/delis/Desktop/g1_x_1000_0_1908.npy')
+D1_1000_1_908 = np.load('/Users/delis/Desktop/D1_x_1000_0_1908.npy')
+
+pl.loglog(dr, np.abs(g1_500_0_1908)/D1_500_0_1908)
+
 
 '''
 g1_x = np.load('/Users/delis/Desktop/data/g1_x_p_1pt89.npy')
