@@ -18,11 +18,11 @@ pl.rc('text', usetex=True)
 
 dr = np.loadtxt('/Users/delis/Desktop/data/dr_2_7.dat')
 dt = np.loadtxt('/Users/delis/Desktop/data/dt.dat')
-testD1 = np.load('/Users/delis/Desktop/test_D1_x_p_1pt89.npy')
-testg1 = np.load('/Users/delis/Desktop/test_g1_x_p_1pt89.npy')
+testD1 = np.load('/Users/delis/Desktop/test_D1_x_p_1pt89_smallg.npy')
+testg1 = np.load('/Users/delis/Desktop/test_g1_x_p_1pt89_smallg.npy')
+testD1_ = np.load('/Users/delis/Desktop/test_D1_x_p_1pt89_largeg.npy')
+testg1_ = np.load('/Users/delis/Desktop/test_g1_x_p_1pt89_largeg.npy')
 
-pl.loglog(-2*np.log(testg1/testD1))
-#pl.loglog(dr[20:30], 0.001*dr[20:30]**[0.8])
 '''
 g1_x = np.load('/Users/delis/Desktop/data/g1_x_p_1pt89.npy')
 g1_t = np.load('/Users/delis/Desktop/data/g1_t_p_1pt89.npy')
