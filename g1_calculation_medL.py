@@ -16,18 +16,18 @@ from qutip import *
 #pl.rc('font', family='sans-serif')
 #pl.rc('text', usetex=True)
 
-parallel_tasks = 256
+parallel_tasks = 128
 n_batch = 64
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
 c = 3E2 #μm/ps
 hbar = 6.582119569 * 1E2 # μeV ps
-a = 1000 #μeV
-b = 0.1908
+a = 2000 #μeV
+b = 1.9
 
-N = 2**7
-L = 2**7
+N = 2**8
+L = 2**8
 hatt = 1 #ps
 hatx = 1 #μm
 hatpsi = 1/hatx #μm^-1
@@ -59,10 +59,10 @@ star_gamma_l0 = (gamma0*hbar)  # μeV
 star_gamma_l2 = (gamma2*hbar) # μeV μm^2 
 star_gamma_r = (gammar*hbar) # μeV
 
-time_steps = 100000
+time_steps = 50000
 dt = hatt/100
 every = 100
-i1 = 100000
+i1 = 10000
 i2 = time_steps
 lengthwindow = i2-i1
 t = ext.time(dt, time_steps, i1, i2, every)
@@ -212,10 +212,9 @@ class model:
                 #n = np.abs(self.psi_x * np.conjugate(self.psi_x)) - 1/(2*dx**2)
                 #psi_t[(i-i1)//every] = self.psi_x[int(N/2), int(N/2)]
                 #n_t[(i-i1)//every] = n[int(N/2), int(N/2)]
-                
                 # --- Vortices ---
-                count_p = 0
-                count_n = 0
+                count_pos = 0
+                count_neg = 0
                 theta = np.angle(self.psi_x)
                 grad = np.gradient(theta, dx)
                 for k in range(1, N-1):
@@ -249,7 +248,7 @@ class model:
         n_x = np.abs(np.conjugate(self.psi_x)*self.psi_x) - 1/(2*dx**2)
         g1_x = np.mean((np.conjugate(self.psi_x[0]) * self.psi_x).T + np.conjugate(self.psi_x[:, 0]) * self.psi_x, axis=0) / 2
         d1_x = np.mean(n_x.T + n_x, axis=0) / 2
-        return g1_x, 0, d1_x, 0
+        return g1_x, 0, d1_x, 0, n_t, n_sum
 
 Kc, Kd, rc, rd, uc, ud, sigma, z = finalparams()
 
@@ -266,8 +265,8 @@ def g1(i_batch):
         #g1_t_batch += g1_t_run / n_internal
         #d1_t_batch += d1_t_run / n_internal
         print('The core', i_batch, 'has completed realisation number', i_n)
-    name_g1_x = '/scratch/konstantinos/g1_x_smallg'+os.sep+'g1_x'+str(i_batch+1)+'.npy'
-    name_d1_x = '/scratch/konstantinos/d1_x_smallg'+os.sep+'d1_x'+str(i_batch+1)+'.npy'
+    name_g1_x = '/scratch/konstantinos/g1_x_28'+os.sep+'g1_x'+str(i_batch+1)+'.npy'
+    name_d1_x = '/scratch/konstantinos/d1_x_28'+os.sep+'d1_x'+str(i_batch+1)+'.npy'
     #name_g1_t = '/scratch/konstantinos/g1_t'+os.sep+'g1_t'+str(i_batch+1)+'.npy'
     #name_d1_t = '/scratch/konstantinos/d1_t'+os.sep+'d1_t'+str(i_batch+1)+'.npy'
     np.save(name_g1_x, g1_x_batch)
@@ -275,41 +274,33 @@ def g1(i_batch):
     #np.save(name_g1_t, g1_t_batch)
     #np.save(name_d1_t, d1_t_batch)
 
-'''
 parallel_map(g1, range(n_batch))
-g1_x = ext.ensemble_average_space(r'/scratch/konstantinos/g1_x_smallg', N, n_batch)
-d1_x = ext.ensemble_average_space(r'/scratch/konstantinos/d1_x_smallg', N, n_batch)
+g1_x = ext.ensemble_average_space(r'/scratch/konstantinos/g1_x_28', N, n_batch)
+d1_x = ext.ensemble_average_space(r'/scratch/konstantinos/d1_x_28', N, n_batch)
 D1_x = np.sqrt(d1_x[0]*d1_x)
-np.save('/home6/konstantinos/g1_x_p_1pt89_smallg.npy', np.abs(g1_x))
-np.save('/home6/konstantinos/D1_x_p_1pt89_smallg.npy', D1_x)
+np.save('/home6/konstantinos/g1_x_28.npy', np.abs(g1_x))
+np.save('/home6/konstantinos/D1_x_28.npy', D1_x)
+
 '''
 #g1_t = ext.ensemble_average_time(r'/scratch/konstantinos/g1_t', t, n_batch)
 #d1_t = ext.ensemble_average_time(r'/scratch/konstantinos/d1_t', t, n_batch)
 #D1_t = np.sqrt(d1_t[0]*d1_t)
 #np.save('/home6/konstantinos/g1_t_p_1pt89_smallg.npy', np.abs(g1_t))
 #np.save('/Users/delis/Desktop/D1_t_p_1pt89_smallg.npy', D1_t)
-
+'''
 
 '''
 gpe = model(Kc=Kc, Kd=Kd, Kc2=0, rc=rc, rd=rd, uc=uc, ud=ud, sigma=sigma, z=z)
-cor_psi, d2, d1, fuckoff, n00, v, av = gpe.time_evolution(0)
-fig,ax = pl.subplots(1,2, figsize=(14,6))
-ax[0].plot(t, fuckoff, label=r'$\overline{n}$')
-ax[0].plot(t, n00, label=r'$n(L/2, L/2)$')
-ax[0].tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
-ax[0].hlines(y=nsat*(p-1)/p, xmin=t[0], xmax=t[-1], color='r', label=r'$n_0$')
-ax[0].legend(prop=dict(size=20))
-ax[0].set_xlabel(r'$t$', fontsize=22)
-ax[0].set_ylabel(r'$n$', fontsize=22)
-ax[1].semilogy(t, v, 'go', label=r'V number')
-ax[1].semilogy(t, av, 'ro', label=r'AV number')
-ax[1].tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
-ax[1].legend(prop=dict(size=20))
-ax[1].set_xlabel(r'$t$', fontsize=22)
-ax[1].set_ylabel(r'$Number of vortices$', fontsize=22)
-'''
+g1_x_run, g1_t_run, d1_x_run, d1_t_run, n0, n_sum = gpe.time_evolution(0)
+fig,ax = pl.subplots(1,1, figsize=(14,6))
+ax.plot(t, n0, label=r'$\overline{n}$')
+ax.plot(t, n_sum, label=r'$n(L/2, L/2)$')
+ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
+ax.hlines(y=nsat*(p-1)/p, xmin=t[0], xmax=t[-1], color='r', label=r'$n_0$')
+ax.legend(prop=dict(size=20))
+ax.set_xlabel(r'$t$', fontsize=22)
+ax.set_ylabel(r'$n$', fontsize=22)
 
-'''
 im_plus, im_minus, re_plus, re_minus = bogoliubov(Kc, Kd, rc, rd, uc, ud, z, kx)
 pl.plot(kx, im_plus, 'o', label=r'Imaginary plus')
 pl.plot(kx, im_minus, '^', label=r'Imaginary minus')

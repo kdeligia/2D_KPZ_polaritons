@@ -16,15 +16,15 @@ from qutip import *
 #pl.rc('font', family='sans-serif')
 #pl.rc('text', usetex=True)
 
-parallel_tasks = 256
-n_batch = 32
+parallel_tasks = 128
+n_batch = 64
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
 c = 3E2 #μm/ps
 hbar = 6.582119569 * 1E2 # μeV ps
-a = 1 * 1E3 #μeV
-b = 1.908
+a = 2000 #μeV
+b = 1.9
 
 N = 2**7
 L = 2**7
@@ -59,10 +59,10 @@ star_gamma_l0 = (gamma0*hbar)  # μeV
 star_gamma_l2 = (gamma2*hbar) # μeV μm^2 
 star_gamma_r = (gammar*hbar) # μeV
 
-time_steps = 100000
+time_steps = 50000
 dt = hatt/100
 every = 100
-i1 = 100000
+i1 = 10000
 i2 = time_steps
 lengthwindow = i2-i1
 t = ext.time(dt, time_steps, i1, i2, every)
@@ -212,7 +212,6 @@ class model:
                 #n = np.abs(self.psi_x * np.conjugate(self.psi_x)) - 1/(2*dx**2)
                 #psi_t[(i-i1)//every] = self.psi_x[int(N/2), int(N/2)]
                 #n_t[(i-i1)//every] = n[int(N/2), int(N/2)]
-                
                 # --- Vortices ---
                 count_p = 0
                 count_n = 0
@@ -266,8 +265,8 @@ def g1(i_batch):
         #g1_t_batch += g1_t_run / n_internal
         #d1_t_batch += d1_t_run / n_internal
         print('The core', i_batch, 'has completed realisation number', i_n)
-    name_g1_x = '/scratch/konstantinos/g1_x_largeg'+os.sep+'g1_x'+str(i_batch+1)+'.npy'
-    name_d1_x = '/scratch/konstantinos/d1_x_largeg'+os.sep+'d1_x'+str(i_batch+1)+'.npy'
+    name_g1_x = '/scratch/konstantinos/g1_x_27'+os.sep+'g1_x'+str(i_batch+1)+'.npy'
+    name_d1_x = '/scratch/konstantinos/d1_x_27'+os.sep+'d1_x'+str(i_batch+1)+'.npy'
     #name_g1_t = '/scratch/konstantinos/g1_t'+os.sep+'g1_t'+str(i_batch+1)+'.npy'
     #name_d1_t = '/scratch/konstantinos/d1_t'+os.sep+'d1_t'+str(i_batch+1)+'.npy'
     np.save(name_g1_x, g1_x_batch)
@@ -276,14 +275,14 @@ def g1(i_batch):
     #np.save(name_d1_t, d1_t_batch)
 
 #parallel_map(g1, range(n_batch))
-g1_x = ext.ensemble_average_space(r'/scratch/konstantinos/g1_x_largeg', N, n_batch)
-d1_x = ext.ensemble_average_space(r'/scratch/konstantinos/d1_x_largeg', N, n_batch)
+g1_x = ext.ensemble_average_space(r'/scratch/konstantinos/g1_x_27', N, n_batch)
+d1_x = ext.ensemble_average_space(r'/scratch/konstantinos/d1_x_27', N, n_batch)
 #g1_t = ext.ensemble_average_time(r'/scratch/konstantinos/g1_t', t, n_batch)
 #d1_t = ext.ensemble_average_time(r'/scratch/konstantinos/d1_t', t, n_batch)
 D1_x = np.sqrt(d1_x[0]*d1_x)
 #D1_t = np.sqrt(d1_t[0]*d1_t)
-np.save('/home6/konstantinos/g1_x_p_1pt89_largeg.npy', np.abs(g1_x))
-np.save('/home6/konstantinos/D1_x_p_1pt89_largeg.npy', D1_x)
+np.save('/home6/konstantinos/g1_x_27.npy', np.abs(g1_x))
+np.save('/home6/konstantinos/D1_x_27.npy', D1_x)
 #np.save('/Users/delis/Desktop/g1_t_p_1pt89_smallg.npy', np.abs(g1_t))
 #np.save('/Users/delis/Desktop/D1_t_p_1pt89_smallg.npy', D1_t)
 
