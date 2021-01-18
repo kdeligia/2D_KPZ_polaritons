@@ -12,7 +12,7 @@ import numpy as np
 def noise(shape):
     np.random.seed()
     mu = 0
-    sigma = 1  #standard deviation of the gaussians, so the variance of the complex number is 2*sigma^2
+    sigma = 1  #standard deviation of the real gaussians, so the variance of the complex number is 2*sigma^2
     re = np.random.normal(mu, sigma, shape)
     im = np.random.normal(mu, sigma, shape)
     xi = re + 1j * im

@@ -19,11 +19,11 @@ class GrossPitaevskii:
     def __init__(self, psi_x=0):
         self.X, self.Y= np.meshgrid(x,x)
         self.KX, self.KY = np.meshgrid(kx, kx)
-        self.n_s =1 
+        self.n_s = 1 
         self.L = L
         self.N = N
         self.psi_x = psi_x
-        self.psi_x = np.ones((N, N))
+        self.psi_x = np.full((N, N), 10)
         self.psi_mod_k = fft2(self.psi_mod_x)
         '''
         self.initcond = np.full((N,N),np.sqrt(self.n_s))
@@ -83,16 +83,24 @@ class GrossPitaevskii:
 # Definition of the split steps
 # =============================================================================
     def prefactor_x(self, wave_fn):
-        return np.exp(-1j*(dt/2)*(g*wave_fn*np.conjugate(wave_fn) + 1j*(P/(1+wave_fn*np.conjugate(wave_fn)/self.n_s)-gamma)))
+        n_red = wave_fn * np.conjugate(wave_fn)
+        self.rc = 0
+        self.rd = (P - gamma)
+        self.ud = P/(self.n_s)
+        self.uc = g
+        self.z = 1
+        return np.exp(-1j*0.5*dt*((self.rc + 1j*self.rd) + (self.uc - 1j*self.ud)*n_red)/self.z)
 
     def prefactor_k(self):
-        return np.exp(-1j*dt*((self.KX**2 + self.KY ** 2) * (1/2*m)))
+        self.Kc = 1/(2*m)
+        return np.exp(-1j*dt*((self.KX**2 + self.KY ** 2) * self.Kc))
 
 # =============================================================================
 # Time evolution and Phase unwinding
 # =============================================================================
     def time_evolution(self, realisation):
-        sample= np.zeros(int(N/2), dtype=complex)
+        n = np.zeros(len(t))
+        n0 = np.zeros(len(t))
         for i in range(N_steps+1):
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_mod_k = fft2(self.psi_mod_x)
@@ -100,27 +108,30 @@ class GrossPitaevskii:
             self.psi_mod_x = ifft2(self.psi_mod_k)
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_x += np.sqrt(sigma/dx**2) * np.sqrt(dt) * ext.noise((N, N))
-            if i>=i1 and i<=i2 and i%secondarystep==0:
-                sample[(i-i1)//secondarystep] = self.psi_x[1,1]
-        return sample
+        return self.psi_x[int(N/2), int(N/2):]
 
 # =============================================================================
 # Input
 # =============================================================================
-dt=0.005
+dt=1E-3
 g = 0
 m = 1
 P = 20
 gamma = P/2
 sigma = 0.01
 
-N = 2**8
-L = 2**8
+N = 2**6
+L = 2**6
 
 dx = 0.5
 dy = 0.5
 dkx = 2 * np.pi / (N * dx)
 dky = 2 * np.pi / (N * dy)
+
+print('uc', g)
+print('ud', P)
+print('rd', P-gamma)
+print('σ', sigma/dx**2)
 
 def arrays():
     x_0 = - N * dx / 2
@@ -131,15 +142,27 @@ def arrays():
 
 x, kx =  arrays()
 X,Y = np.meshgrid(x, x)
-N_steps = 1000000
+N_steps = 100000
 
-secondarystep = 1000
-i1 = 100000
+secondarystep = 100
+i1 = 0
 i2 = N_steps
 lengthwindow = i2-i1
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
 
-n_tasks = 200
+'''
+GP = GrossPitaevskii()
+n, n0 = GP.time_evolution(0)
+pl.plot(t, n)
+pl.plot(t, n0)
+pl.axhline(y=(P-gamma)/(P/1), xmin=t[0], xmax=t[-1], c='r')
+pl.axhline(y=(P/gamma-1), xmin=t[0], xmax=t[-1], c='b')
+pl.xlim(20,100)
+pl.ylim(0,2)
+pl.show()
+'''
+
+n_tasks = 100
 n_batch = 50
 n_internal = n_tasks//n_batch
 
@@ -151,29 +174,20 @@ def g1(i_batch):
         GP = GrossPitaevskii()
         sample = GP.time_evolution(i_n)
         correlator_batch += np.conjugate(sample[0])*sample/n_internal
-    name_full1 = '/scratch/konstantinos/correlator'+os.sep+'n_batch'+str(i_batch+1)+'.dat'
+    name_full1 = '/scratch/konstantinos/test'+os.sep+'n_batch'+str(i_batch+1)+'.dat'
     np.savetxt(name_full1, correlator_batch, fmt='%.5f')
 
 qutip.settings.num_cpus = n_batch
 parallel_map(g1, range(n_batch))
 
-path1 = r"/scratch/konstantinos/correlator"
-
+path1 = r"/scratch/konstantinos/test"
 def ensemble_average(path):
-    avg = np.zeros(len(t), dtype=complex)
+    avg = np.zeros(int(N/2), dtype=complex)
     for file in os.listdir(path):
         if '.dat' in file:
             numerator = np.loadtxt(path+os.sep+file, dtype=np.complex_)
             avg += numerator / n_batch
     return avg
 
-ns=1
-numerator = ensemble_average(path1)
-result = np.abs(numerator)/ns
-np.savetxt('/home6/konstantinos/g_dt.dat', result)
-
-'''
-test = np.loadtxt('/Users/delis/Desktop/g_dt.dat')
-dt = t - t[0]
-pl.loglog(dt, test)
-'''
+c = ensemble_average(path1)
+np.save('/home6/konstantinos/test.npy', np.abs(c)/(1/2))
