@@ -84,12 +84,7 @@ class GrossPitaevskii:
 # =============================================================================
     def prefactor_x(self, wave_fn):
         n_red = wave_fn * np.conjugate(wave_fn)
-        self.rc = 0
-        self.rd = (P - gamma)
-        self.ud = P/(self.n_s)
-        self.uc = g
-        self.z = 1
-        return np.exp(-1j*0.5*dt*((self.rc + 1j*self.rd) + (self.uc - 1j*self.ud)*n_red)/self.z)
+        return np.exp(-1j*0.5*dt*((g*n_red + 1j*(P/(1+n_red/self.n_s)-gamma))))
 
     def prefactor_k(self):
         self.Kc = 1/(2*m)
@@ -108,7 +103,12 @@ class GrossPitaevskii:
             self.psi_mod_x = ifft2(self.psi_mod_k)
             self.psi_x *= self.prefactor_x(self.psi_x)
             self.psi_x += np.sqrt(sigma/dx**2) * np.sqrt(dt) * ext.noise((N, N))
-        return self.psi_x[int(N/2), int(N/2):]
+            if i>=i1 and i<=i2 and i%secondarystep==0:
+                print(i)
+                dens = np.abs(np.conjugate(self.psi_x)*self.psi_x)
+                n[(i-i1)//secondarystep] = np.mean(dens)
+                n0[(i-i1)//secondarystep] = dens[int(N/2), int(N/2)]
+        return self.psi_x[int(N/2), int(N/2):], n, n0
 
 # =============================================================================
 # Input
@@ -149,10 +149,9 @@ i1 = 0
 i2 = N_steps
 lengthwindow = i2-i1
 t = ext.time(dt, N_steps, i1, i2, secondarystep)
-
 '''
 GP = GrossPitaevskii()
-n, n0 = GP.time_evolution(0)
+lil, n, n0 = GP.time_evolution(0)
 pl.plot(t, n)
 pl.plot(t, n0)
 pl.axhline(y=(P-gamma)/(P/1), xmin=t[0], xmax=t[-1], c='r')
@@ -160,8 +159,10 @@ pl.axhline(y=(P/gamma-1), xmin=t[0], xmax=t[-1], c='b')
 pl.xlim(20,100)
 pl.ylim(0,2)
 pl.show()
+pl.loglog(x[int(N/2):]-x[int(N/2)], np.abs(np.conjugate(lil[0])*lil))
+pl.show()
 '''
-
+'''
 n_tasks = 100
 n_batch = 50
 n_internal = n_tasks//n_batch
@@ -191,3 +192,7 @@ def ensemble_average(path):
 
 c = ensemble_average(path1)
 np.save('/home6/konstantinos/test.npy', np.abs(c)/(1/2))
+'''
+
+test = np.load('/Users/delis/Desktop/test.npy')
+pl.loglog(x[int(N/2):]-x[int(N/2)], test)
