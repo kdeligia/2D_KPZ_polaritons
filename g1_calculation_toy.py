@@ -13,7 +13,6 @@ import os
 from scipy.fftpack import fft2, ifft2
 import numpy as np
 import external as ext
-import warnings
 from qutip import *
 import matplotlib.pyplot as pl
 pl.rc('font', family='sans-serif')
@@ -35,15 +34,15 @@ gamma0 = 0.19 #ps^-1
 gammar = 0.015 #ps^-1
 gamma2 = 100/hbar #μm^2 ps^-1
 
-P = 2.6e2
-R = 2e-5
+P = 1.026e2
+R = 5e-5
 
 p = P*R / (gamma0*gammar)
 ns = gammar/R
 n0 = ns*(p-1)
 nres = P/(gammar+R*n0)
-gr = 0
-g = 0.0001
+gr = 0.025
+g = 4.5
 
 def arrays():
     x_0 = - N * dx / 2
@@ -65,8 +64,8 @@ star_gamma_l0 = (gamma0*hbar)  # μeV
 star_gamma_l2 = (gamma2*hbar) # μeV μm^2 
 star_gamma_r = (gammar*hbar) # μeV
 
-time_steps = 20000
-dt = 1e-2 * hatt
+time_steps = 100000
+dt = 4e-2 * hatt
 every = 100
 i1 = 0
 i2 = time_steps
@@ -93,6 +92,7 @@ print('Polariton-polariton in μev μm^2 %.4f' % g)
 print('--- Densities ---')
 print('Saturation in μm^-2 %.2f' % (gammar/R))
 print('Steady-state in μm^-2 %.2f' % n0)
+print('Reservoir in μm^-2 %.2f' % (nres))
 print('--- Dimensionless pump ---')
 print('p %.4f' % p)
 
@@ -150,7 +150,6 @@ class model:
         #self.ud = ud
         #self.sigma = sigma
         #self.z = z
-        
         #self.psi_x = psi_x
         #self.psi_x = np.full((N, N), 2)
         #self.psi_x /= hatpsi
@@ -233,11 +232,8 @@ class model:
         return np.array(list_v), np.array(list_av), v_pos, av_pos
 
     def time_evolution(self, realisation):
-        #psi_t = np.zeros(len(t), dtype=complex)
         g1_x = np.zeros(int(N/2), dtype = complex)
         d1_x = np.zeros(int(N/2))
-        #n_t = np.zeros(len(t))
-        #n_sum = np.zeros(len(t))
         for i in range(time_steps+1):
             self.psi_x *= self.prefactor_x()
             self.psi_mod_k = fft2(self.psi_mod_x)
@@ -245,29 +241,11 @@ class model:
             self.psi_mod_x = ifft2(self.psi_mod_k)
             self.psi_x *= self.prefactor_x()
             self.psi_x += np.sqrt(dt) * np.sqrt(self.sigma) * ext.noise((N,N))
-            #if i>=i1 and i<=i2 and i%every==0:
-                #print(i)
-                #psi_t[(i-i1)//every] = self.psi_x[int(N/2), int(N/2)]
-                #n_t[(i-i1)//every] = self.n()[int(N/2), int(N/2)]
-                #n_sum[(i-i1)//every] = np.mean(self.n())
-        '''
-        n_t_list = []
-        psi_t_list = []
-        index = 0
-        for i in range(1, len(t)):
-            if t[i]%1000==0:
-                psi_t_list.append(np.conjugate(psi_t[index])*psi_t[index:i+1])
-                n_t_list.append(n_t[index:i+1])
-                index = i
-        g1_t = np.mean(np.array(psi_t_list), axis=0)
-        d1_t = np.mean(np.array(n_t_list), axis=0)
-        '''
-        ######################################################################################
         for i in range(0, N, int(N/8)):
             g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 8 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 8
             d1_x += self.n()[i, int(N/2):] / 8 + self.n()[int(N/2):, i] / 8
         g1_x[0] -= 1/(2*dx**2)
-        return g1_x, d1_x, #n_t, n_sum, 
+        return g1_x, d1_x 
 
 '''
 Kc, Kd, rc, rd, uc, ud, sigma, z = finalparams()
@@ -283,62 +261,27 @@ print('z', z)
 '''
 
 def g1(i_batch):
-    g1_x_batch = np.zeros(N, dtype=complex)
-    d1_x_batch = np.zeros(N)
-    #g1_t_batch = np.zeros(int(10*every+1), dtype=complex)
-    #d1_t_batch = np.zeros(int(10*every+1))
+    g1_x_batch = np.zeros(int(N/2), dtype=complex)
+    d1_x_batch = np.zeros(int(N/2))
     for i_n in range(n_internal):
         gpe = model()
-        g1_x, d1_x, g2_x, d2_x, g3_x, d3_x, g4_x, d4_x = gpe.time_evolution(i_n)
+        g1_x, d1_x = gpe.time_evolution(i_n)
         g1_x_batch += g1_x / n_internal
         d1_x_batch += d1_x / n_internal
-        #g1_t_batch += g1_t_run / n_internal
-        #d1_t_batch += d1_t_run / n_internal
         print('The core', i_batch, 'has completed realisation number', i_n)
-    name_g1_x = '/scratch/konstantinos/g1_x'+os.sep+'g1_x'+str(i_batch+1)+'.npy'
-    name_d1_x = '/scratch/konstantinos/d1_x'+os.sep+'d1_x'+str(i_batch+1)+'.npy'
-    #name_g1_t = '/scratch/konstantinos/g1_t'+os.sep+'g1_t'+str(i_batch+1)+'.npy'
-    #name_d1_t = '/scratch/konstantinos/d1_t'+os.sep+'d1_t'+str(i_batch+1)+'.npy'
+    name_g1_x = '/scratch/konstantinos/g1_x'+os.sep+'g'+str(g)+'gr'+str(gr)+os.sep+'g1_x'+str(i_batch+1)+'.npy'
+    name_d1_x = '/scratch/konstantinos/d1_x'+os.sep+'g'+str(g)+'gr'+str(gr)+os.sep+'d1_x'+str(i_batch+1)+'.npy'
     np.save(name_g1_x, g1_x_batch)
     np.save(name_d1_x, d1_x_batch)
 
 parallel_map(g1, range(n_batch))
-g1_x = ext.ensemble_average_space(r'/scratch/konstantinos/g1_x', int(N/2), n_batch)
-d1_x = ext.ensemble_average_space(r'/scratch/konstantinos/d1_x', int(N/2), n_batch)
+g1_x = ext.ensemble_average_space(r'/scratch/konstantinos/g1_x'+os.sep+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
+d1_x = ext.ensemble_average_space(r'/scratch/konstantinos/d1_x'+os.sep+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
 D1_x = np.sqrt(d1_x[0]*d1_x)
-np.save('/home6/konstantinos/g1_x_g0_gr0.npy', np.abs(g1_x))
+np.savetxt('/home6/konstantinos'+os.sep+'g'+str(g)+'gr'+str(gr)+'.dat', (np.abs(g1_x)/D1_x).real)
 
 #g1_t = ext.ensemble_average_time(r'/scratch/konstantinos/g1_t', t, n_batch)
 #d1_t = ext.ensemble_average_time(r'/scratch/konstantinos/d1_t', t, n_batch)
 #D1_t = np.sqrt(d1_t[0]*d1_t)
 #np.save('/Users/delis/Desktop/g1_t_p_1pt89_smallg.npy', np.abs(g1_t))
 #np.save('/Users/delis/Desktop/D1_t_p_1pt89_smallg.npy', D1_t)
-
-'''
-im_plus, im_minus = bogoliubov()
-pl.plot(kx, im_plus, 'o', label=r'Imaginary plus')
-pl.plot(kx, im_minus, '^', label=r'Imaginary minus')
-pl.axhline(y=0, xmin=kx[0], xmax=kx[-1], linestyle='--', color='black')
-pl.xlim(0, kx[-1])
-pl.legend()
-pl.show()
-
-gpe = model()
-g1_x, d1_x, g2_x, d2_x, g3_x, d3_x, g4_x, d4_x, n0, n_sum = gpe.time_evolution(0)
-fig,ax = pl.subplots(1,1, figsize=(14,6))
-ax.semilogx(t, n_sum, label=r'$\overline{n}$')
-ax.semilogx(t, n0, label=r'$n(L/2, L/2)$')
-ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
-ax.hlines(y=ns*(p-1), xmin=t[0], xmax=t[-1], color='r', label=r'$n_0$')
-ax.legend(prop=dict(size=20))
-ax.set_xlabel(r'$t$', fontsize=22)
-ax.set_ylabel(r'$n$', fontsize=22)
-pl.show()
-
-pl.loglog(x[int(N/2):]-x[int(N/2)], np.abs(g1_x)/np.sqrt(d1_x[0]*d1_x), label='2')
-pl.loglog(x[int(N/2):]-x[int(N/2)], np.abs(g2_x)/np.sqrt(d2_x[0]*d2_x), label='8')
-pl.loglog(x[int(N/2):]-x[int(N/2)], np.abs(g3_x)/np.sqrt(d3_x[0]*d3_x), label='16')
-pl.loglog(x[int(N/2):]-x[int(N/2)], np.abs(g4_x)/np.sqrt(d4_x[0]*d4_x), label='32')
-pl.legend()
-pl.show()
-'''
