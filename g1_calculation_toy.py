@@ -14,12 +14,9 @@ from scipy.fftpack import fft2, ifft2
 import numpy as np
 import external as ext
 from qutip import *
-import matplotlib.pyplot as pl
-pl.rc('font', family='sans-serif')
-pl.rc('text', usetex=True)
 
-parallel_tasks = 256
-n_batch = 128
+parallel_tasks = 100
+n_batch = 100
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
@@ -64,7 +61,7 @@ star_gamma_l0 = (gamma0*hbar)  # μeV
 star_gamma_l2 = (gamma2*hbar) # μeV μm^2 
 star_gamma_r = (gammar*hbar) # μeV
 
-time_steps = 100000
+time_steps = 1
 dt = 4e-2 * hatt
 every = 100
 i1 = 0
@@ -183,6 +180,14 @@ class model:
 # =============================================================================
 # Definition of the split steps
 # =============================================================================
+    def noise(self, shape):
+        mu = 0
+        sigma = 1  #standard deviation of the real gaussians, so the variance of the complex number is 2*sigma^2
+        re = np.random.normal(mu, sigma, shape)
+        im = np.random.normal(mu, sigma, shape)
+        xi = re + 1j * im
+        return xi
+
     def n(self):
         return np.abs(self.psi_x * np.conjugate(self.psi_x)) - 1/(2*dx**2)
 
@@ -203,44 +208,17 @@ class model:
 # =============================================================================
 # Time evolution
 # =============================================================================
-    def vortex_count(self):
-        count_v = 0
-        count_av = 0
-        theta = np.angle(self.psi_x)
-        grad = np.gradient(theta, dx)
-        v_pos = np.zeros((N, N))
-        av_pos = np.zeros((N, N))
-        list_v = []
-        list_av = []
-        count_v = 0
-        count_av = 0
-        for i in range(1, N-1):
-            for j in range(1, N-1):
-                loop = (2*dx*(grad[0][i+1, j+1] - grad[1][i+1, j+1]) +
-                        2*dx*(grad[0][i+1, j-1] + grad[1][i+1, j-1]) +
-                        2*dx*(grad[0][i-1, j-1] - grad[1][i-1, j-1]) -
-                        2*dx*(grad[0][i-1, j+1] + grad[i-1, j+1]) +
-                        2*dx*(grad[0][i+1, j] + grad[1][i. j-1] - grad[0][i-1, j] - grad[1][i, j+1]))
-                if loop >= 2 * np.pi:
-                    count_v += 1
-                elif loop <= -2 * np.pi:
-                    count_av +=1
-                v_pos[i,j] = 1
-                av_pos[i, j] = 1
-        list_v.append(count_v)
-        list_av.append(count_av)
-        return np.array(list_v), np.array(list_av), v_pos, av_pos
-
     def time_evolution(self, realisation):
         g1_x = np.zeros(int(N/2), dtype = complex)
         d1_x = np.zeros(int(N/2))
+        np.random.seed(realisation)
         for i in range(time_steps+1):
             self.psi_x *= self.prefactor_x()
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
             self.psi_mod_x = ifft2(self.psi_mod_k)
             self.psi_x *= self.prefactor_x()
-            self.psi_x += np.sqrt(dt) * np.sqrt(self.sigma) * ext.noise((N,N))
+            self.psi_x += np.sqrt(dt) * np.sqrt(self.sigma) * self.noise((N,N))
         for i in range(0, N, int(N/8)):
             g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 8 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 8
             d1_x += self.n()[i, int(N/2):] / 8 + self.n()[int(N/2):, i] / 8
@@ -260,6 +238,7 @@ print('σ', sigma)
 print('z', z)
 '''
 
+import matplotlib.pyplot as pl
 def g1(i_batch):
     g1_x_batch = np.zeros(int(N/2), dtype=complex)
     d1_x_batch = np.zeros(int(N/2))
@@ -269,19 +248,21 @@ def g1(i_batch):
         g1_x_batch += g1_x / n_internal
         d1_x_batch += d1_x / n_internal
         print('The core', i_batch, 'has completed realisation number', i_n)
-    name_g1_x = '/scratch/konstantinos/g1_x'+os.sep+'g'+str(g)+'gr'+str(gr)+os.sep+'g1_x'+str(i_batch+1)+'.npy'
-    name_d1_x = '/scratch/konstantinos/d1_x'+os.sep+'g'+str(g)+'gr'+str(gr)+os.sep+'d1_x'+str(i_batch+1)+'.npy'
+    name_g1_x = '/scratch/konstantinos/'+'g1_'+'g'+str(g)+'gr'+str(gr)+os.sep+'g1_x'+str(i_batch+1)+'.npy'
+    name_d1_x = '/scratch/konstantinos/'+'d1_'+'g'+str(g)+'gr'+str(gr)+os.sep+'d1_x'+str(i_batch+1)+'.npy'
     np.save(name_g1_x, g1_x_batch)
     np.save(name_d1_x, d1_x_batch)
 
 parallel_map(g1, range(n_batch))
-g1_x = ext.ensemble_average_space(r'/scratch/konstantinos/g1_x'+os.sep+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
-d1_x = ext.ensemble_average_space(r'/scratch/konstantinos/d1_x'+os.sep+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
+g1_x = ext.ensemble_average_space(r'/scratch/konstantinos/'+'g1_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
+d1_x = ext.ensemble_average_space(r'/scratch/konstantinos/'+'d1_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
 D1_x = np.sqrt(d1_x[0]*d1_x)
-np.savetxt('/home6/konstantinos'+os.sep+'g'+str(g)+'gr'+str(gr)+'.dat', (np.abs(g1_x)/D1_x).real)
+np.savetxt('/home6/konstantinos/'+os.sep+'g'+str(g)+'gr'+str(gr)+'sug.dat', (np.abs(g1_x)/D1_x).real)
 
-#g1_t = ext.ensemble_average_time(r'/scratch/konstantinos/g1_t', t, n_batch)
-#d1_t = ext.ensemble_average_time(r'/scratch/konstantinos/d1_t', t, n_batch)
-#D1_t = np.sqrt(d1_t[0]*d1_t)
-#np.save('/Users/delis/Desktop/g1_t_p_1pt89_smallg.npy', np.abs(g1_t))
-#np.save('/Users/delis/Desktop/D1_t_p_1pt89_smallg.npy', D1_t)
+#import matplotlib.pyplot as pl
+#pl.plot(np.abs(g1_x))
+#pl.show()
+#pl.plot(d1_x)
+#pl.show()
+#pl.loglog((np.abs(g1_x)/D1_x).real)
+#pl.show()
