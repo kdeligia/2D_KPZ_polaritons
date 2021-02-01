@@ -61,7 +61,7 @@ star_gamma_l0 = (gamma0*hbar)  # μeV
 star_gamma_l2 = (gamma2*hbar) # μeV μm^2 
 star_gamma_r = (gammar*hbar) # μeV
 
-time_steps = 1
+time_steps = 100000
 dt = 4e-2 * hatt
 every = 100
 i1 = 0
@@ -110,7 +110,7 @@ def finalparams():
     return Kc, Kd, rc, rd, uc, ud, sigma, z
 
 def bogoliubov():
-    z=1
+    z = 1
     r = (1/z).real
     q = (1/z).imag
     n0 = (rd - z.imag*rc/z.real)/(ud + uc*z.imag/z.real)
@@ -181,6 +181,7 @@ class model:
 # Definition of the split steps
 # =============================================================================
     def noise(self, shape):
+        np.random.seed()
         mu = 0
         sigma = 1  #standard deviation of the real gaussians, so the variance of the complex number is 2*sigma^2
         re = np.random.normal(mu, sigma, shape)
@@ -211,7 +212,7 @@ class model:
     def time_evolution(self, realisation):
         g1_x = np.zeros(int(N/2), dtype = complex)
         d1_x = np.zeros(int(N/2))
-        np.random.seed(realisation)
+        #np.random.seed(realisation)
         for i in range(time_steps+1):
             self.psi_x *= self.prefactor_x()
             self.psi_mod_k = fft2(self.psi_mod_x)
@@ -238,7 +239,6 @@ print('σ', sigma)
 print('z', z)
 '''
 
-import matplotlib.pyplot as pl
 def g1(i_batch):
     g1_x_batch = np.zeros(int(N/2), dtype=complex)
     d1_x_batch = np.zeros(int(N/2))
@@ -257,7 +257,7 @@ parallel_map(g1, range(n_batch))
 g1_x = ext.ensemble_average_space(r'/scratch/konstantinos/'+'g1_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
 d1_x = ext.ensemble_average_space(r'/scratch/konstantinos/'+'d1_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
 D1_x = np.sqrt(d1_x[0]*d1_x)
-np.savetxt('/home6/konstantinos/'+os.sep+'g'+str(g)+'gr'+str(gr)+'sug.dat', (np.abs(g1_x)/D1_x).real)
+np.savetxt('/home6/konstantinos/'+os.sep+'g'+str(g)+'gr'+str(gr)+'.dat', (np.abs(g1_x)/D1_x).real)
 
 #import matplotlib.pyplot as pl
 #pl.plot(np.abs(g1_x))
