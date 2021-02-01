@@ -61,7 +61,7 @@ star_gamma_l0 = (gamma0*hbar)  # μeV
 star_gamma_l2 = (gamma2*hbar) # μeV μm^2 
 star_gamma_r = (gammar*hbar) # μeV
 
-time_steps = 100000
+time_steps = 2
 dt = 4e-2 * hatt
 every = 100
 i1 = 0
@@ -181,7 +181,6 @@ class model:
 # Definition of the split steps
 # =============================================================================
     def noise(self, shape):
-        np.random.seed()
         mu = 0
         sigma = 1  #standard deviation of the real gaussians, so the variance of the complex number is 2*sigma^2
         re = np.random.normal(mu, sigma, shape)
@@ -209,10 +208,10 @@ class model:
 # =============================================================================
 # Time evolution
 # =============================================================================
-    def time_evolution(self, realisation):
+    def time_evolution(self, i_batch, seed):
         g1_x = np.zeros(int(N/2), dtype = complex)
         d1_x = np.zeros(int(N/2))
-        #np.random.seed(realisation)
+        np.random.seed(seed)
         for i in range(time_steps+1):
             self.psi_x *= self.prefactor_x()
             self.psi_mod_k = fft2(self.psi_mod_x)
@@ -244,7 +243,7 @@ def g1(i_batch):
     d1_x_batch = np.zeros(int(N/2))
     for i_n in range(n_internal):
         gpe = model()
-        g1_x, d1_x = gpe.time_evolution(i_n)
+        g1_x, d1_x = gpe.time_evolution(i_batch, parallel_tasks*i_batch+i_n)
         g1_x_batch += g1_x / n_internal
         d1_x_batch += d1_x / n_internal
         print('The core', i_batch, 'has completed realisation number', i_n)
@@ -257,12 +256,4 @@ parallel_map(g1, range(n_batch))
 g1_x = ext.ensemble_average_space(r'/scratch/konstantinos/'+'g1_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
 d1_x = ext.ensemble_average_space(r'/scratch/konstantinos/'+'d1_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
 D1_x = np.sqrt(d1_x[0]*d1_x)
-np.savetxt('/home6/konstantinos/'+os.sep+'g'+str(g)+'gr'+str(gr)+'.dat', (np.abs(g1_x)/D1_x).real)
-
-#import matplotlib.pyplot as pl
-#pl.plot(np.abs(g1_x))
-#pl.show()
-#pl.plot(d1_x)
-#pl.show()
-#pl.loglog((np.abs(g1_x)/D1_x).real)
-#pl.show()
+np.savetxt('/home6/konstantinos/'+os.sep+'g'+str(g)+'gr'+str(gr)+'_correct.dat', (np.abs(g1_x)/D1_x).real)
