@@ -15,8 +15,8 @@ import numpy as np
 import external as ext
 from qutip import *
 
-parallel_tasks = 100
-n_batch = 100
+parallel_tasks = 1024
+n_batch = 128
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
@@ -39,7 +39,7 @@ ns = gammar/R
 n0 = ns*(p-1)
 nres = P/(gammar+R*n0)
 gr = 0.025
-g = 4.5
+g = 4.42
 
 def arrays():
     x_0 = - N * dx / 2
@@ -61,7 +61,7 @@ star_gamma_l0 = (gamma0*hbar)  # μeV
 star_gamma_l2 = (gamma2*hbar) # μeV μm^2 
 star_gamma_r = (gammar*hbar) # μeV
 
-time_steps = 2
+time_steps = 5
 dt = 4e-2 * hatt
 every = 100
 i1 = 0
@@ -180,14 +180,6 @@ class model:
 # =============================================================================
 # Definition of the split steps
 # =============================================================================
-    def noise(self, shape):
-        mu = 0
-        sigma = 1  #standard deviation of the real gaussians, so the variance of the complex number is 2*sigma^2
-        re = np.random.normal(mu, sigma, shape)
-        im = np.random.normal(mu, sigma, shape)
-        xi = re + 1j * im
-        return xi
-
     def n(self):
         return np.abs(self.psi_x * np.conjugate(self.psi_x)) - 1/(2*dx**2)
 
@@ -208,9 +200,23 @@ class model:
 # =============================================================================
 # Time evolution
 # =============================================================================
-    def time_evolution(self, i_batch, seed):
+    def noise(self, shape):
+        mu = 0
+        sigma = 1  #standard deviation of the real gaussians, so the variance of the complex number is 2*sigma^2
+        re = np.random.normal(mu, sigma, shape)
+        im = np.random.normal(mu, sigma, shape)
+        xi = re + 1j * im
+        return xi
+
+    def time_evolution(self, seed):
         g1_x = np.zeros(int(N/2), dtype = complex)
         d1_x = np.zeros(int(N/2))
+        g2_x = np.zeros(int(N/2), dtype = complex)
+        d2_x = np.zeros(int(N/2))
+        g3_x = np.zeros(int(N/2), dtype = complex)
+        d3_x = np.zeros(int(N/2))
+        g4_x = np.zeros(int(N/2), dtype = complex)
+        d4_x = np.zeros(int(N/2))
         np.random.seed(seed)
         for i in range(time_steps+1):
             self.psi_x *= self.prefactor_x()
@@ -219,11 +225,23 @@ class model:
             self.psi_mod_x = ifft2(self.psi_mod_k)
             self.psi_x *= self.prefactor_x()
             self.psi_x += np.sqrt(dt) * np.sqrt(self.sigma) * self.noise((N,N))
-        for i in range(0, N, int(N/8)):
-            g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 8 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 8
-            d1_x += self.n()[i, int(N/2):] / 8 + self.n()[int(N/2):, i] / 8
+        for i in range(0, N, int(N/2)):
+            g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 2 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 2
+            d1_x += self.n()[i, int(N/2):] / 2 + self.n()[int(N/2):, i] / 2
         g1_x[0] -= 1/(2*dx**2)
-        return g1_x, d1_x 
+        for i in range(0, N, int(N/4)):
+            g2_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 4 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 4
+            d2_x += self.n()[i, int(N/2):] / 4 + self.n()[int(N/2):, i] / 4
+        g2_x[0] -= 1/(2*dx**2)
+        for i in range(0, N, int(N/8)):
+            g3_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 8 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 8
+            d3_x += self.n()[i, int(N/2):] / 8 + self.n()[int(N/2):, i] / 8
+        g3_x[0] -= 1/(2*dx**2)
+        for i in range(0, N, int(N/32)):
+            g4_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 32 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 32
+            d4_x += self.n()[i, int(N/2):] / 32 + self.n()[int(N/2):, i] / 32
+        g4_x[0] -= 1/(2*dx**2)
+        return g1_x, d1_x, g2_x, d2_x, g3_x, d3_x, g4_x, d4_x
 
 '''
 Kc, Kd, rc, rd, uc, ud, sigma, z = finalparams()
@@ -241,19 +259,61 @@ print('z', z)
 def g1(i_batch):
     g1_x_batch = np.zeros(int(N/2), dtype=complex)
     d1_x_batch = np.zeros(int(N/2))
+    g2_x_batch = np.zeros(int(N/2), dtype=complex)
+    d2_x_batch = np.zeros(int(N/2))
+    g3_x_batch = np.zeros(int(N/2), dtype=complex)
+    d3_x_batch = np.zeros(int(N/2))
+    g4_x_batch = np.zeros(int(N/2), dtype=complex)
+    d4_x_batch = np.zeros(int(N/2))
+    seed = i_batch
     for i_n in range(n_internal):
         gpe = model()
-        g1_x, d1_x = gpe.time_evolution(i_batch, parallel_tasks*i_batch+i_n)
+        g1_x, d1_x, g2_x, d2_x, g3_x, d3_x, g4_x, d4_x = gpe.time_evolution(i_batch, seed)
         g1_x_batch += g1_x / n_internal
         d1_x_batch += d1_x / n_internal
+        g2_x_batch += g2_x / n_internal
+        d2_x_batch += d2_x / n_internal
+        g3_x_batch += g3_x / n_internal
+        d3_x_batch += d3_x / n_internal
+        g4_x_batch += g4_x / n_internal
+        d4_x_batch += d4_x / n_internal
         print('The core', i_batch, 'has completed realisation number', i_n)
+        seed += n_batch
     name_g1_x = '/scratch/konstantinos/'+'g1_'+'g'+str(g)+'gr'+str(gr)+os.sep+'g1_x'+str(i_batch+1)+'.npy'
     name_d1_x = '/scratch/konstantinos/'+'d1_'+'g'+str(g)+'gr'+str(gr)+os.sep+'d1_x'+str(i_batch+1)+'.npy'
+    name_g2_x = '/scratch/konstantinos/'+'g2_'+'g'+str(g)+'gr'+str(gr)+os.sep+'g2_x'+str(i_batch+1)+'.npy'
+    name_d2_x = '/scratch/konstantinos/'+'d2_'+'g'+str(g)+'gr'+str(gr)+os.sep+'d2_x'+str(i_batch+1)+'.npy'
+    name_g3_x = '/scratch/konstantinos/'+'g3_'+'g'+str(g)+'gr'+str(gr)+os.sep+'g3_x'+str(i_batch+1)+'.npy'
+    name_d3_x = '/scratch/konstantinos/'+'d3_'+'g'+str(g)+'gr'+str(gr)+os.sep+'d3_x'+str(i_batch+1)+'.npy'
+    name_g4_x = '/scratch/konstantinos/'+'g4_'+'g'+str(g)+'gr'+str(gr)+os.sep+'g4_x'+str(i_batch+1)+'.npy'
+    name_d4_x = '/scratch/konstantinos/'+'d4_'+'g'+str(g)+'gr'+str(gr)+os.sep+'d4_x'+str(i_batch+1)+'.npy'
     np.save(name_g1_x, g1_x_batch)
     np.save(name_d1_x, d1_x_batch)
+    np.save(name_g2_x, g2_x_batch)
+    np.save(name_d2_x, d2_x_batch)
+    np.save(name_g3_x, g3_x_batch)
+    np.save(name_d3_x, d3_x_batch)
+    np.save(name_g4_x, g4_x_batch)
+    np.save(name_d4_x, d4_x_batch)
 
 parallel_map(g1, range(n_batch))
-g1_x = ext.ensemble_average_space(r'/scratch/konstantinos/'+'g1_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
-d1_x = ext.ensemble_average_space(r'/scratch/konstantinos/'+'d1_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
+g1_x = ext.ensemble_average_space(r'/Users/delis/Desktop/'+'g1_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
+d1_x = ext.ensemble_average_space(r'/Users/delis/Desktop/'+'d1_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
 D1_x = np.sqrt(d1_x[0]*d1_x)
-np.savetxt('/home6/konstantinos/'+os.sep+'g'+str(g)+'gr'+str(gr)+'_correct.dat', (np.abs(g1_x)/D1_x).real)
+
+g2_x = ext.ensemble_average_space(r'/Users/delis/Desktop/'+'g2_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
+d2_x = ext.ensemble_average_space(r'/Users/delis/Desktop/'+'d2_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
+D2_x = np.sqrt(d2_x[0]*d2_x)
+
+g3_x = ext.ensemble_average_space(r'/Users/delis/Desktop/'+'g3_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
+d3_x = ext.ensemble_average_space(r'/Users/delis/Desktop/'+'d3_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
+D3_x = np.sqrt(d3_x[0]*d3_x)
+
+g4_x = ext.ensemble_average_space(r'/Users/delis/Desktop/'+'g4_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
+d4_x = ext.ensemble_average_space(r'/Users/delis/Desktop/'+'d4_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
+D4_x = np.sqrt(d4_x[0]*d4_x)
+
+np.savetxt('/home6/konstantinos/'+os.sep+'g'+str(g)+'gr'+str(gr)+'_1.dat', (np.abs(g1_x)/D1_x).real)
+np.savetxt('/home6/konstantinos/'+os.sep+'g'+str(g)+'gr'+str(gr)+'_2.dat', (np.abs(g2_x)/D2_x).real)
+np.savetxt('/home6/konstantinos/'+os.sep+'g'+str(g)+'gr'+str(gr)+'_3.dat', (np.abs(g3_x)/D3_x).real)
+np.savetxt('/home6/konstantinos/'+os.sep+'g'+str(g)+'gr'+str(gr)+'_4.dat', (np.abs(g4_x)/D4_x).real)

@@ -9,15 +9,6 @@ Created on Fri Aug 30 11:03:50 2019
 import os
 import numpy as np
 
-def noise(shape):
-    np.random.seed()
-    mu = 0
-    sigma = 1  #standard deviation of the real gaussians, so the variance of the complex number is 2*sigma^2
-    re = np.random.normal(mu, sigma, shape)
-    im = np.random.normal(mu, sigma, shape)
-    xi = re + 1j * im
-    return xi
-
 def confining(array, V_0, l):
     V = (V_0/l) * (np.exp(-(array - len(array)/2) ** 2 / (l**2)) + np.exp(-(array + len(array)/2) ** 2 / (l**2)))
     return V
