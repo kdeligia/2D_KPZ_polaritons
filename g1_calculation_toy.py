@@ -61,7 +61,7 @@ star_gamma_l0 = (gamma0*hbar)  # μeV
 star_gamma_l2 = (gamma2*hbar) # μeV μm^2 
 star_gamma_r = (gammar*hbar) # μeV
 
-time_steps = 5
+time_steps = 100000
 dt = 4e-2 * hatt
 every = 100
 i1 = 0
