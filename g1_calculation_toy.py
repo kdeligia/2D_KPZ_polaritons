@@ -9,19 +9,22 @@ Created on Tue Nov 10 15:09:50 2020
 c = 3E2 #μm/ps
 hbar = 6.582119569 * 1E2 # μeV ps
 
+import matplotlib.pyplot as pl
 import os
 from scipy.fftpack import fft2, ifft2
 import numpy as np
 import external as ext
 from qutip import *
+name_local = r'/Users/delis/Desktop/'
+name_remote = r'/scratch/konstantinos/'
 
-parallel_tasks = 512
+parallel_tasks = 256
 n_batch = 128
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-N = 2**7
-L = 2**7
+N = 2**6
+L = 2**6
 hatt = 1 #ps
 hatx = 1 #μm
 hatpsi = 1/hatx #μm^-1
@@ -93,64 +96,7 @@ print('Reservoir in μm^-2 %.2f' % (nres))
 print('--- Dimensionless pump ---')
 print('p %.4f' % p)
 
-def finalparams():
-    alpha = 1
-    beta = 0
-    #om = 50*gamma0
-    #alpha = 1 + p*gr*gamma0/(hbar*om*R)
-    #beta = p*gamma0/(2*om)
-    Kc = (hatt/hatx**2) * hbar/(2*m)
-    Kd = (hatt/hatx**2) * gamma2/2
-    rc = hatt * p*gamma0*gr/(R*hbar)
-    rd = hatt * gamma0*(p-1)/2
-    ud = hatt/(hatx**2) * p*R*gamma0/(2*gammar)
-    uc = hatt/(hbar*hatx**2) * g*(1 - p*(gr/g)*(gamma0/gammar))
-    sigma = hatt * gamma0*(p+1)/(2*dx**2)
-    z = alpha + beta*1j
-    return Kc, Kd, rc, rd, uc, ud, sigma, z
-
-def bogoliubov():
-    z = 1
-    r = (1/z).real
-    q = (1/z).imag
-    n0 = (rd - z.imag*rc/z.real)/(ud + uc*z.imag/z.real)
-    omsol = (rc+n0*uc)/z.real
-    a = -z.real*omsol + Kc*kx**2 + rc + 2*n0*uc
-    b = -Kd*kx**2 + rd - 2*n0*ud - z.imag*omsol
-    c = n0 * uc
-    d = -n0 * ud
-    im_plus = np.zeros(len(kx))
-    im_minus = np.zeros(len(kx))
-    #re_plus = np.zeros(len(kx))
-    #re_minus = np.zeros(len(kx))
-    for i in range(len(kx)):
-        if (a[i]**2 - c**2 - d**2) < 0:
-            im_plus[i] = b[i]*r + r*np.sqrt(np.abs(a[i]**2 - c**2 - d**2))
-            im_minus[i] = b[i]*r - r*np.sqrt(np.abs(a[i]**2 - c**2 - d**2))
-            #re_plus[i] = -b[i]*q + q*1j*np.sqrt(np.abs(a[i]**2 - c**2 - d**2))
-            #re_minus[i] = -b[i]*q - q*1j*np.sqrt(np.abs(a[i]**2 - c**2 - d**2))
-        else:
-            im_plus[i] = b[i]*r + q*np.sqrt(a[i]**2 - c**2 - d**2)
-            im_minus[i] = b[i]*r - q*np.sqrt(a[i]**2 - c**2 - d**2)
-            ##re_plus[i] = -b[i]*q + r*np.sqrt(a[i]**2 - c**2 - d**2)
-            #re_minus[i] = -b[i]*q - r*np.sqrt(a[i]**2 - c**2 - d**2)
-    return im_plus, im_minus
-
 class model:
-    #def __init__(self, Kc, Kd, Kc2, rc, rd, uc, ud, sigma, z, psi_x=0):
-        #self.Kc = Kc
-        #self.Kd = Kd
-        #self.Kc2 = Kc2
-        #self.rc = rc
-        #self.rd = rd
-        #self.uc = uc
-        #self.ud = ud
-        #self.sigma = sigma
-        #self.z = z
-        #self.psi_x = psi_x
-        #self.psi_x = np.full((N, N), 2)
-        #self.psi_x /= hatpsi
-        #self.psi_mod_k = fft2(self.psi_mod_x)
     def __init__(self, psi_x=0):
         self.sigma = hatt * gamma0*(p+1)/(2*dx**2)
         self.Kc = (hatt/hatx**2) * hbar/(2*m)
@@ -190,24 +136,14 @@ class model:
     def prefactor_x(self):
         self.uc_tilde = hatt/(hbar*hatx**2) * g*(self.n() + (hatx**2*gr/g) * (p*gamma0/R) * (1/(1+self.n()/(hatx**2*ns))))
         self.I_tilde = 1j*hatt*gamma0/2 * (p/(1+self.n()/(hatx**2*ns)) - 1)
-        #return np.exp(-1j*0.5*dt*((self.rc + 1j*self.rd) + (self.uc - 1j*self.ud)*self.n())/self.z)
         return np.exp(-1j*0.5*dt*(self.uc_tilde + self.I_tilde))
 
     def prefactor_k(self):
-        #return np.exp(-1j*dt*((KX**2 + KY**2)*(self.Kc - 1j*self.Kd)-(KX**4 + KY**4)*self.Kc2)/self.z)
         return np.exp(-1j*dt*((KX**2 + KY**2)*(self.Kc - 1j*self.Kd)))
 
 # =============================================================================
 # Time evolution
 # =============================================================================
-    def noise(self, shape):
-        mu = 0
-        sigma = 1  #standard deviation of the real gaussians, so the variance of the complex number is 2*sigma^2
-        re = np.random.normal(mu, sigma, shape)
-        im = np.random.normal(mu, sigma, shape)
-        xi = re + 1j * im
-        return xi
-
     def time_evolution(self, seed):
         g1_x = np.zeros(int(N/2), dtype = complex)
         d1_x = np.zeros(int(N/2))
@@ -221,121 +157,118 @@ class model:
         d5_x = np.zeros(int(N/2))
         np.random.seed(seed)
         for i in range(time_steps+1):
+            #np.random.seed()
             self.psi_x *= self.prefactor_x()
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
             self.psi_mod_x = ifft2(self.psi_mod_k)
             self.psi_x *= self.prefactor_x()
-            self.psi_x += np.sqrt(dt) * np.sqrt(self.sigma) * self.noise((N,N))
+            self.psi_x += np.sqrt(dt) * np.sqrt(self.sigma) * (np.random.normal(0, 1, (N,N)) + 1j*np.random.normal(0, 1, (N,N)))
         for i in range(0, N, int(N/2)):
-            g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 2 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 2
-            d1_x += self.n()[i, int(N/2):] / 2 + self.n()[int(N/2):, i] / 2
+            g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 2
+            d1_x += self.n()[i, int(N/2):] / 2 
         g1_x[0] -= 1/(2*dx**2)
         for i in range(0, N, int(N/4)):
-            g2_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 4 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 4
-            d2_x += self.n()[i, int(N/2):] / 4 + self.n()[int(N/2):, i] / 4
+            g2_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 4
+            d2_x += self.n()[i, int(N/2):] / 4
         g2_x[0] -= 1/(2*dx**2)
         for i in range(0, N, int(N/8)):
-            g3_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 8 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 8
-            d3_x += self.n()[i, int(N/2):] / 8 + self.n()[int(N/2):, i] / 8
+            g3_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 8
+            d3_x += self.n()[i, int(N/2):] / 8
         g3_x[0] -= 1/(2*dx**2)
         for i in range(0, N, int(N/32)):
-            g4_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 32 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 32
-            d4_x += self.n()[i, int(N/2):] / 32 + self.n()[int(N/2):, i] / 32
-        g4_x[0] -= 1/(2*dx**2)
-        for i in range(0, N, int(N/32)):
-            g4_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 32 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 32
-            d4_x += self.n()[i, int(N/2):] / 32 + self.n()[int(N/2):, i] / 32
+            g4_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 32
+            d4_x += self.n()[i, int(N/2):] / 32
         g4_x[0] -= 1/(2*dx**2)
         g5_x = np.conjugate(self.psi_x[int(N/2), int(N/2)]) * self.psi_x[int(N/2), int(N/2):]
         d5_x = self.n()[int(N/2), int(N/2):]
         g5_x[0] -= 1/(2*dx**2)
         return g1_x, d1_x, g2_x, d2_x, g3_x, d3_x, g4_x, d4_x, g5_x, d5_x
 
-'''
-Kc, Kd, rc, rd, uc, ud, sigma, z = finalparams()
-print('--- Simulation Parameters ---')
-print('Kc', Kc)
-print('Kd', Kd)
-print('rc', rc)
-print('rd', rd)
-print('uc', uc)
-print('ud', ud)
-print('σ', sigma)
-print('z', z)
-'''
-
+nametosave = name_remote
 def g1(i_batch):
-    g1_x_batch = np.zeros(int(N/2), dtype=complex)
-    d1_x_batch = np.zeros(int(N/2))
-    g2_x_batch = np.zeros(int(N/2), dtype=complex)
-    d2_x_batch = np.zeros(int(N/2))
-    g3_x_batch = np.zeros(int(N/2), dtype=complex)
-    d3_x_batch = np.zeros(int(N/2))
-    g4_x_batch = np.zeros(int(N/2), dtype=complex)
-    d4_x_batch = np.zeros(int(N/2))
-    g5_x_batch = np.zeros(int(N/2), dtype=complex)
-    d5_x_batch = np.zeros(int(N/2))
     seed = i_batch
+    num_obs = 5
+    batch = np.zeros((2*num_obs, int(N/2)), dtype=complex)
     for i_n in range(n_internal):
         gpe = model()
         g1_x, d1_x, g2_x, d2_x, g3_x, d3_x, g4_x, d4_x, g5_x, d5_x = gpe.time_evolution(seed)
-        g1_x_batch += g1_x / n_internal
-        d1_x_batch += d1_x / n_internal
-        g2_x_batch += g2_x / n_internal
-        d2_x_batch += d2_x / n_internal
-        g3_x_batch += g3_x / n_internal
-        d3_x_batch += d3_x / n_internal
-        g4_x_batch += g4_x / n_internal
-        d4_x_batch += d4_x / n_internal
-        g5_x_batch += g5_x / n_internal
-        d5_x_batch += d5_x / n_internal
-        print('The core', i_batch, 'has completed realisation number', i_n)
+        batch += np.vstack((g1_x, d1_x, g2_x, d2_x, g3_x, d3_x, g4_x, d4_x, g5_x, d5_x)) / n_internal
         seed += n_batch
-    name_g1_x = '/scratch/konstantinos/'+'g1_'+'g'+str(g)+'gr'+str(gr)+os.sep+'g1_x'+str(i_batch+1)+'.npy'
-    name_d1_x = '/scratch/konstantinos/'+'d1_'+'g'+str(g)+'gr'+str(gr)+os.sep+'d1_x'+str(i_batch+1)+'.npy'
-    name_g2_x = '/scratch/konstantinos/'+'g2_'+'g'+str(g)+'gr'+str(gr)+os.sep+'g2_x'+str(i_batch+1)+'.npy'
-    name_d2_x = '/scratch/konstantinos/'+'d2_'+'g'+str(g)+'gr'+str(gr)+os.sep+'d2_x'+str(i_batch+1)+'.npy'
-    name_g3_x = '/scratch/konstantinos/'+'g3_'+'g'+str(g)+'gr'+str(gr)+os.sep+'g3_x'+str(i_batch+1)+'.npy'
-    name_d3_x = '/scratch/konstantinos/'+'d3_'+'g'+str(g)+'gr'+str(gr)+os.sep+'d3_x'+str(i_batch+1)+'.npy'
-    name_g4_x = '/scratch/konstantinos/'+'g4_'+'g'+str(g)+'gr'+str(gr)+os.sep+'g4_x'+str(i_batch+1)+'.npy'
-    name_d4_x = '/scratch/konstantinos/'+'d4_'+'g'+str(g)+'gr'+str(gr)+os.sep+'d4_x'+str(i_batch+1)+'.npy'
-    name_g5_x = '/scratch/konstantinos/'+'g5_'+'g'+str(g)+'gr'+str(gr)+os.sep+'g5_x'+str(i_batch+1)+'.npy'
-    name_d5_x = '/scratch/konstantinos/'+'d5_'+'g'+str(g)+'gr'+str(gr)+os.sep+'d5_x'+str(i_batch+1)+'.npy'
-    np.save(name_g1_x, g1_x_batch)
-    np.save(name_d1_x, d1_x_batch)
-    np.save(name_g2_x, g2_x_batch)
-    np.save(name_d2_x, d2_x_batch)
-    np.save(name_g3_x, g3_x_batch)
-    np.save(name_d3_x, d3_x_batch)
-    np.save(name_g4_x, g4_x_batch)
-    np.save(name_d4_x, d4_x_batch)
-    np.save(name_g5_x, g5_x_batch)
-    np.save(name_d5_x, d5_x_batch)
+        print('The core', i_batch, 'has completed realisation number', i_n+1)
+    np.save(nametosave+'g'+str(g)+'gr'+str(gr)+os.sep+'file_core'+str(i_batch+1)+'.npy', batch)
 
 parallel_map(g1, range(n_batch))
-g1_x = ext.ensemble_average_space(r'/scratch/konstantinos/'+'g1_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
-d1_x = ext.ensemble_average_space(r'/scratch/konstantinos/'+'d1_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
-D1_x = np.sqrt(d1_x[0]*d1_x)
+result = ext.ensemble_average_space(nametosave+'g'+str(g)+'gr'+str(gr), 10, int(N/2), n_batch)
+np.savetxt(nametosave+'g'+str(g)+'gr'+str(gr)+'_result.dat', result)
 
-g2_x = ext.ensemble_average_space(r'/scratch/konstantinos/'+'g2_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
-d2_x = ext.ensemble_average_space(r'/scratch/konstantinos/'+'d2_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
-D2_x = np.sqrt(d2_x[0]*d2_x)
+'''
+gpe = model()
+g1_x, d1_x, g2_x, d2_x, g3_x, d3_x, g4_x, d4_x, g5_x, d5_x = gpe.time_evolution(0)
+g12 = np.abs(g1_x)/np.sqrt(d1_x[0]*d1_x).real
+g22 = np.abs(g2_x)/np.sqrt(d2_x[0]*d2_x).real
+g32 = np.abs(g3_x)/np.sqrt(d3_x[0]*d3_x).real
+g42 = np.abs(g4_x)/np.sqrt(d4_x[0]*d4_x).real
+g52 = np.abs(g5_x)/np.sqrt(d5_x[0]*d5_x).real
 
-g3_x = ext.ensemble_average_space(r'/scratch/konstantinos/'+'g3_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
-d3_x = ext.ensemble_average_space(r'/scratch/konstantinos/'+'d3_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
-D3_x = np.sqrt(d3_x[0]*d3_x)
+pl.loglog(g12, label='2')
+pl.loglog(g22, label='4')
+pl.loglog(g32, label='8')
+pl.loglog(g42, label='32')
+pl.loglog(g52, label='1')
+pl.legend()
+pl.show()
 
-g4_x = ext.ensemble_average_space(r'/scratch/konstantinos/'+'g4_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
-d4_x = ext.ensemble_average_space(r'/scratch/konstantinos/'+'d4_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
-D4_x = np.sqrt(d4_x[0]*d4_x)
+pl.loglog(np.abs(g1_x), label='2')
+pl.loglog(np.abs(g2_x), label='4')
+pl.loglog(np.abs(g3_x), label='8')
+pl.loglog(np.abs(g4_x), label='32')
+pl.loglog(np.abs(g5_x), label='1')
+pl.legend()
+pl.show()
 
-g5_x = ext.ensemble_average_space(r'/scratch/konstantinos/'+'g5_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
-d5_x = ext.ensemble_average_space(r'/scratch/konstantinos/'+'d5_'+'g'+str(g)+'gr'+str(gr), int(N/2), n_batch)
-D5_x = np.sqrt(d5_x[0]*d5_x)
+pl.loglog(d1_x, label='2')
+pl.loglog(d2_x, label='4')
+pl.loglog(d3_x, label='8')
+pl.loglog(d4_x, label='32')
+pl.loglog(d5_x, label='1')
+pl.legend()
+pl.show()
+'''
 
-np.savetxt('/scratch/konstantinos/'+os.sep+'g'+str(g)+'gr'+str(gr)+'_1.dat', (np.abs(g1_x)/D1_x).real)
-np.savetxt('/scratch/konstantinos/'+os.sep+'g'+str(g)+'gr'+str(gr)+'_2.dat', (np.abs(g2_x)/D2_x).real)
-np.savetxt('/scratch/konstantinos/'+os.sep+'g'+str(g)+'gr'+str(gr)+'_3.dat', (np.abs(g3_x)/D3_x).real)
-np.savetxt('/scratch/konstantinos/'+os.sep+'g'+str(g)+'gr'+str(gr)+'_4.dat', (np.abs(g4_x)/D4_x).real)
-np.savetxt('/scratch/konstantinos/'+os.sep+'g'+str(g)+'gr'+str(gr)+'_5.dat', (np.abs(g5_x)/D5_x).real)
+'''
+result = np.loadtxt('/Users/delis/Desktop/g4.42gr0.025_result.dat', dtype=np.complex_)
+g11 = np.abs(result[0])/np.sqrt(result[1,0]*result[1]).real
+g21 = np.abs(result[2])/np.sqrt(result[3,0]*result[3]).real
+g31 = np.abs(result[4])/np.sqrt(result[5,0]*result[5]).real
+g41 = np.abs(result[6])/np.sqrt(result[7,0]*result[7]).real
+g51 = np.abs(result[8])/np.sqrt(result[9,0]*result[9]).real
+pl.loglog(g11, label='2')
+pl.loglog(g21, label='4')
+pl.loglog(g31, label='8')
+pl.loglog(g41, label='32')
+pl.loglog(g51, label='1')
+pl.legend()
+pl.show()
+
+file1 = np.load('/Users/delis/Desktop/g4.42gr0.025/file_core1.npy')
+file2 = np.load('/Users/delis/Desktop/g4.42gr0.025/file_core2.npy')
+file3 = np.load('/Users/delis/Desktop/g4.42gr0.025/file_core3.npy')
+file4 = np.load('/Users/delis/Desktop/g4.42gr0.025/file_core4.npy')
+
+x1 = (np.abs(file1[8])/np.sqrt(file1[9,0]*file1[9])).real
+x2 = (np.abs(file2[8])/np.sqrt(file2[9,0]*file2[9])).real
+x3 = (np.abs(file3[8])/np.sqrt(file3[9,0]*file3[9])).real
+x4 = (np.abs(file4[8])/np.sqrt(file4[9,0]*file4[9])).real
+pl.loglog(x1)
+pl.loglog(x2)
+pl.loglog(x3)
+pl.loglog(x4)
+pl.show()
+
+num_avg = (file1[8]+file2[8]+file3[8]+file4[8])/4
+denom_avg = (file1[9]+file2[9]+file3[9]+file4[9])/4
+xy = (np.abs(num_avg)/np.sqrt(denom_avg[0]*denom_avg)).real
+pl.loglog(xy)
+pl.show()
+'''
