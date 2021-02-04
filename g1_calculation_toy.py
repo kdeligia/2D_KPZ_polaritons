@@ -18,7 +18,7 @@ from qutip import *
 name_local = r'/Users/delis/Desktop/'
 name_remote = r'/scratch/konstantinos/'
 
-parallel_tasks = 256
+parallel_tasks = 512
 n_batch = 128
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
@@ -165,27 +165,27 @@ class model:
             self.psi_x *= self.prefactor_x()
             self.psi_x += np.sqrt(dt) * np.sqrt(self.sigma) * (np.random.normal(0, 1, (N,N)) + 1j*np.random.normal(0, 1, (N,N)))
         for i in range(0, N, int(N/2)):
-            g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 4 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 4
-            d1_x += self.n()[i, int(N/2):] / 4 + self.n()[int(N/2):, i] / 4
+            g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 2 #+ np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 4
+            d1_x += self.n()[i, int(N/2):] / 2 #+ self.n()[int(N/2):, i] / 4
         g1_x[0] -= 1/(2*dx**2)
         for i in range(0, N, int(N/4)):
-            g2_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 8 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 8
-            d2_x += self.n()[i, int(N/2):] / 8 + self.n()[int(N/2):, i] / 8
+            g2_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 4 #+ np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 8
+            d2_x += self.n()[i, int(N/2):] / 4 #+ self.n()[int(N/2):, i] / 8
         g2_x[0] -= 1/(2*dx**2)
         for i in range(0, N, int(N/8)):
-            g3_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 16 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 16
-            d3_x += self.n()[i, int(N/2):] / 16 + self.n()[int(N/2):, i] / 16
+            g3_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 8 #+ np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 16
+            d3_x += self.n()[i, int(N/2):] / 8 #+ self.n()[int(N/2):, i] / 16
         g3_x[0] -= 1/(2*dx**2)
         for i in range(0, N, int(N/32)):
-            g4_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 64 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 64
-            d4_x += self.n()[i, int(N/2):] / 64 + self.n()[int(N/2):, i] / 64
+            g4_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 32 #+ np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 64
+            d4_x += self.n()[i, int(N/2):] / 32 #+ self.n()[int(N/2):, i] / 64
         g4_x[0] -= 1/(2*dx**2)
         g5_x = np.conjugate(self.psi_x[int(N/2), int(N/2)]) * self.psi_x[int(N/2), int(N/2):]
         d5_x = self.n()[int(N/2), int(N/2):]
         g5_x[0] -= 1/(2*dx**2)
         return g1_x, d1_x, g2_x, d2_x, g3_x, d3_x, g4_x, d4_x, g5_x, d5_x
 
-nametosave = name_remote
+nametosave = name_local
 def g1(i_batch):
     seed = i_batch
     num_obs = 5
@@ -200,75 +200,112 @@ def g1(i_batch):
 
 parallel_map(g1, range(n_batch))
 result = ext.ensemble_average_space(nametosave+'g'+str(g)+'gr'+str(gr), 10, int(N/2), n_batch)
-np.savetxt(r'/home6/konstantinos/'+'g'+str(g)+'gr'+str(gr)+'_result.dat', result)
+np.savetxt(r'/home6/konstantinos/'+'g'+str(g)+'gr'+str(gr)+'_result_x_512.dat', result)
 
+# =============================================================================
+# 
+# =============================================================================
 '''
-gpe = model()
-g1_x, d1_x, g2_x, d2_x, g3_x, d3_x, g4_x, d4_x, g5_x, d5_x = gpe.time_evolution(0)
-g12 = np.abs(g1_x)/np.sqrt(d1_x[0]*d1_x).real
-g22 = np.abs(g2_x)/np.sqrt(d2_x[0]*d2_x).real
-g32 = np.abs(g3_x)/np.sqrt(d3_x[0]*d3_x).real
-g42 = np.abs(g4_x)/np.sqrt(d4_x[0]*d4_x).real
-g52 = np.abs(g5_x)/np.sqrt(d5_x[0]*d5_x).real
-
-pl.loglog(g12, label='2')
-pl.loglog(g22, label='4')
-pl.loglog(g32, label='8')
-pl.loglog(g42, label='32')
-pl.loglog(g52, label='1')
+result = np.loadtxt('/Users/delis/Desktop/g4.42gr0.025_result_x_256.dat', dtype=np.complex_)
+resulty = np.loadtxt('/Users/delis/Desktop/g4.42gr0.025_result_xy.dat', dtype=np.complex_)
+g1 = np.abs(result[0])/np.sqrt(result[1,0]*result[1]).real
+g2 = np.abs(result[2])/np.sqrt(result[3,0]*result[3]).real
+g3 = np.abs(result[4])/np.sqrt(result[5,0]*result[5]).real
+g4 = np.abs(result[6])/np.sqrt(result[7,0]*result[7]).real
+g5 = np.abs(result[8])/np.sqrt(result[9,0]*result[9]).real
+pl.loglog(g1, label=r'$N/2$')
+pl.loglog(g2, label=r'$N/4$')
+pl.loglog(g3, label=r'$N/8$')
+pl.loglog(g4, label=r'$N/32$')
+pl.loglog(g5, label=r'No avg')
 pl.legend()
+pl.title('ROWS ONLY')
 pl.show()
 
-pl.loglog(np.abs(g1_x), label='2')
-pl.loglog(np.abs(g2_x), label='4')
-pl.loglog(np.abs(g3_x), label='8')
-pl.loglog(np.abs(g4_x), label='32')
-pl.loglog(np.abs(g5_x), label='1')
+g1y = np.abs(resulty[0])/np.sqrt(resulty[1,0]*resulty[1]).real
+g2y = np.abs(resulty[2])/np.sqrt(resulty[3,0]*resulty[3]).real
+g3y = np.abs(resulty[4])/np.sqrt(resulty[5,0]*resulty[5]).real
+g4y = np.abs(resulty[6])/np.sqrt(resulty[7,0]*resulty[7]).real
+g5y = np.abs(resulty[8])/np.sqrt(resulty[9,0]*resulty[9]).real
+pl.loglog(g1y, label=r'$N/2$')
+pl.loglog(g2y, label=r'$N/4$')
+pl.loglog(g3y, label=r'$N/8$')
+pl.loglog(g4y, label=r'$N/32$')
+pl.loglog(g5y, label=r'No avg')
 pl.legend()
+pl.title('ROWS AND COLUMNS')
 pl.show()
 
-pl.loglog(d1_x, label='2')
-pl.loglog(d2_x, label='4')
-pl.loglog(d3_x, label='8')
-pl.loglog(d4_x, label='32')
-pl.loglog(d5_x, label='1')
-pl.legend()
+pl.title('ROWS AND COLUMNS')
+pl.loglog(g1, c='b', label=r'$N/2$')
+pl.loglog(g2, c='b', label=r'$N/4$')
+pl.loglog(g3, c='b', label=r'$N/8$')
+pl.loglog(g4, c='b', label=r'$N/32$')
+pl.loglog(g5, c='b', label=r'No avg')
+pl.loglog(g1y, c='g', label=r'$N/2$')
+pl.loglog(g2y, c='g', label=r'$N/4$')
+pl.loglog(g3y, c='g', label=r'$N/8$')
+pl.loglog(g4y, c='g', label=r'$N/32$')
+pl.loglog(g5y, c='g', label=r'No avg')
 pl.show()
 '''
 
+# =============================================================================
+# 
+# =============================================================================
 '''
-result = np.loadtxt('/Users/delis/Desktop/g4.42gr0.025_result.dat', dtype=np.complex_)
-g11 = np.abs(result[0])/np.sqrt(result[1,0]*result[1]).real
-g21 = np.abs(result[2])/np.sqrt(result[3,0]*result[3]).real
-g31 = np.abs(result[4])/np.sqrt(result[5,0]*result[5]).real
-g41 = np.abs(result[6])/np.sqrt(result[7,0]*result[7]).real
-g51 = np.abs(result[8])/np.sqrt(result[9,0]*result[9]).real
-pl.loglog(g11, label='2')
-pl.loglog(g21, label='4')
-pl.loglog(g31, label='8')
-pl.loglog(g41, label='32')
-pl.loglog(g51, label='1')
-pl.legend()
-pl.show()
-
 file1 = np.load('/Users/delis/Desktop/g4.42gr0.025/file_core1.npy')
 file2 = np.load('/Users/delis/Desktop/g4.42gr0.025/file_core2.npy')
 file3 = np.load('/Users/delis/Desktop/g4.42gr0.025/file_core3.npy')
 file4 = np.load('/Users/delis/Desktop/g4.42gr0.025/file_core4.npy')
 
-x1 = (np.abs(file1[8])/np.sqrt(file1[9,0]*file1[9])).real
-x2 = (np.abs(file2[8])/np.sqrt(file2[9,0]*file2[9])).real
-x3 = (np.abs(file3[8])/np.sqrt(file3[9,0]*file3[9])).real
-x4 = (np.abs(file4[8])/np.sqrt(file4[9,0]*file4[9])).real
-pl.loglog(x1)
-pl.loglog(x2)
-pl.loglog(x3)
-pl.loglog(x4)
+n1 = (np.abs(file1[8])).real
+n2 = (np.abs(file2[8])).real
+n3 = (np.abs(file3[8])).real
+n4 = (np.abs(file4[8])).real
+
+d1 = (np.sqrt(file1[9,0]*file1[9])).real
+d2 = (np.sqrt(file2[9,0]*file2[9])).real
+d3 = (np.sqrt(file3[9,0]*file3[9])).real
+d4 = (np.sqrt(file4[9,0]*file4[9])).real
+pl.loglog(n1)
+pl.loglog(n2)
+pl.loglog(n3)
+pl.loglog(n4)
+pl.title('No spatial avg, numerator, each core')
+pl.tight_layout()
 pl.show()
 
-num_avg = (file1[8]+file2[8]+file3[8]+file4[8])/4
-denom_avg = (file1[9]+file2[9]+file3[9]+file4[9])/4
-xy = (np.abs(num_avg)/np.sqrt(denom_avg[0]*denom_avg)).real
-pl.loglog(xy)
+pl.loglog(d1)
+pl.loglog(d2)
+pl.loglog(d3)
+pl.loglog(d4)
+pl.title('No spatial avg, denominator, each core')
+pl.tight_layout()
+pl.show()
+
+pl.loglog(n1/d1)
+pl.loglog(n2/d2)
+pl.loglog(n3/d3)
+pl.loglog(n4/d4)
+pl.title('No spatial avg, fraction, each core')
+pl.tight_layout()
+pl.show()
+
+n1234 = (np.abs((file1[8]+file2[8]+file3[8]+file4[8])/4)).real
+denom = (file1[9]+file2[9]+file3[9]+file4[9])/4
+pl.loglog(n1234)
+pl.title('No spatial avg, numerator, avg between cores')
+pl.tight_layout()
+pl.show()
+
+pl.loglog(np.sqrt(denom[0]*denom))
+pl.title('No spatial avg, denominator, avg between cores')
+pl.tight_layout()
+pl.show()
+
+pl.loglog(n1234/np.sqrt(denom[0]*denom))
+pl.title('No spatial avg, fraction, avg between cores')
+pl.tight_layout()
 pl.show()
 '''
