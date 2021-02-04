@@ -165,20 +165,20 @@ class model:
             self.psi_x *= self.prefactor_x()
             self.psi_x += np.sqrt(dt) * np.sqrt(self.sigma) * (np.random.normal(0, 1, (N,N)) + 1j*np.random.normal(0, 1, (N,N)))
         for i in range(0, N, int(N/2)):
-            g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 2
-            d1_x += self.n()[i, int(N/2):] / 2 
+            g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 4 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 4
+            d1_x += self.n()[i, int(N/2):] / 4 + self.n()[int(N/2):, i] / 4
         g1_x[0] -= 1/(2*dx**2)
         for i in range(0, N, int(N/4)):
-            g2_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 4
-            d2_x += self.n()[i, int(N/2):] / 4
+            g2_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 8 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 8
+            d2_x += self.n()[i, int(N/2):] / 8 + self.n()[int(N/2):, i] / 8
         g2_x[0] -= 1/(2*dx**2)
         for i in range(0, N, int(N/8)):
-            g3_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 8
-            d3_x += self.n()[i, int(N/2):] / 8
+            g3_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 16 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 16
+            d3_x += self.n()[i, int(N/2):] / 16 + self.n()[int(N/2):, i] / 16
         g3_x[0] -= 1/(2*dx**2)
         for i in range(0, N, int(N/32)):
-            g4_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 32
-            d4_x += self.n()[i, int(N/2):] / 32
+            g4_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 64 + np.conjugate(self.psi_x[int(N/2), i]) * self.psi_x[int(N/2):, i] / 64
+            d4_x += self.n()[i, int(N/2):] / 64 + self.n()[int(N/2):, i] / 64
         g4_x[0] -= 1/(2*dx**2)
         g5_x = np.conjugate(self.psi_x[int(N/2), int(N/2)]) * self.psi_x[int(N/2), int(N/2):]
         d5_x = self.n()[int(N/2), int(N/2):]
@@ -200,7 +200,7 @@ def g1(i_batch):
 
 parallel_map(g1, range(n_batch))
 result = ext.ensemble_average_space(nametosave+'g'+str(g)+'gr'+str(gr), 10, int(N/2), n_batch)
-np.savetxt(nametosave+'g'+str(g)+'gr'+str(gr)+'_result.dat', result)
+np.savetxt(r'/home6/konstantinos/'+'g'+str(g)+'gr'+str(gr)+'_result.dat', result)
 
 '''
 gpe = model()
