@@ -9,7 +9,6 @@ Created on Tue Nov 10 15:09:50 2020
 c = 3E2 #μm/ps
 hbar = 6.582119569 * 1E2 # μeV ps
 
-import matplotlib.pyplot as pl
 import os
 from scipy.fftpack import fft2, ifft2
 import numpy as np
@@ -189,6 +188,7 @@ class model:
         vortexnumber = np.zeros(len(t))
         np.random.seed()
         for i in range(time_steps+1):
+            print(i)
             self.psi_x *= self.prefactor_x()
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
@@ -197,7 +197,7 @@ class model:
             self.psi_x += np.sqrt(dt) * np.sqrt(self.sigma) * (np.random.normal(0, 1, (N,N)) + 1j*np.random.normal(0, 1, (N,N)))
             if i>=i1 and i<=i2 and i%every==0:
                 vortexnumber[(i-i1)//every] = self.vortices()
-            return vortexnumber
+        return vortexnumber
         '''
         for i in range(0, N, int(N/8)):
             g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 8
