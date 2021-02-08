@@ -14,11 +14,9 @@ from scipy.fftpack import fft2, ifft2
 import numpy as np
 import external as ext
 from qutip import *
-name_local = r'/Users/delis/Desktop/'
-name_remote = r'/scratch/konstantinos/'
 
-parallel_tasks = 16
-n_batch = 8
+parallel_tasks = 300
+n_batch = 100
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
@@ -41,7 +39,7 @@ ns = gammar/R
 n0 = ns*(p-1)
 nres = P/(gammar+R*n0)
 gr = 0.025
-g = 4.5
+g = 4
 
 def arrays():
     x_0 = - N * dx / 2
@@ -63,8 +61,8 @@ star_gamma_l0 = (gamma0*hbar)  # μeV
 star_gamma_l2 = (gamma2*hbar) # μeV μm^2 
 star_gamma_r = (gammar*hbar) # μeV
 
-time_steps = 100000
-dt = 4e-2 * hatt
+time_steps = 50000
+dt = 1e-2 * hatt
 every = 100
 i1 = 0
 i2 = time_steps
@@ -162,7 +160,10 @@ class model:
         g1_x[0] -= 1/(2*dx**2)
         return g1_x, d1_x
 
-saveresult = r'/home6/konstantinos/'
+#name_local = r'/Users/delis/Desktop/'
+#save_local = name_local
+name_remote = r'/scratch/konstantinos/'
+save_remote = r'/home6/konstantinos/'
 def g1(i_batch):
     seed = i_batch
     correlation_batch = np.zeros((2, int(N/2)), dtype=complex)
@@ -175,5 +176,5 @@ def g1(i_batch):
     np.save(name_remote+'correlation_g'+str(g)+'gr'+str(gr)+os.sep+'file_core'+str(i_batch+1)+'.npy', correlation_batch)
 
 parallel_map(g1, range(n_batch))
-result = ext.ensemble_average_space(name_remote+'correlation_g'+str(g)+'gr'+str(gr), 10, int(N/2), n_batch)
-np.savetxt(saveresult+'correlation_g'+str(g)+'gr'+str(gr)+'.dat', result)
+result = ext.ensemble_average_space(name_remote+'correlation_g'+str(g)+'gr'+str(gr), 2, int(N/2), n_batch)
+np.savetxt(save_remote+'correlation_g'+str(g)+'gr'+str(gr)+'_27.dat', result)

@@ -17,13 +17,13 @@ from qutip import *
 name_local = r'/Users/delis/Desktop/'
 name_remote = r'/scratch/konstantinos/'
 
-parallel_tasks = 512
-n_batch = 64
+parallel_tasks = 32
+n_batch = 8
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-N = 2**7
-L = 2**7
+N = 2**6
+L = 2**6
 hatt = 1 #ps
 hatx = 1 #μm
 hatpsi = 1/hatx #μm^-1
@@ -41,7 +41,7 @@ ns = gammar/R
 n0 = ns*(p-1)
 nres = P/(gammar+R*n0)
 gr = 0.025
-g = 5
+g = 4.5
 
 def arrays():
     x_0 = - N * dx / 2
@@ -71,7 +71,7 @@ i2 = time_steps
 lengthwindow = i2-i1
 t = ext.time(dt, time_steps, i1, i2, every)
 
-#np.savetxt('/Users/delis/Desktop/dt.dat', np.arange(1001))
+#np.savetxt('/Users/delis/Desktop/t_0_100_100k.dat', t)
 #np.savetxt('/Users/delis/Desktop/dr_2_7,dat', x-x[0])
 
 print('--- Energy scales ---')
@@ -195,7 +195,11 @@ class model:
                 vortexnumber[(i-i1)//every] = self.vortices()
         return vortexnumber
 
-saveresult = r'/home6/konstantinos/'
+name_local = r'/Users/delis/Desktop/'
+save_local = name_local
+#name_remote = r'/scratch/konstantinos/'
+#save_remote = r'/home6/konstantinos/'
+
 def g1(i_batch):
     seed = i_batch
     vortexnumber_batch = np.zeros(len(t))
@@ -205,8 +209,8 @@ def g1(i_batch):
         vortexnumber_batch += vortexnumber_run / n_internal
         seed += n_batch
         print('The core', i_batch, 'has completed realisation number', i_n+1)
-    np.save(name_remote+'vortices_g'+str(g)+'gr'+str(gr)+os.sep+'file_core'+str(i_batch+1)+'.npy', vortexnumber_batch)
+    np.save(name_local+'vortices_g'+str(g)+'gr'+str(gr)+os.sep+'file_core'+str(i_batch+1)+'.npy', vortexnumber_batch)
 
 parallel_map(g1, range(n_batch))
-result = ext.ensemble_average_time(name_remote+'vortices_g'+str(g)+'gr'+str(gr), t, n_batch)
-np.savetxt(saveresult+'vortices_g'+str(g)+'gr'+str(gr)+'.dat', result)
+result = ext.ensemble_average_time(name_local+'vortices_g'+str(g)+'gr'+str(gr), t, n_batch)
+np.savetxt(save_local+'vortices_g'+str(g)+'gr'+str(gr)+'_26.dat', result)
