@@ -16,12 +16,12 @@ import external as ext
 from qutip import *
 
 parallel_tasks = 300
-n_batch = 100
+n_batch = 30
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-N = 2**7
-L = 2**7
+N = 2**8
+L = 2**8
 hatt = 1 #ps
 hatx = 1 #μm
 hatpsi = 1/hatx #μm^-1
@@ -177,4 +177,4 @@ def g1(i_batch):
 
 parallel_map(g1, range(n_batch))
 result = ext.ensemble_average_space(name_remote+'correlation_g'+str(g)+'gr'+str(gr), 2, int(N/2), n_batch)
-np.savetxt(save_remote+'correlation_g'+str(g)+'gr'+str(gr)+'_27.dat', result)
+np.savetxt(save_remote+'correlation_g'+str(g)+'gr'+str(gr)+'N'+str(N)+'.dat', result)
