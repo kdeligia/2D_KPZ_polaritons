@@ -14,10 +14,8 @@ from scipy.fftpack import fft2, ifft2
 import numpy as np
 import external as ext
 from qutip import *
-name_local = r'/Users/delis/Desktop/'
-name_remote = r'/scratch/konstantinos/'
 
-parallel_tasks = 32
+parallel_tasks = 40
 n_batch = 8
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
@@ -41,7 +39,7 @@ ns = gammar/R
 n0 = ns*(p-1)
 nres = P/(gammar+R*n0)
 gr = 0.025
-g = 4.5
+g = 4
 
 def arrays():
     x_0 = - N * dx / 2
@@ -63,7 +61,7 @@ star_gamma_l0 = (gamma0*hbar)  # μeV
 star_gamma_l2 = (gamma2*hbar) # μeV μm^2 
 star_gamma_r = (gammar*hbar) # μeV
 
-time_steps = 100000
+time_steps = 50000
 dt = 4e-2 * hatt
 every = 100
 i1 = 0
@@ -213,4 +211,11 @@ def g1(i_batch):
 
 parallel_map(g1, range(n_batch))
 result = ext.ensemble_average_time(name_local+'vortices_g'+str(g)+'gr'+str(gr), t, n_batch)
-np.savetxt(save_local+'vortices_g'+str(g)+'gr'+str(gr)+'_26.dat', result)
+#np.savetxt(save_local+'vortices_g'+str(g)+'gr'+str(gr)+'N'+str(N)+'.dat', result)
+
+import matplotlib.pyplot as pl
+fig, ax = pl.subplots(1,1, figsize=(10, 10))
+ax.plot(t, result/N**2, label='$g=4, N=2^6$')
+ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
+ax.legend(prop=dict(size=20))
+pl.show()
