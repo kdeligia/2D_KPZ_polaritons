@@ -9,114 +9,160 @@ Created on Fri Feb  5 16:26:53 2021
 c = 3E2 #μm/ps
 hbar = 6.582119569 * 1E2 # μeV ps
 
-import os
 from scipy.fftpack import fft2, ifft2
 import numpy as np
 import external as ext
 from qutip import *
+import matplotlib.pyplot as pl
+import os
 
-parallel_tasks = 40
-n_batch = 8
+parallel_tasks = 140
+n_batch = 28
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-N = 2**6
-L = 2**6
-hatt = 1 #ps
-hatx = 1 #μm
-hatpsi = 1/hatx #μm^-1
+hatt = 1 # ps
+hatx = 1 # μm
+hatpsi = 1/hatx # μm^-1
+hatrho = 1/hatx**2 # μm^-2
+hatepsilon = hbar/hatt # μeV
+melectron = 0.510998950 * 1E12 / c**2 # μeV/(μm^2/ps^2)
 
-star_m = 5e-6
-gamma0 = 0.19 #ps^-1
-gammar = 0.015 #ps^-1
-gamma2 = 100/hbar #μm^2 ps^-1
+m_tilde = -5e-5
+P_tilde = 9.68
+R_tilde = 0.0008
+gamma0_tilde = 0.22
+gammar_tilde = 0.1 * gamma0_tilde
+gamma2_tilde = 0.15
+p = P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 
-P = 1.026e2
-R = 5e-5
+ns_tilde = gammar_tilde / R_tilde
+n0_tilde = ns_tilde * (p - 1)
+nres_tilde = P_tilde / (gammar_tilde * (1 + n0_tilde/ns_tilde))
 
-p = P*R / (gamma0*gammar)
-ns = gammar/R
-n0 = ns*(p-1)
-nres = P/(gammar+R*n0)
-gr = 0.025
-g = 4
+mu_res = 200 # μeV
+mu_cond = 100 # μeV
+
+g_tilde = (mu_cond / hatepsilon) * (1 / n0_tilde)
+gr_tilde = (mu_res / hatepsilon) * (1 / (2 * nres_tilde))
+
+N = 2**7
+L_tilde = 2**7
+dx_tilde = L_tilde/N
+dkx_tilde = 2 * np.pi / (N * dx_tilde)
+
+def dimensional_units():
+    L_dim = L_tilde * hatx                                                      # result in μm
+    P_dim = P_tilde * (1/(hatx**2 * hatt))                                      # result in μm^-2 ps^-1
+    R_dim = R_tilde * (hatx**2/hatt)                                            # result in μm^2 ps^-1
+    gamma0_dim = gamma0_tilde * (1/hatt)                                        # result in ps^-1
+    gammar_dim = gammar_tilde * (1/hatt)                                        # result in ps^-1
+    gamma2_dim = gamma2_tilde * (hatx**2 / hatt)                                # result in μm^2 ps^-1
+    ns_dim = ns_tilde * hatrho                                                  # result in μm^-2
+    m_dim = m_tilde * melectron
+    n0_dim = n0_tilde * hatrho                                                  # result in μm^-2
+    nr_dim = nres_tilde * hatrho                                                # result in μm^-2
+    g_dim = g_tilde * (hatepsilon / hatrho)                                     # result in μeV μm^2
+    gr_dim = gr_tilde * (hatepsilon / hatrho)                                   # result in μeV μm^2
+    return L_dim, P_dim, R_dim, gamma0_dim, gammar_dim, gamma2_dim, ns_dim, m_dim, n0_dim, nr_dim, g_dim, gr_dim
 
 def arrays():
-    x_0 = - N * dx / 2
-    kx0 = - np.pi / dx
-    x = x_0 + dx * np.arange(N)
-    kx = kx0 + dkx * np.arange(N)
+    x_0 = - N * dx_tilde / 2
+    kx0 = - np.pi / dx_tilde
+    x = x_0 + dx_tilde * np.arange(N)
+    kx = kx0 + dkx_tilde * np.arange(N)
     return x, kx
 
-L *= hatx
-L /= hatx
-dx = L/N
-dkx = 2 * np.pi / (N * dx)
+L_dim, P_dim, R_dim, gamma0_dim, gammar_dim, gamma2_dim, ns_dim, m_dim, n0_dim, nr_dim, g_dim, gr_dim = dimensional_units()
 x, kx =  arrays()
 X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
-m =  star_m * 0.510998950 * 1E12 / c**2 #μeV/(μm^2/ps^2)
-star_gamma_l0 = (gamma0*hbar)  # μeV 
-star_gamma_l2 = (gamma2*hbar) # μeV μm^2 
-star_gamma_r = (gammar*hbar) # μeV
-
-time_steps = 50000
-dt = 4e-2 * hatt
+time_steps = 100000
+dt_tilde = 5e-3
 every = 100
 i1 = 0
 i2 = time_steps
 lengthwindow = i2-i1
-t = ext.time(dt, time_steps, i1, i2, every)
-
-#np.savetxt('/Users/delis/Desktop/t_0_100_100k.dat', t)
-#np.savetxt('/Users/delis/Desktop/dr_2_7,dat', x-x[0])
+t = ext.time(dt_tilde, time_steps, i1, i2, every)
+xi = hbar / np.sqrt(2 * abs(m_dim) * n0_dim)
 
 print('--- Energy scales ---')
-print(r'losses/kinetic %.4f' % (hbar*gamma0/(hbar**2/(2*abs(m)*dx**2))))
-print(r'p-p interaction/kinetic %.4f' % (g*n0/(hbar**2/(2*abs(m)*dx**2))))
-print(r'p-r interaction/kinetic %.4f' % (gr*nres/(hbar**2/(2*abs(m)*dx**2))))
-print(r'Total blueshift from interactions in μeV %.4f' % (g*n0 + gr*nres))
-print(r'Truncated Wigner  ratio %.4f' % (g/(hbar*gamma0*dx**2)))
-print(r'dx/healing length %.4f' % (dx / (hbar/np.sqrt(2*abs(m)*g*n0))))
-print('--- Losses ---')
-print('gamma_0 in μeV %.4f' % star_gamma_l0)
-print('gamma_r in μeV %.4f' % star_gamma_r)
-print('gamma_2 in μeV μm^2 %.4f' % star_gamma_l2)
+print('losses/kinetic %.4f' % (hbar * gamma0_dim / (hbar**2 / (2 * abs(m_dim) * hatx**2 * dx_tilde**2))))
+print('p-p interaction/kinetic %.4f' % (g_dim * n0_dim / (hbar**2 / (2*abs(m_dim) * hatx**2 * dx_tilde**2))))
+print('Truncated Wigner ratio %.4f' % (g_dim / (hbar * gamma0_dim * hatx**2 * dx_tilde**2)))
+print('dx/healing length %.4f' % (hatx * dx_tilde / (hbar / np.sqrt(2 * abs(m_dim) * g_dim * n0_dim))))
 print('--- Interactions ---')
-print('Polariton-reservoir in μeV μm^2 %.4f' % gr)
-print('Polariton-polariton in μev μm^2 %.4f' % g)
+print('Polariton-reservoir in μeV μm^2 %.4f' % gr_dim)
+print('Polariton-polariton in μev μm^2 %.4f' % g_dim)
+print('Dimensionless Polariton-reservoir %.6f' % gr_tilde)
+print('Dimensionless Polariton-polariton %.6f' % g_tilde)
 print('--- Densities ---')
-print('Saturation in μm^-2 %.2f' % (gammar/R))
-print('Steady-state in μm^-2 %.2f' % n0)
-print('Reservoir in μm^-2 %.2f' % (nres))
+print('Saturation in μm^-2 %.2f' % ns_dim)
+print('Steady-state in μm^-2 %.2f' % n0_dim)
+print('Reservoir in μm^-2 %.2f' % nr_dim)
 print('--- Dimensionless pump ---')
 print('p %.4f' % p)
 
 class model:
     def __init__(self, psi_x=0):
-        self.sigma = hatt * gamma0*(p+1)/(2*dx**2)
-        self.Kc = (hatt/hatx**2) * hbar/(2*m)
-        self.Kd = (hatt/hatx**2) * gamma2/2
+        self.sigma = gamma0_tilde * (p + 1) / (2 * dx_tilde**2)
         self.psi_x = psi_x
-        self.psi_x = np.full((N, N), 2)
+        self.psi_x = np.full((N, N), 0.05)
         self.psi_x /= hatpsi
         self.psi_mod_k = fft2(self.psi_mod_x)
+        self.Kc = hbar**2 / (2 * m_dim * hatepsilon * hatx**2)
+        self.Kd = gamma2_tilde / 2
+        self.ud = gamma0_tilde * p / (2 * ns_tilde)
+        self.uc =  g_tilde * (1 - 2 * p * (gr_tilde / g_tilde) * (gamma0_tilde / gammar_tilde))
+        self.rc = 2 * p * gr_tilde * gamma0_tilde / R_tilde
+        self.rd = gamma0_tilde  * (p - 1) / 2
+        lambdakpz = -2 * (self.Kc - self.Kd * self.uc / self.ud)
+        nukpz = self.Kd + self.Kc * self.uc / self.ud
+        Dkpz = self.sigma * (1 + self.uc ** 2 / self.ud ** 2)/(2 * n0_tilde)
+        print('Kc', self.Kc)
+        print('Kd', self.Kd)
+        print('uc', self.uc)
+        print('ud', self.ud)
+        print('rc', self.rc)
+        print('rd', self.rd)
+        print(r'g_KPZ =', np.abs(lambdakpz)*(Dkpz / (2 * nukpz ** 3)) ** (1/2))
+        #self.bogoliubov()
 
-# =============================================================================
-# Discrete Fourier pairs
-# =============================================================================
+    def bogoliubov(self):
+        omsol = self.rc + n0_tilde * self.uc
+        a = - omsol + self.Kc * kx ** 2 + self.rc + 2 * n0_tilde * self.uc
+        b = - self.Kd * kx ** 2 + self.rd - 2 * n0_tilde * self.ud
+        c = n0_tilde * self.uc
+        d = - n0_tilde * self.ud
+        im_plus = np.zeros(len(kx))
+        im_minus = np.zeros(len(kx))
+        for i in range(len(kx)):
+            if (a[i]**2 - c**2 - d**2) < 0:
+                im_plus[i] = b[i] + np.sqrt(np.abs(a[i]**2 - c**2 - d**2))
+                im_minus[i] = b[i] - np.sqrt(np.abs(a[i]**2 - c**2 - d**2))
+            else:
+                im_plus[i] = b[i]
+                im_minus[i] = b[i]
+        pl.plot(kx, im_plus, 'o', label=r'Imaginary plus')
+        pl.plot(kx, im_minus, '^', label=r'Imaginary minus')
+        pl.axhline(y=0, xmin=kx[0], xmax=kx[-1], linestyle='--', color='black')
+        pl.xlim(0, kx[-1])
+        pl.legend()
+        pl.show()
+        return im_plus, im_minus
+
     def _set_fourier_psi_x(self, psi_x):
-        self.psi_mod_x = psi_x * np.exp(-1j * KX[0,0] * X - 1j * KY[0,0] * Y) * dx * dx / (2 * np.pi)
+        self.psi_mod_x = psi_x * np.exp(-1j * KX[0,0] * X - 1j * KY[0,0] * Y) * dx_tilde * dx_tilde / (2 * np.pi)
 
     def _get_psi_x(self):
-        return self.psi_mod_x * np.exp(1j * KX[0,0] * X + 1j * KY[0,0] * Y) * 2 * np.pi / (dx * dx)
+        return self.psi_mod_x * np.exp(1j * KX[0,0] * X + 1j * KY[0,0] * Y) * 2 * np.pi / (dx_tilde * dx_tilde)
 
     def _set_fourier_psi_k(self, psi_k):
-        self.psi_mod_k = psi_k * np.exp(1j * X[0,0] * dkx * np.arange(N) + 1j * Y[0,0] * dkx * np.arange(N))
+        self.psi_mod_k = psi_k * np.exp(1j * X[0,0] * dkx_tilde * np.arange(N) + 1j * Y[0,0] * dkx_tilde * np.arange(N))
 
     def _get_psi_k(self):
-        return self.psi_mod_k * np.exp(-1j * X[0,0] * dkx * np.arange(N) - 1j * Y[0,0] * dkx * np.arange(N))
+        return self.psi_mod_k * np.exp(-1j * X[0,0] * dkx_tilde * np.arange(N) - 1j * Y[0,0] * dkx_tilde * np.arange(N))
 
     psi_x = property(_get_psi_x, _set_fourier_psi_x)
     psi_k = property(_get_psi_k, _set_fourier_psi_k)
@@ -124,19 +170,15 @@ class model:
 # Definition of the split steps
 # =============================================================================
     def n(self):
-        return np.abs(self.psi_x * np.conjugate(self.psi_x)) - 1/(2*dx**2)
-
-    def n_r(self, nr_update):
-        q = gammar + R*self.n()
-        return P/q - P/q*np.exp(-q*dt/2) - nr_update*np.exp(-q*dt/2)
+        return (self.psi_x * np.conjugate(self.psi_x)).real - 1/(2 * dx_tilde**2)
 
     def prefactor_x(self):
-        self.uc_tilde = hatt/(hbar*hatx**2) * g*(self.n() + (hatx**2*gr/g) * (p*gamma0/R) * (1/(1+self.n()/(hatx**2*ns))))
-        self.I_tilde = 1j*hatt*gamma0/2 * (p/(1+self.n()/(hatx**2*ns)) - 1)
-        return np.exp(-1j*0.5*dt*(self.uc_tilde + self.I_tilde))
+        self.uc_tilde = self.g * (self.n() + 2 * (self.gr / self.g) * (P_tilde / gammar_tilde) * (1 / (1 + self.n() / ns_tilde)))
+        self.I_tilde = 1j * (gamma0_tilde / 2) * (p * (1 / (1 + self.n() / ns_tilde)) - 1)
+        return np.exp(-1j * 0.5 * dt_tilde * (self.uc_tilde + self.I_tilde))
 
     def prefactor_k(self):
-        return np.exp(-1j*dt*((KX**2 + KY**2)*(self.Kc - 1j*self.Kd)))
+        return np.exp(-1j * dt_tilde * ((KX ** 2 + KY ** 2)*(self.Kc - 1j * self.Kd)))
 
 # =============================================================================
 # Time evolution
@@ -145,16 +187,16 @@ class model:
         count_v = 0
         count_av = 0
         theta = np.angle(self.psi_x)
-        grad = np.gradient(theta, dx)
+        grad = np.gradient(theta, dx_tilde)
         #v_pos = np.zeros((N, N))
         #av_pos = np.zeros((N, N))
         for i in range(1, N-1):
             for j in range(1, N-1):
-                loop = (2*dx*(grad[0][j+1, i+1] - grad[1][j+1, i+1]) +
-                        2*dx*(grad[0][j+1, i-1] + grad[1][j+1, i-1]) +
-                        2*dx*(-grad[0][j-1, i-1] + grad[1][j-1, i-1]) +
-                        2*dx*(-grad[0][j-1, i+1] - grad[1][j-1, i+1]) +
-                        2*dx*(grad[0][j+1, i] + grad[1][j, i-1] - grad[0][j-1, i] - grad[1][j, i+1]))
+                loop = (2*dx_tilde*(grad[0][j+1, i+1] - grad[1][j+1, i+1]) +
+                        2*dx_tilde*(grad[0][j+1, i-1] + grad[1][j+1, i-1]) +
+                        2*dx_tilde*(-grad[0][j-1, i-1] + grad[1][j-1, i-1]) +
+                        2*dx_tilde*(-grad[0][j-1, i+1] - grad[1][j-1, i+1]) +
+                        2*dx_tilde*(grad[0][j+1, i] + grad[1][j, i-1] - grad[0][j-1, i] - grad[1][j, i+1]))
                 if loop >= 2 * np.pi:
                     count_v += 1
                     #v_pos[i,j] = 1
@@ -178,18 +220,18 @@ class model:
         '''
         return total
 
-    def time_evolution(self, seed):
-        vortexnumber = np.zeros(len(t))
+    def time_evolution(self):
         np.random.seed()
+        vortexnumber = np.zeros(len(t))
         for i in range(time_steps+1):
-            #print(i)
             self.psi_x *= self.prefactor_x()
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
             self.psi_mod_x = ifft2(self.psi_mod_k)
             self.psi_x *= self.prefactor_x()
-            self.psi_x += np.sqrt(dt) * np.sqrt(self.sigma) * (np.random.normal(0, 1, (N,N)) + 1j*np.random.normal(0, 1, (N,N)))
+            self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma) * (np.random.normal(0, 1, (N,N)) + 1j*np.random.normal(0, 1, (N,N)))
             if i>=i1 and i<=i2 and i%every==0:
+                print(i)
                 vortexnumber[(i-i1)//every] = self.vortices()
         return vortexnumber
 
@@ -198,7 +240,7 @@ save_local = name_local
 #name_remote = r'/scratch/konstantinos/'
 #save_remote = r'/home6/konstantinos/'
 
-def g1(i_batch):
+def vortices_parallel(i_batch):
     seed = i_batch
     vortexnumber_batch = np.zeros(len(t))
     for i_n in range(n_internal):
@@ -207,15 +249,8 @@ def g1(i_batch):
         vortexnumber_batch += vortexnumber_run / n_internal
         seed += n_batch
         print('The core', i_batch, 'has completed realisation number', i_n+1)
-    np.save(name_local+'vortices_g'+str(g)+'gr'+str(gr)+os.sep+'file_core'+str(i_batch+1)+'.npy', vortexnumber_batch)
+    np.save(name_local+'vortices_g'+str(g_tilde)+'gr'+str(gr_tilde)+os.sep+'file_core'+str(i_batch+1)+'.npy', vortexnumber_batch)
 
 parallel_map(g1, range(n_batch))
 result = ext.ensemble_average_time(name_local+'vortices_g'+str(g)+'gr'+str(gr), t, n_batch)
 #np.savetxt(save_local+'vortices_g'+str(g)+'gr'+str(gr)+'N'+str(N)+'.dat', result)
-
-import matplotlib.pyplot as pl
-fig, ax = pl.subplots(1,1, figsize=(10, 10))
-ax.plot(t, result/N**2, label='$g=4, N=2^6$')
-ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
-ax.legend(prop=dict(size=20))
-pl.show()
