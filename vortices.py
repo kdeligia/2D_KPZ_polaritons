@@ -121,6 +121,7 @@ class model:
         lambdakpz = -2 * (self.Kc - self.Kd * self.uc / self.ud)
         nukpz = self.Kd + self.Kc * self.uc / self.ud
         Dkpz = self.sigma * (1 + self.uc ** 2 / self.ud ** 2)/(2 * n0_tilde)
+        '''
         print('Kc', self.Kc)
         print('Kd', self.Kd)
         print('uc', self.uc)
@@ -129,6 +130,7 @@ class model:
         print('rd', self.rd)
         print(r'g_KPZ =', np.abs(lambdakpz)*(Dkpz / (2 * nukpz ** 3)) ** (1/2))
         #self.bogoliubov()
+        '''
 
     def bogoliubov(self):
         omsol = self.rc + n0_tilde * self.uc
@@ -242,13 +244,11 @@ save_local = name_local
 #save_remote = r'/home6/konstantinos/'
 
 def vortices_parallel(i_batch):
-    seed = i_batch
     vortexnumber_batch = np.zeros(len(t))
     for i_n in range(n_internal):
         gpe = model()
-        vortexnumber_run = gpe.time_evolution(seed)
+        vortexnumber_run = gpe.time_evolution()
         vortexnumber_batch += vortexnumber_run / n_internal
-        seed += n_batch
         print('The core', i_batch, 'has completed realisation number', i_n+1)
     np.save(name_local+'vortices_run'+str(count)+os.sep+'file_core'+str(i_batch+1)+'.npy', vortexnumber_batch)
 
