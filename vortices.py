@@ -16,7 +16,6 @@ from qutip import *
 import matplotlib.pyplot as pl
 import os
 
-count = 1
 parallel_tasks = 140
 n_batch = 28
 n_internal = parallel_tasks//n_batch
@@ -41,8 +40,8 @@ ns_tilde = gammar_tilde / R_tilde
 n0_tilde = ns_tilde * (p - 1)
 nres_tilde = P_tilde / (gammar_tilde * (1 + n0_tilde/ns_tilde))
 
-mu_res = 200 # μeV
-mu_cond = 100 # μeV
+mu_res = 100 # μeV
+mu_cond = 90 # μeV
 
 g_tilde = (mu_cond / hatepsilon) * (1 / n0_tilde)
 gr_tilde = (mu_res / hatepsilon) * (1 / (2 * nres_tilde))
@@ -80,7 +79,7 @@ X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
 time_steps = 100000
-dt_tilde = 5e-3
+dt_tilde = 1e-2
 every = 100
 i1 = 0
 i2 = time_steps
@@ -237,10 +236,10 @@ class model:
                 vortexnumber[(i-i1)//every] = self.vortices()
         return vortexnumber
 
-name_local = r'/Users/delis/Desktop/'
-save_local = name_local
-#name_remote = r'/scratch/konstantinos/'
-#save_remote = r'/home6/konstantinos/'
+count = 2
+name_remote = r'/scratch/konstantinos/'
+save_remote = r'/home6/konstantinos/'
+os.mkdir(name_remote+'vortices_run'+str(count))
 
 def vortices_parallel(i_batch):
     vortexnumber_batch = np.zeros(len(t))
@@ -249,8 +248,8 @@ def vortices_parallel(i_batch):
         vortexnumber_run = gpe.time_evolution()
         vortexnumber_batch += vortexnumber_run / n_internal
         print('The core', i_batch, 'has completed realisation number', i_n+1)
-    np.save(name_local+'vortices_run'+str(count)+os.sep+'file_core'+str(i_batch+1)+'.npy', vortexnumber_batch)
+    np.save(name_remote+'vortices_run'+str(count)+os.sep+'file_core'+str(i_batch+1)+'.npy', vortexnumber_batch)
 
 parallel_map(vortices_parallel, range(n_batch))
-result = ext.ensemble_average_time(name_local+'vortices_run'+str(count), t, n_batch)
-np.savetxt(save_local+'vortices_run'+str(count)+'result.dat', result)
+result = ext.ensemble_average_time(name_remote+'vortices_run'+str(count), t, n_batch)
+np.savetxt(save_remote+'vortices_run'+str(count)+'_result.dat', result)

@@ -16,7 +16,6 @@ from qutip import *
 import matplotlib.pyplot as pl
 import os
 
-count = 1
 parallel_tasks = 200
 n_batch = 100
 n_internal = parallel_tasks//n_batch
@@ -41,8 +40,8 @@ ns_tilde = gammar_tilde / R_tilde
 n0_tilde = ns_tilde * (p - 1)
 nres_tilde = P_tilde / (gammar_tilde * (1 + n0_tilde/ns_tilde))
 
-mu_res = 200 # μeV
-mu_cond = 100 # μeV
+mu_res = 100 # μeV
+mu_cond = 90 # μeV
 
 g_tilde = (mu_cond / hatepsilon) * (1 / n0_tilde)
 gr_tilde = (mu_res / hatepsilon) * (1 / (2 * nres_tilde))
@@ -80,7 +79,7 @@ X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
 time_steps = 100000
-dt_tilde = 5e-3
+dt_tilde = 1e-2
 every = 100
 i1 = 0
 i2 = time_steps
@@ -202,10 +201,11 @@ class model:
         g1_x[0] -= 1/(2*dx_tilde**2)
         return g1_x, d1_x
 
-#name_local = r'/Users/delis/Desktop/'
-#save_local = name_local
+count = 2
 name_remote = r'/scratch/konstantinos/'
 save_remote = r'/home6/konstantinos/'
+os.mkdir(name_remote+'correlation_run'+str(count))
+
 def g1_parallel(i_batch):
     correlation_batch = np.zeros((2, int(N/2)), dtype=complex)
     for i_n in range(n_internal):
@@ -216,5 +216,5 @@ def g1_parallel(i_batch):
     np.save(name_remote+'correlation_run'+str(count)+os.sep+'file_core'+str(i_batch+1)+'.npy', correlation_batch)
     
 parallel_map(g1_parallel, range(n_batch))
-result = ext.ensemble_average_space('correlation_run'+str(count), 2, int(N/2), n_batch)
-np.savetxt(save_remote+'correlation_run'+str(count)+'result.dat', result)
+result = ext.ensemble_average_space(name_remote+'correlation_run'+str(count), 2, int(N/2), n_batch)
+np.savetxt(save_remote+'correlation_run'+str(count)+'_result.dat', result)
