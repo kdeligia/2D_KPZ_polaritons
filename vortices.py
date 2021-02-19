@@ -234,7 +234,6 @@ class model:
             self.psi_x *= self.prefactor_x()
             self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma) * (np.random.normal(0, 1, (N,N)) + 1j*np.random.normal(0, 1, (N,N)))
             if i>=i1 and i<=i2 and i%every==0:
-                print(i)
                 vortexnumber[(i-i1)//every] = self.vortices()
         return vortexnumber
 
