@@ -16,6 +16,7 @@ from qutip import *
 import matplotlib.pyplot as pl
 import os
 
+count = 1
 parallel_tasks = 140
 n_batch = 28
 n_internal = parallel_tasks//n_batch
@@ -249,8 +250,8 @@ def vortices_parallel(i_batch):
         vortexnumber_batch += vortexnumber_run / n_internal
         seed += n_batch
         print('The core', i_batch, 'has completed realisation number', i_n+1)
-    np.save(name_local+'vortices_g'+str(g_tilde)+'gr'+str(gr_tilde)+os.sep+'file_core'+str(i_batch+1)+'.npy', vortexnumber_batch)
+    np.save(name_local+'vortices_run'+str(count)+os.sep+'file_core'+str(i_batch+1)+'.npy', vortexnumber_batch)
 
-parallel_map(g1, range(n_batch))
-result = ext.ensemble_average_time(name_local+'vortices_g'+str(g)+'gr'+str(gr), t, n_batch)
-#np.savetxt(save_local+'vortices_g'+str(g)+'gr'+str(gr)+'N'+str(N)+'.dat', result)
+parallel_map(vortices_parallel, range(n_batch))
+result = ext.ensemble_average_time(name_local+'vortices_run'+str(count), t, n_batch)
+np.savetxt(save_local+'vortices_run'+str(count)+'result.dat', result)

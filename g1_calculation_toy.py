@@ -16,6 +16,7 @@ from qutip import *
 import matplotlib.pyplot as pl
 import os
 
+count = 1
 parallel_tasks = 200
 n_batch = 100
 n_internal = parallel_tasks//n_batch
@@ -183,9 +184,9 @@ class model:
 # Time evolution
 # =============================================================================
     def time_evolution(self):
+        np.random.seed()
         g1_x = np.zeros(int(N/2), dtype = complex)
         d1_x = np.zeros(int(N/2))
-        np.random.seed()
         for i in range(time_steps+1):
             self.psi_x *= self.prefactor_x()
             self.psi_mod_k = fft2(self.psi_mod_x)
@@ -210,8 +211,8 @@ def g1_parallel(i_batch):
         g1_x_run, d1_x_run = gpe.time_evolution()
         correlation_batch += np.vstack((g1_x_run, d1_x_run)) / n_internal
         print('core', i_batch, 'completed realisation number', i_n+1)
-    np.save(name_remote+'correlation_g'+str(g_tilde)+'gr'+str(gr_tilde)+os.sep+'file_core'+str(i_batch+1)+'.npy', correlation_batch)
+    np.save(name_remote+'correlation_run'+str(count)+os.sep+'file_core'+str(i_batch+1)+'.npy', correlation_batch)
     
 parallel_map(g1_parallel, range(n_batch))
-result = ext.ensemble_average_space(name_remote+'correlation_g'+str(g_tilde)+'gr'+str(gr_tilde), 2, int(N/2), n_batch)
-np.savetxt(save_remote+'correlation_g'+str(g_tilde)+'gr'+str(gr_tilde)+'N'+str(N)+'.dat', result)
+result = ext.ensemble_average_space('correlation_run'+str(count), 2, int(N/2), n_batch)
+np.savetxt(save_remote+'correlation_run'+str(count)+'result.dat', result)
