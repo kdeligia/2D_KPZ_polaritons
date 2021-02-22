@@ -235,8 +235,8 @@ class model:
             if i>=i1 and i<=i2 and i%every==0:
                 vortexnumber[(i-i1)//every] = self.vortices()
         return vortexnumber
-
-count = 2
+'''
+count = 3
 name_remote = r'/scratch/konstantinos/'
 save_remote = r'/home6/konstantinos/'
 os.mkdir(name_remote+'vortices_run'+str(count))
@@ -253,3 +253,4 @@ def vortices_parallel(i_batch):
 parallel_map(vortices_parallel, range(n_batch))
 result = ext.ensemble_average_time(name_remote+'vortices_run'+str(count), t, n_batch)
 np.savetxt(save_remote+'vortices_run'+str(count)+'_result.dat', result)
+'''
