@@ -200,7 +200,7 @@ class model:
             d1_x += self.n()[i, int(N/2):] / N
         g1_x[0] -= 1/(2*dx_tilde**2)
         return g1_x, d1_x
-'''
+
 count = 3
 name_remote = r'/scratch/konstantinos/'
 save_remote = r'/home6/konstantinos/'
@@ -218,4 +218,3 @@ def g1_parallel(i_batch):
 parallel_map(g1_parallel, range(n_batch))
 result = ext.ensemble_average_space(name_remote+'correlation_run'+str(count), 2, int(N/2), n_batch)
 np.savetxt(save_remote+'correlation_run'+str(count)+'_result.dat', result)
-'''
