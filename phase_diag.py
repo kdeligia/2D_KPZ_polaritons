@@ -196,6 +196,7 @@ n_batch = 128
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 mu_res_array = np.array([100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
+mu_cond = 90
 
 for mu_res in mu_res_array:
     print('Starting for mu_res = ', mu_res)
@@ -217,12 +218,21 @@ for mu_res in mu_res_array:
             nsum, v = gpe.time_evolution()
             quantities_batch += np.mean(nsum[35:]) / n_internal, (np.mean(v[35:])/N**2) / n_internal
         np.savetxt(name_remote+'phase_diagram_'+str(mu_res)+'_'+str(mu_cond)+os.sep+'file_core'+str(i_batch+1)+'.dat', quantities_batch)
-    parallel_map(parallel_phase_diagram_gr, range(n_batch))
+    # parallel_map(parallel_phase_diagram_gr, range(n_batch))
 
-result = np.zeros(2)
 for mu_res in mu_res_array:
+    result = np.zeros(2)
     for file in os.listdir(name_remote+'phase_diagram_'+str(mu_res)+'_'+str(mu_cond)):
         if '.dat' in file:
             item = np.loadtxt(name_remote+'phase_diagram_'+str(mu_res)+'_'+str(mu_cond)+os.sep+file)
             result += item / n_batch
     np.savetxt(save_remote+'phase_diagram_'+str(mu_res)+'_'+str(mu_cond)+'_result.dat', result)
+
+# =============================================================================
+#  Treatment
+# =============================================================================
+
+final = np.zeros((2, len(mu_res_array)))
+for i in range(len(mu_res_array)):
+    final[:, i] = np.loadtxt(save_remote+'phase_diagram_'+str(mu_res_array[i])+'_' + str(mu_cond)+'_result.dat')
+np.savetxt(save_remote+'phase_diagram_'+str(mu_cond)+'_FINAL.dat', final)
