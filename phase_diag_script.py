@@ -67,7 +67,7 @@ x, kx =  arrays()
 X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
-time_steps = 50000
+time_steps = 75000
 dt_tilde = 2e-2
 every = 1000
 i1 = 0
@@ -191,16 +191,15 @@ class model:
 name_remote = r'/scratch/konstantinos/'
 save_remote = r'/home6/konstantinos/'
 
-parallel_tasks = 256
+parallel_tasks = 128
 n_batch = 128
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 mu_res_array = np.array([100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
-mu_cond = 90
+mu_cond = 10
 
 for mu_res in mu_res_array:
     print('Starting for mu_res = ', mu_res)
-    mu_cond = 90
     os.mkdir(name_remote+'phase_diagram_'+str(mu_res)+'_'+str(mu_cond))
     g_tilde = (mu_cond / hatepsilon) * (1 / n0_tilde)
     gr_tilde = (mu_res / hatepsilon) * (1 / (2 * nres_tilde))
@@ -216,9 +215,9 @@ for mu_res in mu_res_array:
         for i_n in range(n_internal):
             gpe = model(g_tilde, gr_tilde)
             nsum, v = gpe.time_evolution()
-            quantities_batch += np.mean(nsum[35:]) / n_internal, (np.mean(v[35:])/N**2) / n_internal
+            quantities_batch += np.mean(nsum[50:]) / n_internal, (np.mean(v[50:])/N**2) / n_internal
         np.savetxt(name_remote+'phase_diagram_'+str(mu_res)+'_'+str(mu_cond)+os.sep+'file_core'+str(i_batch+1)+'.dat', quantities_batch)
-    # parallel_map(parallel_phase_diagram_gr, range(n_batch))
+    parallel_map(parallel_phase_diagram_gr, range(n_batch))
 
 for mu_res in mu_res_array:
     result = np.zeros(2)
