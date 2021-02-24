@@ -87,13 +87,6 @@ class model:
         self.psi_mod_k = fft2(self.psi_mod_x)
         self.Kc = hbar**2 / (2 * m_dim * hatepsilon * hatx**2)
         self.Kd = gamma2_tilde / 2
-        '''
-        self.ud = gamma0_tilde * p / (2 * ns_tilde)
-        self.uc =  self.g * (1 - 2 * p * (self.gr / self.g) * (gamma0_tilde / gammar_tilde))
-        self.rc = 2 * p * self.gr * gamma0_tilde / R_tilde
-        self.rd = gamma0_tilde  * (p - 1) / 2
-        self.bogoliubov()
-        '''
 
     def _set_fourier_psi_x(self, psi_x):
         self.psi_mod_x = psi_x * np.exp(-1j * KX[0,0] * X - 1j * KY[0,0] * Y) * dx_tilde * dx_tilde / (2 * np.pi)
@@ -109,29 +102,7 @@ class model:
 
     psi_x = property(_get_psi_x, _set_fourier_psi_x)
     psi_k = property(_get_psi_k, _set_fourier_psi_k)
-    
-    def bogoliubov(self):
-        omsol = self.rc + n0_tilde * self.uc
-        a = - omsol + self.Kc * kx ** 2 + self.rc + 2 * n0_tilde * self.uc
-        b = - self.Kd * kx ** 2 + self.rd - 2 * n0_tilde * self.ud
-        c = n0_tilde * self.uc
-        d = - n0_tilde * self.ud
-        im_plus = np.zeros(len(kx))
-        im_minus = np.zeros(len(kx))
-        for i in range(len(kx)):
-            if (a[i]**2 - c**2 - d**2) < 0:
-                im_plus[i] = b[i] + np.sqrt(np.abs(a[i]**2 - c**2 - d**2))
-                im_minus[i] = b[i] - np.sqrt(np.abs(a[i]**2 - c**2 - d**2))
-            else:
-                im_plus[i] = b[i]
-                im_minus[i] = b[i]
-        pl.plot(kx, im_plus, 'o', label=r'Imaginary plus')
-        pl.plot(kx, im_minus, '^', label=r'Imaginary minus')
-        pl.axhline(y=0, xmin=kx[0], xmax=kx[-1], linestyle='--', color='black')
-        pl.xlim(0, kx[-1])
-        pl.legend()
-        pl.show()
-        return im_plus, im_minus
+
 # =============================================================================
 # Definition of the split steps
 # =============================================================================
@@ -195,29 +166,24 @@ parallel_tasks = 128
 n_batch = 128
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
+
+mu_cond = 90
+g_tilde = (mu_cond / hatepsilon) * (1 / n0_tilde)
 mu_res_array = np.array([100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
-mu_cond = 10
 
 for mu_res in mu_res_array:
     print('Starting for mu_res = ', mu_res)
     os.mkdir(name_remote+'phase_diagram_'+str(mu_res)+'_'+str(mu_cond))
-    g_tilde = (mu_cond / hatepsilon) * (1 / n0_tilde)
     gr_tilde = (mu_res / hatepsilon) * (1 / (2 * nres_tilde))
-    def dimensional_interactions():
-        g_dim = g_tilde * (hatepsilon / hatrho)                                 # result in μeV μm^2
-        gr_dim = gr_tilde * (hatepsilon / hatrho)                               # result in μeV μm^2
-        return g_dim, gr_dim
-    g_dim, gr_dim = dimensional_interactions()
-    gpe = model(g_tilde, gr_tilde)
 
-    def parallel_phase_diagram_gr(i_batch):
+    def parallel_phase_diagram(i_batch):
         quantities_batch = np.zeros(2)
         for i_n in range(n_internal):
             gpe = model(g_tilde, gr_tilde)
             nsum, v = gpe.time_evolution()
             quantities_batch += np.mean(nsum[50:]) / n_internal, (np.mean(v[50:])/N**2) / n_internal
         np.savetxt(name_remote+'phase_diagram_'+str(mu_res)+'_'+str(mu_cond)+os.sep+'file_core'+str(i_batch+1)+'.dat', quantities_batch)
-    parallel_map(parallel_phase_diagram_gr, range(n_batch))
+    parallel_map(parallel_phase_diagram, range(n_batch))
 
 for mu_res in mu_res_array:
     result = np.zeros(2)
