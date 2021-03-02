@@ -111,8 +111,8 @@ class model:
 
     def prefactor_x(self):
         self.uc_tilde = self.g * (self.n() + 2 * (self.gr / self.g) * (P_tilde / gammar_tilde) * (1 / (1 + self.n() / ns_tilde)))
-        self.I_tilde = 1j * (gamma0_tilde / 2) * (p * (1 / (1 + self.n() / ns_tilde)) - 1)
-        return np.exp(-1j * 0.5 * dt_tilde * (self.uc_tilde + self.I_tilde))
+        self.I_tilde = (gamma0_tilde / 2) * (p * (1 / (1 + self.n() / ns_tilde)) - 1)
+        return np.exp(-1j * 0.5 * dt_tilde * (self.uc_tilde + 1j * self.I_tilde))
 
     def prefactor_k(self):
         return np.exp(-1j * dt_tilde * ((KX ** 2 + KY ** 2)*(self.Kc - 1j * self.Kd)))

@@ -22,12 +22,12 @@ hatrho = 1/hatx**2 # μm^-2
 hatepsilon = hbar/hatt # μeV
 melectron = 0.510998950 * 1E12 / c**2 # μeV/(μm^2/ps^2)
 
-m_tilde = -5e-5
-gamma0_tilde = 0.24
+m_tilde = -6.2e-5
+gamma0_tilde = 0.22
 gammar_tilde = 0.1 * gamma0_tilde
-gamma2_tilde = 0.02
-P_tilde = 38.4
-R_tilde = gammar_tilde / 100
+gamma2_tilde = 0.04
+P_tilde = 39.6 * 5
+R_tilde = gammar_tilde / 500
 p = P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 
 ns_tilde = gammar_tilde / R_tilde
@@ -64,9 +64,9 @@ x, kx =  arrays()
 X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
-time_steps = 75000
-dt_tilde = 2e-2
-every = 100
+time_steps = 80000
+dt_tilde = 1.5e-2
+every = 1000
 i1 = 0
 i2 = time_steps
 lengthwindow = i2-i1
@@ -107,8 +107,8 @@ class model:
 
     def prefactor_x(self):
         self.uc_tilde = self.g * (self.n() + 2 * (self.gr / self.g) * (P_tilde / gammar_tilde) * (1 / (1 + self.n() / ns_tilde)))
-        self.I_tilde = 1j * (gamma0_tilde / 2) * (p * (1 / (1 + self.n() / ns_tilde)) - 1)
-        return np.exp(-1j * 0.5 * dt_tilde * (self.uc_tilde + self.I_tilde))
+        self.I_tilde = (gamma0_tilde / 2) * (p * (1 / (1 + self.n() / ns_tilde)) - 1)
+        return np.exp(-1j * 0.5 * dt_tilde * (self.uc_tilde + 1j * self.I_tilde))
 
     def prefactor_k(self):
         return np.exp(-1j * dt_tilde * ((KX ** 2 + KY ** 2)*(self.Kc - 1j * self.Kd)))
@@ -138,14 +138,14 @@ class model:
 name_remote = r'/scratch/konstantinos/'
 save_remote = r'/home6/konstantinos/'
 
-parallel_tasks = 320
+parallel_tasks = 256
 n_batch = 64
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-mu_cond = 90
+mu_cond = 5
 g_tilde = (mu_cond / hatepsilon) * (1 / n0_tilde)
-mu_res_array = np.array([200, 225, 250, 275])
+mu_res_array = np.array([100, 200, 500, 1000, 2000, 5000, 7000, 10000])
 
 for mu_res in mu_res_array:
     print('Starting for mu_res = ', mu_res)
@@ -158,7 +158,7 @@ for mu_res in mu_res_array:
             gpe = model(g_tilde, gr_tilde)
             g1_x_run, d1_x_run = gpe.time_evolution()
             correlation_batch += np.vstack((g1_x_run, d1_x_run)) / n_internal
-            print('Core', i_batch, 'completed realisation number', i_n+1)
+            print('CORRELATION Core', i_batch, 'completed realisation number', i_n+1)
         np.save(name_remote+'correlation_'+str(mu_res)+'_'+str(mu_cond)+os.sep+'file_core'+str(i_batch+1)+'.npy', correlation_batch)
     parallel_map(g1_parallel, range(n_batch))
 
