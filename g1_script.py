@@ -13,7 +13,6 @@ from scipy.fftpack import fft2, ifft2
 import numpy as np
 import external as ext
 from qutip import *
-import matplotlib.pyplot as pl
 import os
 
 hatt = 1 # ps
@@ -30,11 +29,11 @@ gamma2_tilde = 0.02
 P_tilde = 38.4
 R_tilde = gammar_tilde / 100
 p = P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
-print(p)
+
 ns_tilde = gammar_tilde / R_tilde
 n0_tilde = ns_tilde * (p - 1)
 nres_tilde = P_tilde / (gammar_tilde * (1 + n0_tilde/ns_tilde))
-print(ns_tilde)
+
 N = 2**7
 L_tilde = 2**7
 dx_tilde = L_tilde/N
@@ -138,7 +137,7 @@ class model:
 # =============================================================================
 name_remote = r'/scratch/konstantinos/'
 save_remote = r'/home6/konstantinos/'
-'''
+
 parallel_tasks = 320
 n_batch = 64
 n_internal = parallel_tasks//n_batch
@@ -170,4 +169,3 @@ for mu_res in mu_res_array:
             item = np.load(name_remote+'correlation_'+str(mu_res)+'_'+str(mu_cond)+os.sep+file)
             result += item / n_batch
     np.savetxt(save_remote+'correlation_'+str(mu_res)+'_'+str(mu_cond)+'_result.dat', result)
-'''

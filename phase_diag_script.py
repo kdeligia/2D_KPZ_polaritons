@@ -25,12 +25,12 @@ hatrho = 1/hatx**2 # μm^-2
 hatepsilon = hbar/hatt # μeV
 melectron = 0.510998950 * 1E12 / c**2 # μeV/(μm^2/ps^2)
 
-m_tilde = -5e-5
-gamma0_tilde = 0.24
+m_tilde = -6.2e-5
+gamma0_tilde = 0.22
 gammar_tilde = 0.1 * gamma0_tilde
-gamma2_tilde = 0.02
-P_tilde = 38.4
-R_tilde = gammar_tilde / 100
+gamma2_tilde = 0.04
+P_tilde = 39.6 * 5
+R_tilde = gammar_tilde / 500
 p = P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 
 ns_tilde = gammar_tilde / R_tilde
@@ -39,7 +39,7 @@ nres_tilde = P_tilde / (gammar_tilde * (1 + n0_tilde/ns_tilde))
 
 N = 2**7
 L_tilde = 2**7
-dx_tilde = L_tilde/N
+dx_tilde = L_tilde / N
 dkx_tilde = 2 * np.pi / (N * dx_tilde)
 
 def dimensional_units():
@@ -67,8 +67,8 @@ x, kx =  arrays()
 X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
-time_steps = 75000
-dt_tilde = 2e-2
+time_steps = 80000
+dt_tilde = 1.5e-2
 every = 1000
 i1 = 0
 i2 = time_steps
@@ -162,14 +162,14 @@ class model:
 name_remote = r'/scratch/konstantinos/'
 save_remote = r'/home6/konstantinos/'
 
-parallel_tasks = 128
-n_batch = 128
+parallel_tasks = 240
+n_batch = 80
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-mu_cond = 90
+mu_cond = 5
 g_tilde = (mu_cond / hatepsilon) * (1 / n0_tilde)
-mu_res_array = np.array([100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
+mu_res_array = np.array([100, 200, 500, 1000, 2000, 5000, 7000, 10000])
 
 for mu_res in mu_res_array:
     print('Starting for mu_res = ', mu_res)
@@ -181,7 +181,7 @@ for mu_res in mu_res_array:
         for i_n in range(n_internal):
             gpe = model(g_tilde, gr_tilde)
             nsum, v = gpe.time_evolution()
-            quantities_batch += np.mean(nsum[50:]) / n_internal, (np.mean(v[50:])/N**2) / n_internal
+            quantities_batch += np.mean(nsum[53:]) / n_internal, (np.mean(v[53:])/N**2) / n_internal
         np.savetxt(name_remote+'phase_diagram_'+str(mu_res)+'_'+str(mu_cond)+os.sep+'file_core'+str(i_batch+1)+'.dat', quantities_batch)
     parallel_map(parallel_phase_diagram, range(n_batch))
 
