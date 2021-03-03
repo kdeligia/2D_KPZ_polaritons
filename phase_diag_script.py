@@ -14,9 +14,6 @@ from scipy.fftpack import fft2, ifft2
 import numpy as np
 import external as ext
 from qutip import *
-import matplotlib.pyplot as pl
-pl.rc('font', family='sans-serif')
-pl.rc('text', usetex=True)
 
 hatt = 1 # ps
 hatx = 1 # μm
@@ -182,6 +179,7 @@ for mu_res in mu_res_array:
             gpe = model(g_tilde, gr_tilde)
             nsum, v = gpe.time_evolution()
             quantities_batch += np.mean(nsum[53:]) / n_internal, (np.mean(v[53:])/N**2) / n_internal
+            print('PHASE DIAGRAM Core', i_batch, 'completed realisation number', i_n+1)
         np.savetxt(name_remote+'phase_diagram_'+str(mu_res)+'_'+str(mu_cond)+os.sep+'file_core'+str(i_batch+1)+'.dat', quantities_batch)
     parallel_map(parallel_phase_diagram, range(n_batch))
 

@@ -9,11 +9,11 @@ Created on Tue Nov 10 15:09:50 2020
 c = 3e2 #μm/ps
 hbar = 6.582119569 * 1e2 # μeV ps
 
+import os
 from scipy.fftpack import fft2, ifft2
 import numpy as np
 import external as ext
 from qutip import *
-import os
 
 hatt = 1 # ps
 hatx = 1 # μm
@@ -22,12 +22,12 @@ hatrho = 1/hatx**2 # μm^-2
 hatepsilon = hbar/hatt # μeV
 melectron = 0.510998950 * 1E12 / c**2 # μeV/(μm^2/ps^2)
 
-m_tilde = -5e-5
-gamma0_tilde = 0.24
+m_tilde = -6.2e-5
+gamma0_tilde = 0.22
 gammar_tilde = 0.1 * gamma0_tilde
-gamma2_tilde = 0.02
-P_tilde = 38.4
-R_tilde = gammar_tilde / 100
+gamma2_tilde = 0.04
+P_tilde = 39.6 * 5
+R_tilde = gammar_tilde / 500
 p = P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 
 ns_tilde = gammar_tilde / R_tilde
@@ -36,7 +36,7 @@ nres_tilde = P_tilde / (gammar_tilde * (1 + n0_tilde/ns_tilde))
 
 N = 2**7
 L_tilde = 2**7
-dx_tilde = L_tilde/N
+dx_tilde = L_tilde / N
 dkx_tilde = 2 * np.pi / (N * dx_tilde)
 
 def dimensional_units():
@@ -149,7 +149,7 @@ mu_res_array = np.array([300, 500, 700, 900, 1000])
 
 for mu_res in mu_res_array:
     print('Starting for mu_res = ', mu_res)
-    os.mkdir(name_remote+'phase_diagram_'+str(mu_res)+'_'+str(mu_cond))
+    os.mkdir(name_remote+'correlation_'+str(mu_res)+'_'+str(mu_cond))
     gr_tilde = (mu_res / hatepsilon) * (1 / (2 * nres_tilde))
 
     def g1_parallel(i_batch):
@@ -158,7 +158,7 @@ for mu_res in mu_res_array:
             gpe = model(g_tilde, gr_tilde)
             g1_x_run, d1_x_run = gpe.time_evolution()
             correlation_batch += np.vstack((g1_x_run, d1_x_run)) / n_internal
-            print('Core', i_batch, 'completed realisation number', i_n+1)
+            print('CORRELATION Core', i_batch, 'completed realisation number', i_n+1)
         np.save(name_remote+'correlation_'+str(mu_res)+'_'+str(mu_cond)+os.sep+'file_core'+str(i_batch+1)+'.npy', correlation_batch)
     parallel_map(g1_parallel, range(n_batch))
 

@@ -9,11 +9,11 @@ Created on Tue Nov 10 15:09:50 2020
 c = 3e2 #μm/ps
 hbar = 6.582119569 * 1e2 # μeV ps
 
+import os
 from scipy.fftpack import fft2, ifft2
 import numpy as np
 import external as ext
 from qutip import *
-import os
 
 hatt = 1 # ps
 hatx = 1 # μm
@@ -36,7 +36,7 @@ nres_tilde = P_tilde / (gammar_tilde * (1 + n0_tilde/ns_tilde))
 
 N = 2**7
 L_tilde = 2**7
-dx_tilde = L_tilde/N
+dx_tilde = L_tilde / N
 dkx_tilde = 2 * np.pi / (N * dx_tilde)
 
 def dimensional_units():
@@ -149,7 +149,7 @@ mu_res_array = np.array([100, 200, 500, 1000, 2000, 5000, 7000, 10000])
 
 for mu_res in mu_res_array:
     print('Starting for mu_res = ', mu_res)
-    os.mkdir(name_remote+'phase_diagram_'+str(mu_res)+'_'+str(mu_cond))
+    os.mkdir(name_remote+'correlation_'+str(mu_res)+'_'+str(mu_cond))
     gr_tilde = (mu_res / hatepsilon) * (1 / (2 * nres_tilde))
 
     def g1_parallel(i_batch):
