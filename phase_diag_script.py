@@ -159,8 +159,8 @@ class model:
 name_remote = r'/scratch/konstantinos/'
 save_remote = r'/home6/konstantinos/'
 
-parallel_tasks = 240
-n_batch = 80
+parallel_tasks = 64
+n_batch = 32
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
