@@ -65,7 +65,7 @@ X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
 time_steps = 80000
-dt_tilde = 1.5e-2
+dt_tilde = 1e-2
 every = 1000
 i1 = 0
 i2 = time_steps
@@ -198,4 +198,4 @@ for mu_res in mu_res_array:
 final = np.zeros((2, len(mu_res_array)))
 for i in range(len(mu_res_array)):
     final[:, i] = np.loadtxt(save_remote+'phase_diagram_'+str(mu_res_array[i])+'_' + str(mu_cond)+'_result.dat')
-np.savetxt(save_remote+'phase_diagram_'+str(mu_cond)+'_FINAL.dat', final)
+np.savetxt(save_remote+'phase_diagram_'+str(mu_cond)+'_'+str(p)+'_FINAL.dat', final)

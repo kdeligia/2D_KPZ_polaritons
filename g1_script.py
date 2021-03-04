@@ -65,7 +65,7 @@ X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
 time_steps = 80000
-dt_tilde = 1.5e-2
+dt_tilde = 1e-2
 every = 1000
 i1 = 0
 i2 = time_steps
