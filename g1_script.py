@@ -26,8 +26,8 @@ m_tilde = -6.2e-5
 gamma0_tilde = 0.22
 gammar_tilde = 0.1 * gamma0_tilde
 gamma2_tilde = 0.04
-P_tilde = 39.6 * 5
-R_tilde = gammar_tilde / 500
+P_tilde = 39.6 * 0.2
+R_tilde = gammar_tilde / 20
 p = P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 
 ns_tilde = gammar_tilde / R_tilde
@@ -138,14 +138,14 @@ class model:
 name_remote = r'/scratch/konstantinos/'
 save_remote = r'/home6/konstantinos/'
 
-parallel_tasks = 256
+parallel_tasks = 192
 n_batch = 64
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-mu_cond = 5
+mu_cond = 100
 g_tilde = (mu_cond / hatepsilon) * (1 / n0_tilde)
-mu_res_array = np.array([100, 200, 500, 1000, 2000, 5000, 7000, 10000])
+mu_res_array = np.array([70, 72, 74, 78, 80, 100, 200, 500, 600, 1000])
 
 for mu_res in mu_res_array:
     print('Starting for mu_res = ', mu_res)
@@ -159,13 +159,13 @@ for mu_res in mu_res_array:
             g1_x_run, d1_x_run = gpe.time_evolution()
             correlation_batch += np.vstack((g1_x_run, d1_x_run)) / n_internal
             print('CORRELATION Core', i_batch, 'completed realisation number', i_n+1)
-        np.save(name_remote+'correlation_'+str(mu_res)+'_'+str(mu_cond)+os.sep+'file_core'+str(i_batch+1)+'.npy', correlation_batch)
+        np.save(name_remote + 'correlation_' + str(mu_res) + '_' + str(mu_cond) + os.sep + 'file_core' + str(i_batch+1) + '.npy', correlation_batch)
     parallel_map(g1_parallel, range(n_batch))
 
 for mu_res in mu_res_array:
-    result = np.zeros((2, int(N/2)))
-    for file in os.listdir(name_remote+'correlation_'+str(mu_res)+'_'+str(mu_cond)):
+    result = np.zeros((2, int(N/2)), dtype = complex)
+    for file in os.listdir(name_remote + 'correlation_' + str(mu_res) + '_' + str(mu_cond)):
         if '.npy' in file:
-            item = np.load(name_remote+'correlation_'+str(mu_res)+'_'+str(mu_cond)+os.sep+file)
+            item = np.load(name_remote + 'correlation_' + str(mu_res) + '_' + str(mu_cond) + os.sep + file)
             result += item / n_batch
-    np.savetxt(save_remote+'correlation_'+str(mu_res)+'_'+str(mu_cond)+'_result.dat', result)
+    np.save(save_remote + 'correlation_' + str(mu_res) + '_' + str(mu_cond) + '_' + str(p) + '_result.npy', result)
