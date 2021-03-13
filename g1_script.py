@@ -22,17 +22,16 @@ hatrho = 1/hatx**2 # μm^-2
 hatepsilon = hbar/hatt # μeV
 melectron = 0.510998950 * 1E12 / c**2 # μeV/(μm^2/ps^2)
 
-m_tilde = -6.2e-5
+m_tilde = -3.2e-5
 gamma0_tilde = 0.22
 gammar_tilde = 0.1 * gamma0_tilde
-gamma2_tilde = 0.04
-P_tilde = 39.6 * 0.2
-R_tilde = gammar_tilde / 20
+gamma2_tilde = 0.06
+P_tilde = 23.1 * 0.1 * 1.8
+R_tilde = gammar_tilde / 10
 p = P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 
 ns_tilde = gammar_tilde / R_tilde
 n0_tilde = ns_tilde * (p - 1)
-nres_tilde = P_tilde / (gammar_tilde * (1 + n0_tilde/ns_tilde))
 
 N = 2**7
 L_tilde = 2**7
@@ -49,8 +48,7 @@ def dimensional_units():
     ns_dim = ns_tilde * hatrho                                                  # result in μm^-2
     m_dim = m_tilde * melectron
     n0_dim = n0_tilde * hatrho                                                  # result in μm^-2
-    nr_dim = nres_tilde * hatrho                                                # result in μm^-2
-    return L_dim, P_dim, R_dim, gamma0_dim, gammar_dim, gamma2_dim, ns_dim, m_dim, n0_dim, nr_dim
+    return L_dim, P_dim, R_dim, gamma0_dim, gammar_dim, gamma2_dim, ns_dim, m_dim, n0_dim
 
 def arrays():
     x_0 = - N * dx_tilde / 2
@@ -64,26 +62,27 @@ x, kx =  arrays()
 X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
-time_steps = 80000
+time_steps = 50000
 dt_tilde = 1e-2
 every = 1000
 i1 = 0
 i2 = time_steps
 lengthwindow = i2-i1
 t = ext.time(dt_tilde, time_steps, i1, i2, every)
-#xi = hbar / np.sqrt(2 * abs(m_dim) * n0_dim)
 
 class model:
-    def __init__(self, g, gr, psi_x=0):
-        self.g = g 
-        self.gr = gr
+    def __init__(self, gr_dim, g_dim, psi_x=0):
+        self.g_tilde = g_dim * hatrho / hatepsilon
+        self.gr_tilde = gr_dim * hatrho / hatepsilon
         self.sigma = gamma0_tilde * (p + 1) / (4 * dx_tilde**2)
         self.psi_x = psi_x
-        self.psi_x = np.full((N, N), 0.05)
+        self.psi_x = np.full((N, N), np.sqrt(1 / (2 * dx_tilde**2)) + 0.1)
         self.psi_x /= hatpsi
         self.psi_mod_k = fft2(self.psi_mod_x)
         self.Kc = hbar**2 / (2 * m_dim * hatepsilon * hatx**2)
         self.Kd = gamma2_tilde / 2
+        self.uc =  self.g_tilde * (1 - 2 * p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / gammar_tilde))
+        print('Kc = %.3f, Kd = %.3f, tilde g = %.2f, tilde gr = %.2f, sigma = %.2f, TWR = %.3f' % (self.Kc, self.Kd, g_dim, gr_dim, self.sigma, self.g_tilde / (gamma0_tilde * dx_tilde**2)))
 
     def _set_fourier_psi_x(self, psi_x):
         self.psi_mod_x = psi_x * np.exp(-1j * KX[0,0] * X - 1j * KY[0,0] * Y) * dx_tilde * dx_tilde / (2 * np.pi)
@@ -138,34 +137,32 @@ class model:
 name_remote = r'/scratch/konstantinos/'
 save_remote = r'/home6/konstantinos/'
 
-parallel_tasks = 192
-n_batch = 64
+parallel_tasks = 256
+n_batch = 128
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-mu_cond = 100
-g_tilde = (mu_cond / hatepsilon) * (1 / n0_tilde)
-mu_res_array = np.array([70, 72, 74, 78, 80, 100, 200, 500, 600, 1000])
+gr_dim_array = np.array([0.25, 0.3, 0.35, 0.4, 0.45, 0.5])
+g_dim = 4
 
-for mu_res in mu_res_array:
-    print('Starting for mu_res = ', mu_res)
-    os.mkdir(name_remote+'correlation_'+str(mu_res)+'_'+str(mu_cond))
-    gr_tilde = (mu_res / hatepsilon) * (1 / (2 * nres_tilde))
+for gr_dim in gr_dim_array:
+    print('Starting for gr = ', gr_dim)
+    os.mkdir(name_remote+'correlation_'+str(gr_dim)+'_'+str(g_dim))
 
     def g1_parallel(i_batch):
         correlation_batch = np.zeros((2, int(N/2)), dtype=complex)
         for i_n in range(n_internal):
-            gpe = model(g_tilde, gr_tilde)
+            gpe = model(gr_dim, g_dim)
             g1_x_run, d1_x_run = gpe.time_evolution()
             correlation_batch += np.vstack((g1_x_run, d1_x_run)) / n_internal
             print('CORRELATION Core', i_batch, 'completed realisation number', i_n+1)
-        np.save(name_remote + 'correlation_' + str(mu_res) + '_' + str(mu_cond) + os.sep + 'file_core' + str(i_batch+1) + '.npy', correlation_batch)
+        np.save(name_remote + 'correlation_' + str(gr_dim) + '_' + str(g_dim) + os.sep + 'file_core' + str(i_batch+1) + '.npy', correlation_batch)
     parallel_map(g1_parallel, range(n_batch))
 
-for mu_res in mu_res_array:
+for gr_dim in gr_dim_array:
     result = np.zeros((2, int(N/2)), dtype = complex)
-    for file in os.listdir(name_remote + 'correlation_' + str(mu_res) + '_' + str(mu_cond)):
+    for file in os.listdir(name_remote + 'correlation_' + str(gr_dim) + '_' + str(g_dim)):
         if '.npy' in file:
-            item = np.load(name_remote + 'correlation_' + str(mu_res) + '_' + str(mu_cond) + os.sep + file)
+            item = np.load(name_remote + 'correlation_' + str(gr_dim) + '_' + str(g_dim) + os.sep + file)
             result += item / n_batch
-    np.save(save_remote + 'correlation_' + str(mu_res) + '_' + str(mu_cond) + '_' + str(p) + '_result.npy', result)
+    np.save(save_remote + 'correlation_' + str(gr_dim) + '_' + str(g_dim) + '_' + str(p) + '_result.npy', result)
