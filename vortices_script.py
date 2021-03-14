@@ -6,20 +6,14 @@ Created on Fri Feb  5 16:26:53 2021
 @author: delis
 """
 
-c = 3E2 #μm/ps
-hbar = 6.582119569 * 1E2 # μeV ps
+c = 3e2 #μm/ps
+hbar = 6.582119569 * 1e2 # μeV ps
 
+import os
 from scipy.fftpack import fft2, ifft2
 import numpy as np
 import external as ext
 from qutip import *
-import matplotlib.pyplot as pl
-import os
-
-parallel_tasks = 140
-n_batch = 28
-n_internal = parallel_tasks//n_batch
-qutip.settings.num_cpus = n_batch
 
 hatt = 1 # ps
 hatx = 1 # μm
@@ -28,27 +22,20 @@ hatrho = 1/hatx**2 # μm^-2
 hatepsilon = hbar/hatt # μeV
 melectron = 0.510998950 * 1E12 / c**2 # μeV/(μm^2/ps^2)
 
-m_tilde = -5e-5
-P_tilde = 9.68
-R_tilde = 0.0008
+m_tilde = -3.2e-5
 gamma0_tilde = 0.22
 gammar_tilde = 0.1 * gamma0_tilde
-gamma2_tilde = 0.15
+gamma2_tilde = 0.06
+P_tilde = 23.1 * 0.1 * 1.8
+R_tilde = gammar_tilde / 10
 p = P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 
 ns_tilde = gammar_tilde / R_tilde
 n0_tilde = ns_tilde * (p - 1)
-nres_tilde = P_tilde / (gammar_tilde * (1 + n0_tilde/ns_tilde))
-
-mu_res = 100 # μeV
-mu_cond = 90 # μeV
-
-g_tilde = (mu_cond / hatepsilon) * (1 / n0_tilde)
-gr_tilde = (mu_res / hatepsilon) * (1 / (2 * nres_tilde))
 
 N = 2**7
 L_tilde = 2**7
-dx_tilde = L_tilde/N
+dx_tilde = L_tilde / N
 dkx_tilde = 2 * np.pi / (N * dx_tilde)
 
 def dimensional_units():
@@ -61,10 +48,7 @@ def dimensional_units():
     ns_dim = ns_tilde * hatrho                                                  # result in μm^-2
     m_dim = m_tilde * melectron
     n0_dim = n0_tilde * hatrho                                                  # result in μm^-2
-    nr_dim = nres_tilde * hatrho                                                # result in μm^-2
-    g_dim = g_tilde * (hatepsilon / hatrho)                                     # result in μeV μm^2
-    gr_dim = gr_tilde * (hatepsilon / hatrho)                                   # result in μeV μm^2
-    return L_dim, P_dim, R_dim, gamma0_dim, gammar_dim, gamma2_dim, ns_dim, m_dim, n0_dim, nr_dim, g_dim, gr_dim
+    return L_dim, P_dim, R_dim, gamma0_dim, gammar_dim, gamma2_dim, ns_dim, m_dim, n0_dim
 
 def arrays():
     x_0 = - N * dx_tilde / 2
@@ -73,86 +57,30 @@ def arrays():
     kx = kx0 + dkx_tilde * np.arange(N)
     return x, kx
 
-L_dim, P_dim, R_dim, gamma0_dim, gammar_dim, gamma2_dim, ns_dim, m_dim, n0_dim, nr_dim, g_dim, gr_dim = dimensional_units()
+L_dim, P_dim, R_dim, gamma0_dim, gammar_dim, gamma2_dim, ns_dim, m_dim, n0_dim = dimensional_units()
 x, kx =  arrays()
 X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
-time_steps = 100000
+time_steps = 50000
 dt_tilde = 1e-2
-every = 100
+every = 500
 i1 = 0
 i2 = time_steps
 lengthwindow = i2-i1
 t = ext.time(dt_tilde, time_steps, i1, i2, every)
-xi = hbar / np.sqrt(2 * abs(m_dim) * n0_dim)
-
-print('--- Energy scales ---')
-print('losses/kinetic %.4f' % (hbar * gamma0_dim / (hbar**2 / (2 * abs(m_dim) * hatx**2 * dx_tilde**2))))
-print('p-p interaction/kinetic %.4f' % (g_dim * n0_dim / (hbar**2 / (2*abs(m_dim) * hatx**2 * dx_tilde**2))))
-print('Truncated Wigner ratio %.4f' % (g_dim / (hbar * gamma0_dim * hatx**2 * dx_tilde**2)))
-print('dx/healing length %.4f' % (hatx * dx_tilde / (hbar / np.sqrt(2 * abs(m_dim) * g_dim * n0_dim))))
-print('--- Interactions ---')
-print('Polariton-reservoir in μeV μm^2 %.4f' % gr_dim)
-print('Polariton-polariton in μev μm^2 %.4f' % g_dim)
-print('Dimensionless Polariton-reservoir %.6f' % gr_tilde)
-print('Dimensionless Polariton-polariton %.6f' % g_tilde)
-print('--- Densities ---')
-print('Saturation in μm^-2 %.2f' % ns_dim)
-print('Steady-state in μm^-2 %.2f' % n0_dim)
-print('Reservoir in μm^-2 %.2f' % nr_dim)
-print('--- Dimensionless pump ---')
-print('p %.4f' % p)
 
 class model:
-    def __init__(self, psi_x=0):
-        self.sigma = gamma0_tilde * (p + 1) / (2 * dx_tilde**2)
+    def __init__(self, gr_dim, g_dim, psi_x=0):
+        self.g_tilde = g_dim * hatrho / hatepsilon
+        self.gr_tilde = gr_dim * hatrho / hatepsilon
+        self.sigma = gamma0_tilde * (p + 1) / (4 * dx_tilde**2)
         self.psi_x = psi_x
-        self.psi_x = np.full((N, N), 0.05)
+        self.psi_x = np.full((N, N), np.sqrt(1 / (2 * dx_tilde**2)) + 0.1)
         self.psi_x /= hatpsi
         self.psi_mod_k = fft2(self.psi_mod_x)
         self.Kc = hbar**2 / (2 * m_dim * hatepsilon * hatx**2)
         self.Kd = gamma2_tilde / 2
-        self.ud = gamma0_tilde * p / (2 * ns_tilde)
-        self.uc =  g_tilde * (1 - 2 * p * (gr_tilde / g_tilde) * (gamma0_tilde / gammar_tilde))
-        self.rc = 2 * p * gr_tilde * gamma0_tilde / R_tilde
-        self.rd = gamma0_tilde  * (p - 1) / 2
-        lambdakpz = -2 * (self.Kc - self.Kd * self.uc / self.ud)
-        nukpz = self.Kd + self.Kc * self.uc / self.ud
-        Dkpz = self.sigma * (1 + self.uc ** 2 / self.ud ** 2)/(2 * n0_tilde)
-        '''
-        print('Kc', self.Kc)
-        print('Kd', self.Kd)
-        print('uc', self.uc)
-        print('ud', self.ud)
-        print('rc', self.rc)
-        print('rd', self.rd)
-        print(r'g_KPZ =', np.abs(lambdakpz)*(Dkpz / (2 * nukpz ** 3)) ** (1/2))
-        #self.bogoliubov()
-        '''
-
-    def bogoliubov(self):
-        omsol = self.rc + n0_tilde * self.uc
-        a = - omsol + self.Kc * kx ** 2 + self.rc + 2 * n0_tilde * self.uc
-        b = - self.Kd * kx ** 2 + self.rd - 2 * n0_tilde * self.ud
-        c = n0_tilde * self.uc
-        d = - n0_tilde * self.ud
-        im_plus = np.zeros(len(kx))
-        im_minus = np.zeros(len(kx))
-        for i in range(len(kx)):
-            if (a[i]**2 - c**2 - d**2) < 0:
-                im_plus[i] = b[i] + np.sqrt(np.abs(a[i]**2 - c**2 - d**2))
-                im_minus[i] = b[i] - np.sqrt(np.abs(a[i]**2 - c**2 - d**2))
-            else:
-                im_plus[i] = b[i]
-                im_minus[i] = b[i]
-        pl.plot(kx, im_plus, 'o', label=r'Imaginary plus')
-        pl.plot(kx, im_minus, '^', label=r'Imaginary minus')
-        pl.axhline(y=0, xmin=kx[0], xmax=kx[-1], linestyle='--', color='black')
-        pl.xlim(0, kx[-1])
-        pl.legend()
-        pl.show()
-        return im_plus, im_minus
 
     def _set_fourier_psi_x(self, psi_x):
         self.psi_mod_x = psi_x * np.exp(-1j * KX[0,0] * X - 1j * KY[0,0] * Y) * dx_tilde * dx_tilde / (2 * np.pi)
@@ -175,9 +103,9 @@ class model:
         return (self.psi_x * np.conjugate(self.psi_x)).real - 1/(2 * dx_tilde**2)
 
     def prefactor_x(self):
-        self.uc_tilde = g_tilde * (self.n() + 2 * (gr_tilde / g_tilde) * (P_tilde / gammar_tilde) * (1 / (1 + self.n() / ns_tilde)))
-        self.I_tilde = 1j * (gamma0_tilde / 2) * (p * (1 / (1 + self.n() / ns_tilde)) - 1)
-        return np.exp(-1j * 0.5 * dt_tilde * (self.uc_tilde + self.I_tilde))
+        self.uc_tilde = self.g_tilde * (self.n() + 2 * (self.gr_tilde / self.g_tilde) * (P_tilde / gammar_tilde) * (1 / (1 + self.n() / ns_tilde)))
+        self.I_tilde = (gamma0_tilde / 2) * (p * (1 / (1 + self.n() / ns_tilde)) - 1)
+        return np.exp(-1j * 0.5 * dt_tilde * (self.uc_tilde + 1j * self.I_tilde))
 
     def prefactor_k(self):
         return np.exp(-1j * dt_tilde * ((KX ** 2 + KY ** 2)*(self.Kc - 1j * self.Kd)))
@@ -235,22 +163,39 @@ class model:
             if i>=i1 and i<=i2 and i%every==0:
                 vortexnumber[(i-i1)//every] = self.vortices()
         return vortexnumber
-'''
-count = 3
+
+# =============================================================================
+# 
+# =============================================================================
 name_remote = r'/scratch/konstantinos/'
 save_remote = r'/home6/konstantinos/'
-os.mkdir(name_remote+'vortices_run'+str(count))
 
-def vortices_parallel(i_batch):
-    vortexnumber_batch = np.zeros(len(t))
-    for i_n in range(n_internal):
-        gpe = model()
-        vortexnumber_run = gpe.time_evolution()
-        vortexnumber_batch += vortexnumber_run / n_internal
-        print('The core', i_batch, 'has completed realisation number', i_n+1)
-    np.save(name_remote+'vortices_run'+str(count)+os.sep+'file_core'+str(i_batch+1)+'.npy', vortexnumber_batch)
+parallel_tasks = 560
+n_batch = 80
+n_internal = parallel_tasks//n_batch
+qutip.settings.num_cpus = n_batch
 
-parallel_map(vortices_parallel, range(n_batch))
-result = ext.ensemble_average_time(name_remote+'vortices_run'+str(count), t, n_batch)
-np.savetxt(save_remote+'vortices_run'+str(count)+'_result.dat', result)
-'''
+gr_dim_array = np.array([0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29])
+g_dim = 4
+
+for gr_dim in gr_dim_array:
+    print('Starting for gr = ', gr_dim)
+    os.mkdir(name_remote+'correlation_'+str(gr_dim)+'_'+str(g_dim))
+
+    def g1_parallel(i_batch):
+        v_batch = np.zeros(len(t))
+        for i_n in range(n_internal):
+            gpe = model(gr_dim, g_dim)
+            v = gpe.time_evolution()
+            v_batch += v / n_internal
+            print('VORTICES Core', i_batch, 'completed realisation number', i_n+1)
+        np.save(name_remote + 'vortices' + '_' + str(gr_dim) + '_' + str(g_dim) + os.sep + 'file_core' + str(i_batch+1) + '.npy', v_batch)
+    parallel_map(g1_parallel, range(n_batch))
+
+for gr_dim in gr_dim_array:
+    result = np.zeros(len(t))
+    for file in os.listdir(name_remote + 'correlation_' + str(gr_dim) + '_' + str(g_dim)):
+        if '.npy' in file:
+            item = np.load(name_remote + 'correlation_' + str(gr_dim) + '_' + str(g_dim) + os.sep + file)
+            result += item / n_batch
+    np.save(save_remote + 'vortices' + '_' + str(gr_dim) + '_' + str(g_dim) + '_' + str(p) + '_result.npy', result)

@@ -57,7 +57,7 @@ def arrays():
     kx = kx0 + dkx_tilde * np.arange(N)
     return x, kx
 
-L_dim, P_dim, R_dim, gamma0_dim, gammar_dim, gamma2_dim, ns_dim, m_dim, n0_dim, nr_dim = dimensional_units()
+L_dim, P_dim, R_dim, gamma0_dim, gammar_dim, gamma2_dim, ns_dim, m_dim, n0_dim = dimensional_units()
 x, kx =  arrays()
 X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
@@ -81,8 +81,6 @@ class model:
         self.psi_mod_k = fft2(self.psi_mod_x)
         self.Kc = hbar**2 / (2 * m_dim * hatepsilon * hatx**2)
         self.Kd = gamma2_tilde / 2
-        self.uc =  self.g_tilde * (1 - 2 * p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / gammar_tilde))
-        print('Kc = %.3f, Kd = %.3f, tilde g = %.2f, tilde gr = %.2f, sigma = %.2f, TWR = %.3f' % (self.Kc, self.Kd, g_dim, gr_dim, self.sigma, self.g_tilde / (gamma0_tilde * dx_tilde**2)))
 
     def _set_fourier_psi_x(self, psi_x):
         self.psi_mod_x = psi_x * np.exp(-1j * KX[0,0] * X - 1j * KY[0,0] * Y) * dx_tilde * dx_tilde / (2 * np.pi)
@@ -105,12 +103,13 @@ class model:
         return (self.psi_x * np.conjugate(self.psi_x)).real - 1/(2 * dx_tilde**2)
 
     def prefactor_x(self):
-        self.uc_tilde = self.g * (self.n() + 2 * (self.gr / self.g) * (P_tilde / gammar_tilde) * (1 / (1 + self.n() / ns_tilde)))
+        self.uc_tilde = self.g_tilde * (self.n() + 2 * (self.gr_tilde / self.g_tilde) * (P_tilde / gammar_tilde) * (1 / (1 + self.n() / ns_tilde)))
         self.I_tilde = (gamma0_tilde / 2) * (p * (1 / (1 + self.n() / ns_tilde)) - 1)
         return np.exp(-1j * 0.5 * dt_tilde * (self.uc_tilde + 1j * self.I_tilde))
 
     def prefactor_k(self):
         return np.exp(-1j * dt_tilde * ((KX ** 2 + KY ** 2)*(self.Kc - 1j * self.Kd)))
+
 # =============================================================================
 # Time evolution
 # =============================================================================
@@ -137,12 +136,12 @@ class model:
 name_remote = r'/scratch/konstantinos/'
 save_remote = r'/home6/konstantinos/'
 
-parallel_tasks = 256
+parallel_tasks = 384
 n_batch = 128
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-gr_dim_array = np.array([0.25, 0.3, 0.35, 0.4, 0.45, 0.5])
+gr_dim_array = np.array([0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29])
 g_dim = 4
 
 for gr_dim in gr_dim_array:
@@ -156,7 +155,7 @@ for gr_dim in gr_dim_array:
             g1_x_run, d1_x_run = gpe.time_evolution()
             correlation_batch += np.vstack((g1_x_run, d1_x_run)) / n_internal
             print('CORRELATION Core', i_batch, 'completed realisation number', i_n+1)
-        np.save(name_remote + 'correlation_' + str(gr_dim) + '_' + str(g_dim) + os.sep + 'file_core' + str(i_batch+1) + '.npy', correlation_batch)
+        np.save(name_remote + 'correlation' + '_' + str(gr_dim) + '_' + str(g_dim) + os.sep + 'file_core' + str(i_batch+1) + '.npy', correlation_batch)
     parallel_map(g1_parallel, range(n_batch))
 
 for gr_dim in gr_dim_array:
@@ -165,4 +164,4 @@ for gr_dim in gr_dim_array:
         if '.npy' in file:
             item = np.load(name_remote + 'correlation_' + str(gr_dim) + '_' + str(g_dim) + os.sep + file)
             result += item / n_batch
-    np.save(save_remote + 'correlation_' + str(gr_dim) + '_' + str(g_dim) + '_' + str(p) + '_result.npy', result)
+    np.save(save_remote + 'correlation' + '_' + str(gr_dim) + '_' + str(g_dim) + '_' + str(p) + '_result.npy', result)
