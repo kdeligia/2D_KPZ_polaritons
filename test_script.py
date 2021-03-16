@@ -25,12 +25,12 @@ hatrho = 1/hatx**2 # μm^-2
 hatepsilon = hbar/hatt # μeV
 melectron = 0.510998950 * 1e12 / c**2 # μeV/(μm^2/ps^2)
 
-m_tilde = -3.2e-5
+m_tilde = - 3.8e-5
 gamma0_tilde = 0.22
 gammar_tilde = 0.1 * gamma0_tilde
 gamma2_tilde = 0.06
-P_tilde = 23.1 * 0.1 * 1.5
-R_tilde = gammar_tilde / 10
+P_tilde = 23.1 * 1 * 1.2
+R_tilde = gammar_tilde / 100
 p = P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 
 ns_tilde = gammar_tilde / R_tilde
@@ -90,8 +90,8 @@ x, kx =  arrays()
 X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
-time_steps = 200000
-dt_tilde = 2e-2
+time_steps = 150000
+dt_tilde = 4e-2
 every = 100
 i1 = 0
 i2 = time_steps
@@ -109,7 +109,7 @@ class model:
     def __init__(self, gr_dim, g_dim, psi_x=0):
         self.g_tilde = g_dim * hatrho / hatepsilon
         self.gr_tilde = gr_dim * hatrho / hatepsilon
-        self.sigma = gamma0_tilde * (p + 1) / (4 * dx_tilde**2) * 0.1
+        self.sigma = gamma0_tilde * (p + 1) / (4 * dx_tilde**2)
         self.psi_x = psi_x
         self.psi_x = np.full((N, N), np.sqrt(1 / (2 * dx_tilde**2)) + 0.1)
         self.psi_x /= hatpsi
@@ -117,7 +117,7 @@ class model:
         self.Kc = hbar**2 / (2 * m_dim * hatepsilon * hatx**2)
         self.Kd = gamma2_tilde / 2
         self.uc =  self.g_tilde * (1 - 2 * p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / gammar_tilde))
-        print('uc = %.5f, Kc = %.3f, Kd = %.3f, tilde g = %.2f, tilde gr = %.2f, sigma = %.2f, TWR = %.3f' % (self.uc, self.Kc, self.Kd, g_dim, gr_dim, self.sigma, self.g_tilde / (gamma0_tilde * dx_tilde**2)))
+        print('uc = %.5f, Kc = %.3f, Kd = %.3f, tilde g = %.1f, tilde gr = %.3f, sigma = %.2f, TWR = %.3f' % (self.uc, self.Kc, self.Kd, g_dim, gr_dim, self.sigma, self.g_tilde / (gamma0_tilde * dx_tilde**2)))
         #self.bogoliubov()
 
     def bogoliubov(self):
@@ -165,7 +165,7 @@ class model:
 # Definition of the split steps
 # =============================================================================
     def n(self):
-        return (self.psi_x * np.conjugate(self.psi_x)).real - 1/(2 * dx_tilde**2)
+        return (self.psi_x * np.conjugate(self.psi_x)).real - 1/(2*dx_tilde**2)
 
     def prefactor_x(self):
         self.uc_tilde = self.g_tilde * (self.n() + 2 * (self.gr_tilde / self.g_tilde) * (P_tilde / gammar_tilde) * (1 / (1 + self.n() / ns_tilde)))
@@ -230,8 +230,8 @@ class model:
             self.psi_x *= self.prefactor_x()
             self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N)))
             if i>=i1 and i<=i2 and i%every==0:
-                #if i % 10000 == 0:
-                    #print(i)
+                if i % 10000 == 0:
+                    print(i)
                 v[(i-i1)//every] = self.vortices((i-i1)//every)
                 n_sum[(i-i1)//every] = np.mean(self.n())
         g1_x = np.zeros(int(N/2), dtype = complex)
@@ -245,39 +245,41 @@ class model:
 def call(gr_dim, g_dim):
     gpe = model(gr_dim, g_dim)
     g1_x, d1_x, avg, v = gpe.time_evolution()
-    np.savetxt(name_save + str(g_dim)+'_'+str(gr_dim) + os.sep + 'g1' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat', (np.abs(g1_x)/np.sqrt(d1_x[0]*d1_x)).real)
-    np.savetxt(name_save + str(g_dim)+'_'+str(gr_dim) + os.sep + 'avg' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat', avg)
-    np.savetxt(name_save + str(g_dim)+'_'+str(gr_dim) + os.sep + 'vortices' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat', v)
+    np.savetxt(path_save + os.sep + str(g_dim)+ '_' +str(gr_dim) + os.sep + 'g1' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat', (np.abs(g1_x))/np.sqrt(d1_x[0]*d1_x).real)
+    np.savetxt(path_save + os.sep + str(g_dim)+ '_' +str(gr_dim) + os.sep + 'avg' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat', avg)
+    np.savetxt(path_save + os.sep + str(g_dim)+ '_' +str(gr_dim) + os.sep + 'vortices' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat', v)
 
 # =============================================================================
 # Parallel tests
 # =============================================================================
-#name_save = r'/Users/delis/Desktop/tests' + str(p) + os.sep
-name_save = r'/scratch/konstantinos/tests_' + str(p) + os.sep
-
 from qutip import *
-qutip.settings.num_cpus = 8
+qutip.settings.num_cpus = 4
 
-gr_dim_array = np.array([0.26, 0.28, 0.3, 0.4, 0.5, 0.6, 0.7, 0.9])
+#path_init = r'/Users/delis/Desktop'
+path_init = r'/scratch/konstantinos'
+os.mkdir(path_init + os.sep + 'tests' + '_' + str(np.round(p, 3)))
+path_save = path_init + os.sep + 'tests' + '_' + str(np.round(p, 3))
+
+gr_dim_array = np.array([0.16, 0.162, 0.164, 0.166, 0.168, 0.17, 0.2, 0.3, 0.4, 0.5])
 g_dim = 4
 
 for gr_dim in gr_dim_array:
-    os.mkdir(name_save + os.sep + str(g_dim) + '_' + str(gr_dim))
+    os.mkdir(path_save + os.sep + str(g_dim) + '_' + str(gr_dim))
 
 parallel_map(call, gr_dim_array, task_kwargs=dict(g_dim = g_dim))
 
 # =============================================================================
 #  Test plots
 # =============================================================================
-
 '''
 fig,ax = pl.subplots(1,1, figsize=(10,10))
 ax.set_xscale('log')
 ax.set_yscale('log')
 for gr_dim in gr_dim_array:
-    correlator = np.loadtxt(name_save + str(g_dim)+'_'+str(gr_dim) + os.sep + 'g1' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat')
-    ax.plot(x[int(N/2+1):]-x[int(N/2)], -2*np.log(correlator[1:]), label=r'$gr$ = %.2f' % gr_dim)
-ax.plot(x[int(N/2+1):]-x[int(N/2)], 0.01 * (x[int(N/2+1):]-x[int(N/2)]) ** 0.78, color='black', linewidth=3)
+    correlator = np.loadtxt(path_save + os.sep + str(g_dim)+'_'+str(gr_dim) + os.sep + 'g1' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat')
+    #ax.plot(x[int(N/2+1):]-x[int(N/2)], -2*np.log(correlator[1:]), label=r'$gr$ = %.2f' % gr_dim)
+    ax.plot(x[int(N/2):]-x[int(N/2)], correlator, label=r'$gr$ = %.2f' % gr_dim)
+#ax.plot(x[int(N/2+1):]-x[int(N/2)], 0.01 * (x[int(N/2+1):]-x[int(N/2)]) ** 0.78, color='black', linewidth=3)
 ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
 pl.legend(prop=dict(size=20))
 pl.title('p = %.2f, ns = %.1f' % (p, ns_tilde), fontsize=20)
@@ -286,7 +288,7 @@ pl.show()
 
 fig,ax = pl.subplots(1,1, figsize=(10,10))
 for gr_dim in gr_dim_array:
-    avgdensity = np.loadtxt(name_save + str(g_dim)+'_'+str(gr_dim) + os.sep + 'avg' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat')
+    avgdensity = np.loadtxt(path_save + os.sep + str(g_dim)+'_'+str(gr_dim) + os.sep + 'avg' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat')
     ax.plot(t, avgdensity, label=r'$gr$ = %.2f' % gr_dim)
 ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
 ax.legend(prop=dict(size=20))
@@ -297,7 +299,7 @@ pl.show()
 
 fig,ax = pl.subplots(1,1, figsize=(10,10))
 for gr_dim in gr_dim_array:
-    vortices = np.loadtxt(name_save + str(g_dim)+'_'+str(gr_dim) + os.sep + 'vortices' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat')
+    vortices = np.loadtxt(path_save + os.sep + str(g_dim)+'_'+str(gr_dim) + os.sep + 'vortices' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat')
     ax.plot(t, vortices/N**2, label=r'$gr$ = %.2f' % gr_dim)
 ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
 ax.legend(prop=dict(size=20))
