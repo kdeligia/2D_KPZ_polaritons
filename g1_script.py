@@ -6,8 +6,8 @@ Created on Tue Nov 10 15:09:50 2020
 @author: delis
 """
 
-c = 3e2 #μm/ps
-hbar = 6.582119569 * 1e2 # μeV ps
+c = 3E2 #μm/ps
+hbar = 6.582119569 * 1E2 # μeV ps
 
 import os
 from scipy.fftpack import fft2, ifft2
@@ -20,24 +20,27 @@ hatx = 1 # μm
 hatpsi = 1/hatx # μm^-1
 hatrho = 1/hatx**2 # μm^-2
 hatepsilon = hbar/hatt # μeV
-melectron = 0.510998950 * 1E12 / c**2 # μeV/(μm^2/ps^2)
+melectron = 0.510998950 * 1e12 / c**2 # μeV/(μm^2/ps^2)
 
-m_tilde = -3.2e-5
+m_tilde = 3.8e-5
 gamma0_tilde = 0.22
 gammar_tilde = 0.1 * gamma0_tilde
+P_tilde = 50 * gamma0_tilde 
+R_tilde = gammar_tilde / 50
 gamma2_tilde = 0.06
-P_tilde = 23.1 * 0.1 * 1.8
-R_tilde = gammar_tilde / 10
-p = P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
-
 ns_tilde = gammar_tilde / R_tilde
-n0_tilde = ns_tilde * (p - 1)
+print('Saturation in μm^-2 %.2f' % (ns_tilde * hatrho))
+
+# =============================================================================
+# 
+# =============================================================================
 
 N = 2**7
 L_tilde = 2**7
 dx_tilde = L_tilde / N
 dkx_tilde = 2 * np.pi / (N * dx_tilde)
 
+'''
 def dimensional_units():
     L_dim = L_tilde * hatx                                                      # result in μm
     P_dim = P_tilde * (1/(hatx**2 * hatt))                                      # result in μm^-2 ps^-1
@@ -46,9 +49,10 @@ def dimensional_units():
     gammar_dim = gammar_tilde * (1/hatt)                                        # result in ps^-1
     gamma2_dim = gamma2_tilde * (hatx**2 / hatt)                                # result in μm^2 ps^-1
     ns_dim = ns_tilde * hatrho                                                  # result in μm^-2
-    m_dim = m_tilde * melectron
     n0_dim = n0_tilde * hatrho                                                  # result in μm^-2
-    return L_dim, P_dim, R_dim, gamma0_dim, gammar_dim, gamma2_dim, ns_dim, m_dim, n0_dim
+    nr_dim = nres_tilde * hatrho                                                # result in μm^-2
+    return L_dim, P_dim, R_dim, gamma0_dim, gammar_dim, gamma2_dim, ns_dim, n0_dim, nr_dim
+'''
 
 def arrays():
     x_0 = - N * dx_tilde / 2
@@ -57,30 +61,27 @@ def arrays():
     kx = kx0 + dkx_tilde * np.arange(N)
     return x, kx
 
-L_dim, P_dim, R_dim, gamma0_dim, gammar_dim, gamma2_dim, ns_dim, m_dim, n0_dim = dimensional_units()
 x, kx =  arrays()
 X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
-time_steps = 50000
-dt_tilde = 1e-2
-every = 1000
-i1 = 0
-i2 = time_steps
-lengthwindow = i2-i1
-t = ext.time(dt_tilde, time_steps, i1, i2, every)
+time_steps = 100000
+dt_tilde = 4.5e-2
 
 class model:
-    def __init__(self, gr_dim, g_dim, psi_x=0):
+    def __init__(self, p, g_dim, gr_dim, psi_x=0):
+        m_dim = m_tilde * melectron
+        self.p = p
         self.g_tilde = g_dim * hatrho / hatepsilon
         self.gr_tilde = gr_dim * hatrho / hatepsilon
-        self.sigma = gamma0_tilde * (p + 1) / (4 * dx_tilde**2)
         self.psi_x = psi_x
-        self.psi_x = np.full((N, N), np.sqrt(1 / (2 * dx_tilde**2)) + 0.1)
+        self.psi_x = np.full((N, N), np.sqrt(1 / (2 * dx_tilde**2)) + 0.01)
         self.psi_x /= hatpsi
         self.psi_mod_k = fft2(self.psi_mod_x)
         self.Kc = hbar**2 / (2 * m_dim * hatepsilon * hatx**2)
         self.Kd = gamma2_tilde / 2
+        self.uc =  self.g_tilde * (1 - 2 * self.p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / gammar_tilde))
+        print('p = %.3f, Kc = %.3f, Kd = %.3f, uc = %.5f, tilde g = %.1f, tilde gr = %.3f, TWR = %.3f' % (self.p, self.Kc, self.Kd, self.uc, g_dim, gr_dim, self.g_tilde / (gamma0_tilde * dx_tilde**2)))
 
     def _set_fourier_psi_x(self, psi_x):
         self.psi_mod_x = psi_x * np.exp(-1j * KX[0,0] * X - 1j * KY[0,0] * Y) * dx_tilde * dx_tilde / (2 * np.pi)
@@ -100,15 +101,15 @@ class model:
 # Definition of the split steps
 # =============================================================================
     def n(self):
-        return (self.psi_x * np.conjugate(self.psi_x)).real - 1/(2 * dx_tilde**2)
+        return (self.psi_x * np.conjugate(self.psi_x)).real - 1/(2*dx_tilde**2)
 
     def prefactor_x(self):
-        self.uc_tilde = self.g_tilde * (self.n() + 2 * (self.gr_tilde / self.g_tilde) * (P_tilde / gammar_tilde) * (1 / (1 + self.n() / ns_tilde)))
-        self.I_tilde = (gamma0_tilde / 2) * (p * (1 / (1 + self.n() / ns_tilde)) - 1)
+        self.uc_tilde = self.g_tilde * (self.n() + 2 * self.p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / R_tilde) * (1 / (1 + self.n() / ns_tilde)))
+        self.I_tilde = (gamma0_tilde / 2) * (self.p * (1 / (1 + self.n() / ns_tilde)) - 1)
         return np.exp(-1j * 0.5 * dt_tilde * (self.uc_tilde + 1j * self.I_tilde))
 
     def prefactor_k(self):
-        return np.exp(-1j * dt_tilde * ((KX ** 2 + KY ** 2)*(self.Kc - 1j * self.Kd)))
+        return np.exp(-1j * dt_tilde * (KX ** 2 + KY ** 2) * (self.Kc - 1j * self.Kd))
 
 # =============================================================================
 # Time evolution
@@ -118,6 +119,7 @@ class model:
         g1_x = np.zeros(int(N/2), dtype = complex)
         d1_x = np.zeros(int(N/2))
         for i in range(time_steps+1):
+            self.sigma = gamma0_tilde * (self.p / (1 + self.n() / ns_tilde) + 1) / (4 * dx_tilde**2)
             self.psi_x *= self.prefactor_x()
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
@@ -133,35 +135,39 @@ class model:
 # =============================================================================
 # 
 # =============================================================================
-name_remote = r'/scratch/konstantinos/'
-save_remote = r'/home6/konstantinos/'
-
-parallel_tasks = 384
-n_batch = 128
+parallel_tasks = 352
+n_batch = 88
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-gr_dim_array = np.array([0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29])
+knob_array = np.array([1.01, 1.02, 1.03, 1.04, 1.05])
+p_array = knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
+gr_dim = 0
 g_dim = 4
 
-for gr_dim in gr_dim_array:
-    print('Starting for gr = ', gr_dim)
-    os.mkdir(name_remote+'correlation_'+str(gr_dim)+'_'+str(g_dim))
+path_init = r'/scratch/konstantinos'
+os.mkdir(path_init + os.sep + 'correlations')
+folder_save = path_init + os.sep + 'correlations'
 
-    def g1_parallel(i_batch):
+for p in p_array:
+    print('Starting for p = ', gr_dim)
+    os.mkdir(folder_save + os.sep + 'pump' +'_' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim))
+    final_save = folder_save + os.sep + 'pump' +'_' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim)
+
+    def x_g1_parallel(i_batch):
         correlation_batch = np.zeros((2, int(N/2)), dtype=complex)
         for i_n in range(n_internal):
-            gpe = model(gr_dim, g_dim)
+            gpe = model(p, g_dim, gr_dim)
             g1_x_run, d1_x_run = gpe.time_evolution()
             correlation_batch += np.vstack((g1_x_run, d1_x_run)) / n_internal
             print('CORRELATION Core', i_batch, 'completed realisation number', i_n+1)
-        np.save(name_remote + 'correlation' + '_' + str(gr_dim) + '_' + str(g_dim) + os.sep + 'file_core' + str(i_batch+1) + '.npy', correlation_batch)
-    parallel_map(g1_parallel, range(n_batch))
+        np.save(final_save + os.sep + 'g1_x' + '_' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim) + '_' + 'core' + str(i_batch + 1) + '.npy', correlation_batch)
+    parallel_map(x_g1_parallel, range(n_batch))
 
-for gr_dim in gr_dim_array:
+for p in p_array:
     result = np.zeros((2, int(N/2)), dtype = complex)
-    for file in os.listdir(name_remote + 'correlation_' + str(gr_dim) + '_' + str(g_dim)):
+    for file in os.listdir(folder_save + os.sep + 'pump' +'_' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim)):
         if '.npy' in file:
-            item = np.load(name_remote + 'correlation_' + str(gr_dim) + '_' + str(g_dim) + os.sep + file)
+            item = np.load(folder_save + os.sep + 'pump' +'_' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim) + os.sep + file)
             result += item / n_batch
-    np.save(save_remote + 'correlation' + '_' + str(gr_dim) + '_' + str(g_dim) + '_' + str(p) + '_result.npy', result)
+    np.save(r'/home6/konstantinos' + os.sep + 'final' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim) + '.npy', result)
