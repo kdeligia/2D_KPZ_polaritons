@@ -27,13 +27,18 @@ hatepsilon = hbar/hatt # μeV
 melectron = 0.510998950 * 1e12 / c**2 # μeV/(μm^2/ps^2)
 
 m_tilde = 3.8e-5
+m_dim = m_tilde * melectron
 gamma0_tilde = 0.22
 gammar_tilde = 0.1 * gamma0_tilde
 P_tilde = 50 * gamma0_tilde 
 R_tilde = gammar_tilde / 50
-gamma2_tilde = 0.06
+gamma2_tilde = 0.02
 ns_tilde = gammar_tilde / R_tilde
+Kc = hbar**2 / (2 * m_dim * hatepsilon * hatx**2)
+Kd = gamma2_tilde / 2
 print('Saturation in μm^-2 %.2f' % (ns_tilde * hatrho))
+print('Kd = %.3f' % (gamma2_tilde/2))
+print('Kc = %.4f' % Kc)
 
 # =============================================================================
 # 
@@ -79,7 +84,6 @@ t = ext.time(dt_tilde, time_steps, i1, i2, every)
 
 class model:
     def __init__(self, p, g_dim, gr_dim, psi_x=0):
-        m_dim = m_tilde * melectron
         self.p = p
         self.g_tilde = g_dim * hatrho / hatepsilon
         self.gr_tilde = gr_dim * hatrho / hatepsilon
@@ -87,10 +91,8 @@ class model:
         self.psi_x = np.full((N, N), np.sqrt(1 / (2 * dx_tilde**2)) + 0.01)
         self.psi_x /= hatpsi
         self.psi_mod_k = fft2(self.psi_mod_x)
-        self.Kc = hbar**2 / (2 * m_dim * hatepsilon * hatx**2)
-        self.Kd = gamma2_tilde / 2
         self.uc =  self.g_tilde * (1 - 2 * self.p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / gammar_tilde))
-        print('p = %.3f, Kc = %.3f, Kd = %.3f, uc = %.5f, tilde g = %.1f, tilde gr = %.3f, TWR = %.3f' % (self.p, self.Kc, self.Kd, self.uc, g_dim, gr_dim, self.g_tilde / (gamma0_tilde * dx_tilde**2)))
+        print('p = %.3f, uc = %.5f, tilde g = %.1f, tilde gr = %.3f, TWR = %.3f' % (self.p, self.uc, g_dim, gr_dim, self.g_tilde / (gamma0_tilde * dx_tilde**2)))
         #self.bogoliubov()
 
     def bogoliubov(self):
@@ -147,7 +149,7 @@ class model:
         return np.exp(-1j * 0.5 * dt_tilde * (self.uc_tilde + 1j * self.I_tilde))
 
     def prefactor_k(self):
-        return np.exp(-1j * dt_tilde * (KX ** 2 + KY ** 2) * (self.Kc - 1j * self.Kd))
+        return np.exp(-1j * dt_tilde * (KX ** 2 + KY ** 2) * (Kc - 1j * Kd))
 
 # =============================================================================
 # Time evolution
@@ -226,37 +228,37 @@ def vortices(index, phase):
     total = count_v + count_av
     return total
 
-def call(p, g_dim, gr_dim):
-    os.mkdir(path_save + os.sep + 'pump' +'_' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim))
+def parallel(p, g_dim, gr_dim):
+    save_subfolder = save_folder + os.sep + 'pump' + '_' + str(np.round(p, 3))
+    os.mkdir(save_subfolder)
     gpe = model(p, g_dim, gr_dim)
+    g1_x, d1_x, avg, v = gpe.time_evolution()
+    np.savetxt(save_folder + os.sep + save_subfolder + os.sep + 'g1' + '.dat', (np.abs(g1_x))/np.sqrt(d1_x[0]*d1_x).real)
+    np.savetxt(save_folder + os.sep + save_subfolder + os.sep + 'avg' + '.dat', avg)
+    np.savetxt(save_folder + os.sep + save_subfolder + os.sep + 'vortices' + '.dat', v)
     '''
     v_filt, v_unfilt = gpe.time_evolution()
-    np.savetxt(path_save + os.sep + 'pump' + '_' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim) + os.sep + 'v_filt' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat', v_filt)
-    np.savetxt(path_save + os.sep + 'pump' + '_' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim) + os.sep + 'v_unfilt' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat', v_unfilt)
+    np.savetxt(save_folder + os.sep + save_subfolder + os.sep + 'v_filt' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat', v_filt)
+    np.savetxt(save_folder + os.sep + save_subfolder + os.sep + 'v_unfilt' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat', v_unfilt)
     '''
-    g1_x, d1_x, avg, v = gpe.time_evolution()
-    np.savetxt(path_save + os.sep + 'pump' + '_' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim) + os.sep + 'g1' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat', (np.abs(g1_x))/np.sqrt(d1_x[0]*d1_x).real)
-    np.savetxt(path_save + os.sep + 'pump' + '_' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim) + os.sep + 'avg' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat', avg)
-    np.savetxt(path_save + os.sep + 'pump' + '_' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim) + os.sep + 'vortices' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat', v)
 
 # =============================================================================
 # Parallel tests
 # =============================================================================
 from qutip import *
-qutip.settings.num_cpus = 4
+qutip.settings.num_cpus = 6
 
-knob_array = np.array([1.01, 1.02, 1.05, 1.07])
+knob_array = np.array([1.01, 1.02, 1.03, 1.04, 1.05, 1.06, 1.07, 1.08, 1.09, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9])
 p_array = knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
-g_dim = 4
+g_dim = 8
 
-path_init = r'/Users/delis/Desktop'
-#path_init = r'/scratch/konstantinos'
+#path_init = r'/Users/delis/Desktop'
+path_init = r'/scratch/konstantinos'
+save_folder = path_init + os.sep + 'tests' + '_' + 'Kd' + str(gamma2_tilde/2) + '_' + 'g' + str(g_dim)
+os.mkdir(save_folder)
 
-os.mkdir(path_init + os.sep + 'tests')
-path_save = path_init + os.sep + 'tests'
-
-parallel_map(call, p_array, task_kwargs=dict(g_dim = g_dim, gr_dim = gr_dim))
+parallel_map(parallel, p_array, task_kwargs=dict(g_dim = g_dim, gr_dim = gr_dim))
 
 # =============================================================================
 #  Test plots
@@ -273,7 +275,7 @@ pl.legend(prop=dict(size=20))
 pl.tight_layout()
 pl.show()
 '''
-
+'''
 fig,ax = pl.subplots(1,1, figsize=(10,10))
 for i in range(len(p_array)):
     avgdensity = np.loadtxt(path_save + os.sep + 'pump' +'_' + str(np.round(p_array[i], 3)) + '_' + str(g_dim) + '_' + str(gr_dim) + os.sep + 'avg' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat')
@@ -283,15 +285,22 @@ ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, 
 ax.legend(prop=dict(size=20))
 pl.tight_layout()
 pl.show()
+'''
 
+'''
 fig,ax = pl.subplots(1,1, figsize=(10,10))
 for i in range(len(p_array)):
+    #fig,ax = pl.subplots(1,1, figsize=(10,10))
     vort = np.loadtxt(path_save + os.sep + 'pump' + '_' + str(np.round(p_array[i], 3)) + '_' + str(g_dim) + '_' + str(gr_dim) + os.sep + 'vortices' + '_' + str(g_dim) + '_' + str(gr_dim) + '.dat')
     ax.plot(t, vort/N**2, label=r'$p$ = %.3f' % p_array[i])
 ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
+ax.set_xlabel('$t$', fontsize = 20)
+ax.set_ylabel(r'$n_v$', fontsize = 20)
 ax.legend(prop=dict(size=20))
 pl.tight_layout()
+pl.savefig('/Users/delis/Desktop/vortices' + 'Kd' + str(gamma2_tilde/2) + 'g' + str(g_dim) + '.eps', format='eps')
 pl.show()
+'''
 
 # =============================================================================
 # Vortices extra check

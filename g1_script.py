@@ -150,7 +150,7 @@ os.mkdir(path_init + os.sep + 'correlations')
 folder_save = path_init + os.sep + 'correlations'
 
 for p in p_array:
-    print('Starting for p = ', gr_dim)
+    print('Starting for p = ', p)
     os.mkdir(folder_save + os.sep + 'pump' +'_' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim))
     final_save = folder_save + os.sep + 'pump' +'_' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim)
 
