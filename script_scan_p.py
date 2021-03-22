@@ -91,9 +91,11 @@ class model:
         self.psi_x = np.full((N, N), np.sqrt(1 / (2 * dx_tilde**2)) + 0.01)
         self.psi_x /= hatpsi
         self.psi_mod_k = fft2(self.psi_mod_x)
-        self.uc =  self.g_tilde * (1 - 2 * self.p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / gammar_tilde))
+        if self.g_tilde == 0:
+            self.uc = 0
+        else:
+            self.uc =  self.g_tilde * (1 - 2 * self.p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / gammar_tilde))
         print('p = %.3f, uc = %.5f, tilde g = %.1f, tilde gr = %.3f, TWR = %.3f' % (self.p, self.uc, g_dim, gr_dim, self.g_tilde / (gamma0_tilde * dx_tilde**2)))
-        #self.bogoliubov()
 
     def bogoliubov(self):
         n0_tilde = ns_tilde * (self.p - 1)
@@ -144,7 +146,10 @@ class model:
         return (self.psi_x * np.conjugate(self.psi_x)).real - 1/(2*dx_tilde**2)
 
     def prefactor_x(self):
-        self.uc_tilde = self.g_tilde * (self.n() + 2 * self.p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / R_tilde) * (1 / (1 + self.n() / ns_tilde)))
+        if self.g_tilde == 0:
+            self.uc_tilde = 0
+        else:
+            self.uc_tilde = self.g_tilde * (self.n() + 2 * self.p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / R_tilde) * (1 / (1 + self.n() / ns_tilde)))
         self.I_tilde = (gamma0_tilde / 2) * (self.p * (1 / (1 + self.n() / ns_tilde)) - 1)
         return np.exp(-1j * 0.5 * dt_tilde * (self.uc_tilde + 1j * self.I_tilde))
 
@@ -221,12 +226,12 @@ def vortices(index, phase):
 
 def parallel_func(p, g_dim, gr_dim):
     save_subfolder = save_folder + os.sep + 'pump' + '_' + str(np.round(p, 3))
-    #os.mkdir(save_subfolder)
+    os.mkdir(save_subfolder)
     gpe = model(p, g_dim, gr_dim)
     g1_x, d1_x, avg, v = gpe.time_evolution()
-    #np.savetxt(save_subfolder + os.sep + 'g1' + '.dat', (np.abs(g1_x))/np.sqrt(d1_x[0]*d1_x).real)
-    #np.savetxt(save_subfolder + os.sep + 'avg' + '.dat', avg)
-    #np.savetxt(save_subfolder + os.sep + 'vortices' + '.dat', v)
+    np.savetxt(save_subfolder + os.sep + 'g1' + '.dat', (np.abs(g1_x))/np.sqrt(d1_x[0]*d1_x).real)
+    np.savetxt(save_subfolder + os.sep + 'avg' + '.dat', avg)
+    np.savetxt(save_subfolder + os.sep + 'vortices' + '.dat', v)
 
 # =============================================================================
 # Parallel tests
@@ -237,14 +242,14 @@ qutip.settings.num_cpus = 22
 knob_array = np.array([1.01, 1.02, 1.05, 1.1, 1.12, 1.15, 1.2, 1.4, 1.6, 1.8, 2, 2.5, 3, 3.5, 4, 5, 7.5, 10, 12.5, 15, 17.5, 20])
 p_array = knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
-g_dim = 4
+g_dim = 0
 
-path_init = r'/Users/delis/Desktop'
-#path_init = r'/scratch/konstantinos'
+#path_init = r'/Users/delis/Desktop'
+path_init = r'/scratch/konstantinos'
 save_folder = path_init + os.sep + 'tests' + '_' + 'Kd' + str(gamma2_tilde/2) + '_' + 'g' + str(g_dim)
-#os.mkdir(save_folder)
+os.mkdir(save_folder)
 
-#parallel_map(parallel_func, p_array, task_kwargs=dict(g_dim = g_dim, gr_dim = gr_dim))
+parallel_map(parallel_func, p_array, task_kwargs=dict(g_dim = g_dim, gr_dim = gr_dim))
 
 # =============================================================================
 #  Test plots
@@ -277,20 +282,30 @@ pl.show()
 '''
 
 '''
-fig,ax = pl.subplots(2,1, figsize=(10, 16))
+#fig,ax = pl.subplots(1,1, figsize=(10, 10))
 for p in p_array:
-    save_subfolder = save_folder + os.sep + 'pump' + '_' + str(np.round(p, 3))
+    fig,ax = pl.subplots(1,1, figsize=(10, 10))
+    save_subfolder = save_folder + '_01sigma' + os.sep + 'pump' + '_' + str(np.round(p, 3))
     vort = np.loadtxt(save_subfolder + os.sep + 'vortices' + '.dat')
-    ax[0].plot(t, vort/N**2, label=r'$p$ = %.3f' % p)
-    ax[1].semilogy(p, np.mean(vort[225:]), 'bo')
-ax[0].tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
-ax[0].set_xlabel('$t$', fontsize = 20)
-ax[0].set_ylabel(r'$n_v$', fontsize = 20)
-ax[0].legend(prop=dict(size=20))
-ax[1].tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
-ax[1].set_xlabel('$p$', fontsize = 20)
-ax[1].set_ylabel(r'$<N_v>_{SS}$', fontsize = 20)
+    ax.plot(t, vort/N**2, label=r'$p$ = %.3f' % p)
+ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
+ax.set_xlabel('$t$', fontsize = 20)
+ax.set_ylabel(r'$n_v$', fontsize = 20)
+ax.legend(prop=dict(size=20))
 pl.tight_layout()
-#pl.savefig('/Users/delis/Desktop/vortices' + 'Kd' + str(gamma2_tilde/2) + 'g' + str(g_dim) + '.eps', format='eps')
+#pl.savefig('/Users/delis/Desktop/vortices' + 'Kd' + str(gamma2_tilde/2) + 'g' + str(g_dim) + '01sigma' + '.eps', format='eps')
+pl.show()
+
+fig,ax = pl.subplots(1,1, figsize=(10, 10))
+for p in p_array:
+    save_subfolder1 = save_folder + '_sigma' + os.sep + 'pump' + '_' + str(np.round(p, 3))
+    save_subfolder2 = save_folder + '_01sigma' + os.sep + 'pump' + '_' + str(np.round(p, 3))
+    vort1 = np.loadtxt(save_subfolder1 + os.sep + 'vortices' + '.dat')
+    vort2 = np.loadtxt(save_subfolder2 + os.sep + 'vortices' + '.dat')
+    ax.semilogy(p, np.mean(vort1[125:]), 'bo')
+    ax.semilogy(p, np.mean(vort2[125:]), 'ro')
+ax.legend(prop=dict(size=20))
+ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
+pl.tight_layout()
 pl.show()
 '''
