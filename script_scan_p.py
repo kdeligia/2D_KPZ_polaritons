@@ -244,17 +244,17 @@ p_array = knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
 g_dim = 0
 
-#path_init = r'/Users/delis/Desktop'
-path_init = r'/scratch/konstantinos'
+path_init = r'/Users/delis/Desktop'
+#path_init = r'/scratch/konstantinos'
 save_folder = path_init + os.sep + 'tests' + '_' + 'Kd' + str(gamma2_tilde/2) + '_' + 'g' + str(g_dim)
-os.mkdir(save_folder)
+#os.mkdir(save_folder)
 
-parallel_map(parallel_func, p_array, task_kwargs=dict(g_dim = g_dim, gr_dim = gr_dim))
+#parallel_map(parallel_func, p_array, task_kwargs=dict(g_dim = g_dim, gr_dim = gr_dim))
 
 # =============================================================================
 #  Test plots
 # =============================================================================
-'''
+
 fig,ax = pl.subplots(1,1, figsize=(10,10))
 ax.set_xscale('log')
 ax.set_yscale('log')
@@ -291,4 +291,3 @@ ax.legend(prop=dict(size=20))
 pl.tight_layout()
 #pl.savefig('/Users/delis/Desktop/vortices' + 'Kd' + str(gamma2_tilde/2) + 'g' + str(g_dim) + '_01sigma' + '.eps', format='eps')
 pl.show()
-'''

@@ -9,11 +9,11 @@ Created on Tue Nov 10 15:09:50 2020
 c = 3E2 #μm/ps
 hbar = 6.582119569 * 1E2 # μeV ps
 
+#from scipy.ndimage import gaussian_filter
 import os
 from scipy.fftpack import fft2, ifft2
 import numpy as np
 import external as ext
-from qutip import *
 
 hatt = 1 # ps
 hatx = 1 # μm
@@ -23,13 +23,15 @@ hatepsilon = hbar/hatt # μeV
 melectron = 0.510998950 * 1e12 / c**2 # μeV/(μm^2/ps^2)
 
 m_tilde = 3.8e-5
+m_dim = m_tilde * melectron
 gamma0_tilde = 0.22
 gammar_tilde = 0.1 * gamma0_tilde
 P_tilde = 50 * gamma0_tilde 
 R_tilde = gammar_tilde / 50
-gamma2_tilde = 0.06
+gamma2_tilde = 0.02
 ns_tilde = gammar_tilde / R_tilde
-print('Saturation in μm^-2 %.2f' % (ns_tilde * hatrho))
+Kc = hbar**2 / (2 * m_dim * hatepsilon * hatx**2)
+Kd = gamma2_tilde / 2
 
 # =============================================================================
 # 
@@ -80,8 +82,10 @@ class model:
         self.psi_mod_k = fft2(self.psi_mod_x)
         self.Kc = hbar**2 / (2 * m_dim * hatepsilon * hatx**2)
         self.Kd = gamma2_tilde / 2
-        self.uc =  self.g_tilde * (1 - 2 * self.p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / gammar_tilde))
-        print('p = %.3f, Kc = %.3f, Kd = %.3f, uc = %.5f, tilde g = %.1f, tilde gr = %.3f, TWR = %.3f' % (self.p, self.Kc, self.Kd, self.uc, g_dim, gr_dim, self.g_tilde / (gamma0_tilde * dx_tilde**2)))
+        if self.g_tilde == 0:
+            self.uc = 0
+        else:
+            self.uc =  self.g_tilde * (1 - 2 * self.p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / gammar_tilde))
 
     def _set_fourier_psi_x(self, psi_x):
         self.psi_mod_x = psi_x * np.exp(-1j * KX[0,0] * X - 1j * KY[0,0] * Y) * dx_tilde * dx_tilde / (2 * np.pi)
@@ -104,7 +108,10 @@ class model:
         return (self.psi_x * np.conjugate(self.psi_x)).real - 1/(2*dx_tilde**2)
 
     def prefactor_x(self):
-        self.uc_tilde = self.g_tilde * (self.n() + 2 * self.p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / R_tilde) * (1 / (1 + self.n() / ns_tilde)))
+        if self.g_tilde == 0:
+            self.uc_tilde = 0
+        else:
+            self.uc_tilde = self.g_tilde * (self.n() + 2 * self.p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / R_tilde) * (1 / (1 + self.n() / ns_tilde)))
         self.I_tilde = (gamma0_tilde / 2) * (self.p * (1 / (1 + self.n() / ns_tilde)) - 1)
         return np.exp(-1j * 0.5 * dt_tilde * (self.uc_tilde + 1j * self.I_tilde))
 
@@ -133,26 +140,34 @@ class model:
         return g1_x, d1_x
 
 # =============================================================================
-# 
+# Parallel tests
 # =============================================================================
-parallel_tasks = 352
-n_batch = 88
+from qutip import *
+parallel_tasks = 256
+n_batch = 64
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-knob_array = np.array([1.01, 1.02, 1.03, 1.04, 1.05])
+knob_array = np.array([1.2, 1.3, 1.4, 1.5, 1.6, 1.8, 1.9, 2])
 p_array = knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
-g_dim = 4
+g_dim = 0
 
-path_init = r'/scratch/konstantinos'
-os.mkdir(path_init + os.sep + 'correlations')
-folder_save = path_init + os.sep + 'correlations'
+path_init = r'/Users/delis/Desktop'
+#path_init = r'/scratch/konstantinos'
+save_folder = path_init + os.sep + 'correlations' + '_' + 'Kd' + str(gamma2_tilde/2) + '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim)
+os.mkdir(save_folder)
+
+print('Saturation in μm^-2 %.2f' % (ns_tilde * hatrho))
+print('Kd = %.3f' % (gamma2_tilde/2))
+print('Kc = %.4f' % Kc)
+print('g = %.1f' % g_dim)
+print('gr = %.1f' % gr_dim)
 
 for p in p_array:
-    print('Starting for p = ', p)
-    os.mkdir(folder_save + os.sep + 'pump' +'_' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim))
-    final_save = folder_save + os.sep + 'pump' +'_' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim)
+    print('Starting simulations for p = %.3f', p)
+    save_subfolder = save_folder + os.sep + 'pump' + '_' + str(np.round(p, 3))
+    os.mkdir(save_subfolder)
 
     def x_g1_parallel(i_batch):
         correlation_batch = np.zeros((2, int(N/2)), dtype=complex)
@@ -160,14 +175,15 @@ for p in p_array:
             gpe = model(p, g_dim, gr_dim)
             g1_x_run, d1_x_run = gpe.time_evolution()
             correlation_batch += np.vstack((g1_x_run, d1_x_run)) / n_internal
-            print('CORRELATION Core', i_batch, 'completed realisation number', i_n+1)
-        np.save(final_save + os.sep + 'g1_x' + '_' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim) + '_' + 'core' + str(i_batch + 1) + '.npy', correlation_batch)
+            print('CORRELATION Core', i_batch, 'completed realisation number', i_n + 1)
+        np.save(save_subfolder + os.sep + 'x_g1' + '_' + 'core' + str(i_batch + 1) + '.npy', correlation_batch)
     parallel_map(x_g1_parallel, range(n_batch))
 
 for p in p_array:
+    save_subfolder = save_folder + os.sep + 'pump' + '_' + str(np.round(p, 3))
     result = np.zeros((2, int(N/2)), dtype = complex)
-    for file in os.listdir(folder_save + os.sep + 'pump' +'_' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim)):
+    for file in os.listdir(save_subfolder):
         if '.npy' in file:
-            item = np.load(folder_save + os.sep + 'pump' +'_' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim) + os.sep + file)
+            item = np.load(save_subfolder + os.sep + file)
             result += item / n_batch
-    np.save(r'/home6/konstantinos' + os.sep + 'final' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim) + '.npy', result)
+    np.save(r'/home6/konstantinos' + os.sep + 'final_x_g1' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim) + '.npy', result)
