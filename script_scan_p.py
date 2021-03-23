@@ -237,9 +237,9 @@ def parallel_func(p, g_dim, gr_dim):
 # Parallel tests
 # =============================================================================
 from qutip import *
-qutip.settings.num_cpus = 22
+qutip.settings.num_cpus = 7
 
-knob_array = np.array([1.01, 1.02, 1.05, 1.1, 1.12, 1.15, 1.2, 1.4, 1.6, 1.8, 2, 2.5, 3, 3.5, 4, 5, 7.5, 10, 12.5, 15, 17.5, 20])
+knob_array = np.array([1.2, 1.3, 1.4, 1.5, 1.6, 1.8, 2])
 p_array = knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
 g_dim = 0
@@ -261,14 +261,12 @@ ax.set_yscale('log')
 for p in p_array:
     save_subfolder = save_folder + os.sep + 'pump' + '_' + str(np.round(p, 3))
     correlator = np.loadtxt(save_subfolder + os.sep + 'g1' + '.dat')
-    ax.plot(x[int(N/2):]-x[int(N/2)], correlator, label=r'$p$ = %.3f' % p_array[i])
+    ax.plot(x[int(N/2):]-x[int(N/2)], correlator, label=r'$p$ = %.3f' % p)
 ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
 pl.legend(prop=dict(size=20))
 pl.tight_layout()
 pl.show()
-'''
 
-'''
 fig,ax = pl.subplots(1,1, figsize=(10,10))
 for p in p_array:
     save_subfolder = save_folder + os.sep + 'pump' + '_' + str(np.round(p, 3))
@@ -279,13 +277,11 @@ ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, 
 ax.legend(prop=dict(size=20))
 pl.tight_layout()
 pl.show()
-'''
 
-'''
-#fig,ax = pl.subplots(1,1, figsize=(10, 10))
+
+fig,ax = pl.subplots(1,1, figsize=(10, 10))
 for p in p_array:
-    fig,ax = pl.subplots(1,1, figsize=(10, 10))
-    save_subfolder = save_folder + '_01sigma' + os.sep + 'pump' + '_' + str(np.round(p, 3))
+    save_subfolder = save_folder  + os.sep + 'pump' + '_' + str(np.round(p, 3))
     vort = np.loadtxt(save_subfolder + os.sep + 'vortices' + '.dat')
     ax.plot(t, vort/N**2, label=r'$p$ = %.3f' % p)
 ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
@@ -293,19 +289,6 @@ ax.set_xlabel('$t$', fontsize = 20)
 ax.set_ylabel(r'$n_v$', fontsize = 20)
 ax.legend(prop=dict(size=20))
 pl.tight_layout()
-#pl.savefig('/Users/delis/Desktop/vortices' + 'Kd' + str(gamma2_tilde/2) + 'g' + str(g_dim) + '01sigma' + '.eps', format='eps')
-pl.show()
-
-fig,ax = pl.subplots(1,1, figsize=(10, 10))
-for p in p_array:
-    save_subfolder1 = save_folder + '_sigma' + os.sep + 'pump' + '_' + str(np.round(p, 3))
-    save_subfolder2 = save_folder + '_01sigma' + os.sep + 'pump' + '_' + str(np.round(p, 3))
-    vort1 = np.loadtxt(save_subfolder1 + os.sep + 'vortices' + '.dat')
-    vort2 = np.loadtxt(save_subfolder2 + os.sep + 'vortices' + '.dat')
-    ax.semilogy(p, np.mean(vort1[125:]), 'bo')
-    ax.semilogy(p, np.mean(vort2[125:]), 'ro')
-ax.legend(prop=dict(size=20))
-ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
-pl.tight_layout()
+#pl.savefig('/Users/delis/Desktop/vortices' + 'Kd' + str(gamma2_tilde/2) + 'g' + str(g_dim) + '_01sigma' + '.eps', format='eps')
 pl.show()
 '''
