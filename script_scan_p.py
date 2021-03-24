@@ -28,11 +28,11 @@ melectron = 0.510998950 * 1e12 / c**2 # μeV/(μm^2/ps^2)
 
 m_tilde = 3.8e-5
 m_dim = m_tilde * melectron
-gamma0_tilde = 0.22
+gamma0_tilde = 0.22 * 50
 gammar_tilde = 0.1 * gamma0_tilde
-P_tilde = 50 * gamma0_tilde 
-R_tilde = gammar_tilde / 50
-gamma2_tilde = 0.02
+P_tilde = 1 * gamma0_tilde 
+R_tilde = gammar_tilde / 1
+gamma2_tilde = 0
 ns_tilde = gammar_tilde / R_tilde
 Kc = hbar**2 / (2 * m_dim * hatepsilon * hatx**2)
 Kd = gamma2_tilde / 2
@@ -43,7 +43,6 @@ print('Kc = %.4f' % Kc)
 # =============================================================================
 # 
 # =============================================================================
-
 N = 2**7
 L_tilde = 2**7
 dx_tilde = L_tilde / N
@@ -165,7 +164,8 @@ class model:
         n_sum = np.zeros(len(t))
         v = np.zeros(len(t))
         for i in range(time_steps+1):
-            self.sigma = gamma0_tilde * (self.p / (1 + self.n() / ns_tilde) + 1) / (4 * dx_tilde**2)
+            #self.sigma = gamma0_tilde * (self.p / (1 + self.n() / ns_tilde) + 1) / (4 * dx_tilde**2)
+            self.sigma = 0.04
             self.psi_x *= self.prefactor_x()
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
@@ -174,8 +174,6 @@ class model:
             self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N)))
             if i>=i1 and i<=i2 and i%every==0:
                 time_array_index = (i-i1)//every
-                #if i % 10000 == 0:
-                    #print(i)
                 v[time_array_index] = vortices(time_array_index, np.angle(self.psi_x))
                 n_sum[time_array_index] = np.mean(self.n())
         g1_x = np.zeros(int(N/2), dtype = complex)
@@ -239,22 +237,29 @@ def parallel_func(p, g_dim, gr_dim):
 from qutip import *
 qutip.settings.num_cpus = 7
 
-knob_array = np.array([1.2, 1.3, 1.4, 1.5, 1.6, 1.8, 2])
+knob_array = np.array([1.2, 1.3, 1.4, 1.5, 1.6, 1.8, 1.9, 2])
 p_array = knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
 g_dim = 0
 
-path_init = r'/Users/delis/Desktop'
-#path_init = r'/scratch/konstantinos'
-save_folder = path_init + os.sep + 'tests' + '_' + 'Kd' + str(gamma2_tilde/2) + '_' + 'g' + str(g_dim)
-#os.mkdir(save_folder)
+'''
+print('--- Alternative Parametrization ---')
+print('Kd = %.6f' % (m_dim * gamma2_tilde * (hatx**2 / hatt) / hbar))
+print('nu = ', (p_array - 1))
+print('c = %.6f' % (hbar * gamma0_tilde * (1/hatt) / (2 * g_dim * ns_tilde * hatrho)))
+'''
 
-#parallel_map(parallel_func, p_array, task_kwargs=dict(g_dim = g_dim, gr_dim = gr_dim))
+#path_init = r'/Users/delis/Desktop'
+path_init = r'/scratch/konstantinos'
+save_folder = path_init + os.sep + 'tests' + '_' + 'Kd' + str(gamma2_tilde/2) + '_' + 'g' + str(g_dim)
+os.mkdir(save_folder)
+
+parallel_map(parallel_func, p_array, task_kwargs=dict(g_dim = g_dim, gr_dim = gr_dim))
 
 # =============================================================================
 #  Test plots
 # =============================================================================
-
+'''
 fig,ax = pl.subplots(1,1, figsize=(10,10))
 ax.set_xscale('log')
 ax.set_yscale('log')
@@ -264,6 +269,7 @@ for p in p_array:
     ax.plot(x[int(N/2):]-x[int(N/2)], correlator, label=r'$p$ = %.3f' % p)
 ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
 pl.legend(prop=dict(size=20))
+pl.title('Kd = %.3f' % Kd, fontsize = 20)
 pl.tight_layout()
 pl.show()
 
@@ -275,6 +281,7 @@ for p in p_array:
     ax.hlines(y = ns_tilde * (p - 1), xmin=t[0], xmax=t[-1])
 ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
 ax.legend(prop=dict(size=20))
+pl.title('Kd = %.3f' % Kd, fontsize=20)
 pl.tight_layout()
 pl.show()
 
@@ -288,6 +295,8 @@ ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, 
 ax.set_xlabel('$t$', fontsize = 20)
 ax.set_ylabel(r'$n_v$', fontsize = 20)
 ax.legend(prop=dict(size=20))
+pl.title('Kd = %.3f' % Kd, fontsize=20)
 pl.tight_layout()
 #pl.savefig('/Users/delis/Desktop/vortices' + 'Kd' + str(gamma2_tilde/2) + 'g' + str(g_dim) + '_01sigma' + '.eps', format='eps')
 pl.show()
+'''

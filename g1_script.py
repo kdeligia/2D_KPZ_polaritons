@@ -165,7 +165,7 @@ print('g = %.1f' % g_dim)
 print('gr = %.1f' % gr_dim)
 
 for p in p_array:
-    print('Starting simulations for p = %.3f', p)
+    print('Starting simulations for p = %.3f' % p)
     save_subfolder = save_folder + os.sep + 'pump' + '_' + str(np.round(p, 3))
     os.mkdir(save_subfolder)
 
