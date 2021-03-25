@@ -136,7 +136,6 @@ class model:
         for i in range(N):
             g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / N
             d1_x += self.n()[i, int(N/2):] / N
-        g1_x[0] -= 1/(2*dx_tilde**2)
         return g1_x, d1_x
 
 # =============================================================================
@@ -186,4 +185,5 @@ for p in p_array:
         if '.npy' in file:
             item = np.load(save_subfolder + os.sep + file)
             result += item / n_batch
+    result[0, 0] -= 1/(2 * dx_tilde ** 2)
     np.save(r'/home6/konstantinos' + os.sep + 'final_x_g1' + str(np.round(p, 3)) + '_' + str(g_dim) + '_' + str(gr_dim) + '.npy', result)
