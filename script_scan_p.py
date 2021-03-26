@@ -73,7 +73,7 @@ x, kx =  arrays()
 X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
-time_steps = 200000
+time_steps = 500000
 dt_tilde = 1e-3
 every = 100
 i1 = 0
@@ -83,7 +83,6 @@ t = ext.time(dt_tilde, time_steps, i1, i2, every)
 
 class model:
     def __init__(self, p, g_dim, gr_dim, psi_x=0):
-        print(sigma)
         self.p = p
         self.g_tilde = g_dim * hatrho / hatepsilon
         self.gr_tilde = gr_dim * hatrho / hatepsilon
@@ -234,12 +233,14 @@ def parallel_func(p, g_dim, gr_dim):
 # Parallel tests
 # =============================================================================
 from qutip import *
-qutip.settings.num_cpus = 6
+qutip.settings.num_cpus = 3
 
-knob_array = np.array([1.5, 1.6, 1.7, 1.8, 1.9, 2])
+knob_array = np.array([1.8, 1.9, 2])
 p_array = knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
 g_dim = 0
+
+path_init = r'/Users/delis/Desktop'
 
 '''
 print('--- Alternative Parametrization ---')
@@ -248,52 +249,55 @@ print('nu = ', (p_array - 1))
 print('c = %.6f' % (hbar * gamma0_tilde * (1/hatt) / (2 * g_dim * ns_tilde * hatrho)))
 '''
 
-for sigma in [1e-4, 2e-4, 3e-4, 4e-4, 5e-5]:
-#path_init = r'/Users/delis/Desktop'
-    path_init = r'/scratch/konstantinos'
-    save_folder = path_init + os.sep + 'tests' + '_' + 'sigma' + str(sigma) + '_' + 'ns' + str(int(ns_tilde)) + '_' + 'Kd' + str(int(Kd)) + '_' + 'gamma0' + str(gamma0_tilde)
+for sigma in [6e-4, 7e-4, 8e-4, 9e-4, 1e-3]:
+    save_folder = path_init + os.sep + 'tests' + '_' + 'sigma' + str(sigma) + '_' + 'ns' + str(int(ns_tilde)) + '_' + 'Kd' + str(int(Kd)) + '_' + 'gamma' + str(gamma0_tilde)
     os.mkdir(save_folder)
     parallel_map(parallel_func, p_array, task_kwargs=dict(g_dim = g_dim, gr_dim = gr_dim))
+
 
 # =============================================================================
 #  Test plots
 # =============================================================================
+
 '''
-fig,ax = pl.subplots(1,1, figsize=(10,10))
-ax.set_xscale('log')
-ax.set_yscale('log')
-for p in p_array:
-    save_subfolder = save_folder + os.sep + 'pump' + '_' + str(np.round(p, 3))
-    correlator = np.loadtxt(save_subfolder + os.sep + 'g1' + '.dat')
-    ax.plot(x[int(N/2):]-x[int(N/2)], correlator**2, label=r'$p$ = %.3f' % p)
-ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
-pl.legend(prop=dict(size=20))
-pl.title('Kd = %.3f, gamma0 = %.3f' % (Kd, gamma0_tilde), fontsize = 20)
-pl.tight_layout()
-pl.show()
+for sigma in [1e-4, 2e-4, 3e-4, 4e-4]:
+    save_folder = path_init + os.sep + 'tests' + '_' + 'sigma' + str(sigma) + '_' + 'ns' + str(int(ns_tilde)) + '_' + 'Kd' + str(int(Kd)) + '_' + 'gamma0' + str(gamma0_tilde)
 
-fig,ax = pl.subplots(1,1, figsize=(10,10))
-for p in p_array:
-    save_subfolder = save_folder + os.sep + 'pump' + '_' + str(np.round(p, 3))
-    avgdensity = np.loadtxt(save_subfolder + os.sep + 'avg' + '.dat')
-    ax.plot(t, avgdensity, label=r'$p$ = %.3f' % p)
-    ax.hlines(y = ns_tilde * (p - 1), xmin=t[0], xmax=t[-1])
-ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
-ax.legend(prop=dict(size=20))
-pl.title('Kd = %.3f, gamma0 = %.3f' % (Kd, gamma0_tilde), fontsize = 20)
-pl.tight_layout()
-pl.show()
-
-fig,ax = pl.subplots(1,1, figsize=(10, 10))
-for p in p_array:
-    save_subfolder = save_folder  + os.sep + 'pump' + '_' + str(np.round(p, 3))
-    vort = np.loadtxt(save_subfolder + os.sep + 'vortices' + '.dat')
-    ax.plot(t, vort/N**2, label=r'$p$ = %.3f' % p)
-ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
-ax.set_xlabel('$t$', fontsize = 20)
-ax.set_ylabel(r'$n_v$', fontsize = 20)
-ax.legend(prop=dict(size=20))
-pl.title('Kd = %.3f, gamma0 = %.3f' % (Kd, gamma0_tilde), fontsize = 20)
-pl.tight_layout()
-pl.show()
+    fig,ax = pl.subplots(1,1, figsize=(10,10))
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    for p in p_array:
+        save_subfolder = save_folder + os.sep + 'p' + '_' + str(np.round(p, 3))
+        correlator = np.loadtxt(save_subfolder + os.sep + 'g1' + '.dat')
+        ax.plot(x[int(N/2):]-x[int(N/2)], correlator**2, label=r'$p$ = %.3f' % p)
+    ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
+    pl.legend(prop=dict(size=20))
+    pl.title('Kd = %.3f, gamma0 = %.3f, sigma = %.5f' % (Kd, gamma0_tilde, sigma), fontsize = 20)
+    pl.tight_layout()
+    pl.show()
+    
+    fig,ax = pl.subplots(1,1, figsize=(10,10))
+    for p in p_array:
+        save_subfolder = save_folder + os.sep + 'p' + '_' + str(np.round(p, 3))
+        avgdensity = np.loadtxt(save_subfolder + os.sep + 'avg' + '.dat')
+        ax.plot(t, avgdensity, label=r'$p$ = %.3f' % p)
+        ax.hlines(y = ns_tilde * (p - 1), xmin=t[0], xmax=t[-1])
+    ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
+    ax.legend(prop=dict(size=20))
+    pl.title('Kd = %.3f, gamma0 = %.3f, sigma = %.5f' % (Kd, gamma0_tilde, sigma), fontsize = 20)
+    pl.tight_layout()
+    pl.show()
+    
+    fig,ax = pl.subplots(1,1, figsize=(10, 10))
+    for p in p_array:
+        save_subfolder = save_folder  + os.sep + 'p' + '_' + str(np.round(p, 3))
+        vort = np.loadtxt(save_subfolder + os.sep + 'vortices' + '.dat')
+        ax.plot(t, vort/N**2, label=r'$p$ = %.3f' % p)
+    ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
+    ax.set_xlabel('$t$', fontsize = 20)
+    ax.set_ylabel(r'$n_v$', fontsize = 20)
+    ax.legend(prop=dict(size=20))
+    pl.title('Kd = %.3f, gamma0 = %.3f, sigma = %.5f' % (Kd, gamma0_tilde, sigma), fontsize = 20)
+    pl.tight_layout()
+    pl.show()
 '''
