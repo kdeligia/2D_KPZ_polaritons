@@ -6,10 +6,10 @@ Created on Thu Jan 21 19:51:48 2021
 @author: delis
 """
 
-c = 3E2 #μm/ps
-hbar = 6.582119569 * 1E2 # μeV ps
+c = 3e2 #μm/ps
+hbar = 6.582119569 * 1e2 # μeV ps
 
-from scipy.ndimage import gaussian_filter
+#from scipy.ndimage import gaussian_filter
 import os
 from scipy.fftpack import fft2, ifft2
 import numpy as np
@@ -25,27 +25,27 @@ hatrho = 1/hatx**2 # μm^-2
 hatepsilon = hbar/hatt # μeV
 melectron = 0.510998950 * 1e12 / c**2 # μeV/(μm^2/ps^2)
 
-m_tilde = 3.8e-5 * 3
+m_tilde = 3.8e-5
 m_dim = m_tilde * melectron
-gamma0_tilde = 0.22 * 46.5 * 2
-gammar_tilde = 0.1 * gamma0_tilde
-P_tilde = 1 * gamma0_tilde 
+gamma0_tilde = 0.22
+gammar_tilde = gamma0_tilde * 0.1
+P_tilde = gamma0_tilde * 1
 R_tilde = gammar_tilde / 1
 gamma2_tilde = 0
 ns_tilde = gammar_tilde / R_tilde
 Kc = hbar**2 / (2 * m_dim * hatepsilon * hatx**2)
 Kd = gamma2_tilde / 2
 
-print('Saturation in μm^-2 %.2f' % (ns_tilde * hatrho))
+print('ns = %.2f' % (ns_tilde * hatrho))
 print('Kd = %.3f' % (gamma2_tilde/2))
 print('Kc = %.4f' % Kc)
 
 # =============================================================================
 # 
 # =============================================================================
-N = 2**6
-L_tilde = 2**6
-dx_tilde = L_tilde / N
+N = 2 ** 6
+L_tilde = 2 ** 6
+dx_tilde = 0.5
 dkx_tilde = 2 * np.pi / (N * dx_tilde)
 
 '''
@@ -73,7 +73,7 @@ x, kx =  arrays()
 X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
-time_steps = 500000
+time_steps = 200000
 dt_tilde = 1e-3
 every = 100
 i1 = 0
@@ -83,6 +83,7 @@ t = ext.time(dt_tilde, time_steps, i1, i2, every)
 
 class model:
     def __init__(self, p, g_dim, gr_dim, psi_x=0):
+        print(sigma)
         self.p = p
         self.g_tilde = g_dim * hatrho / hatepsilon
         self.gr_tilde = gr_dim * hatrho / hatepsilon
@@ -167,13 +168,12 @@ class model:
         d1_x = np.zeros(int(N/2), dtype = complex)
         for i in range(time_steps+1):
             #self.sigma = gamma0_tilde * (self.p / (1 + self.n() / ns_tilde) + 1) / 4
-            self.sigma = 0.01
             self.psi_x *= self.prefactor_x()
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
             self.psi_mod_x = ifft2(self.psi_mod_k)
             self.psi_x *= self.prefactor_x()
-            self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N)))
+            self.psi_x += np.sqrt(dt_tilde) * np.sqrt(sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N)))
             if i>=i1 and i<=i2 and i%every==0:
                 time_array_index = (i-i1)//every
                 v[time_array_index] = vortices(time_array_index, np.angle(self.psi_x))
@@ -222,7 +222,7 @@ def vortices(index, phase):
     return total
 
 def parallel_func(p, g_dim, gr_dim):
-    save_subfolder = save_folder + os.sep + 'pump' + '_' + str(np.round(p, 3))
+    save_subfolder = save_folder + os.sep + 'p' + '_' + str(np.round(p, 3))
     os.mkdir(save_subfolder)
     gpe = model(p, g_dim, gr_dim)
     g1_x, d1_x, avg, v = gpe.time_evolution()
@@ -236,7 +236,7 @@ def parallel_func(p, g_dim, gr_dim):
 from qutip import *
 qutip.settings.num_cpus = 6
 
-knob_array = np.array([1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2])
+knob_array = np.array([1.5, 1.6, 1.7, 1.8, 1.9, 2])
 p_array = knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
 g_dim = 0
@@ -248,17 +248,17 @@ print('nu = ', (p_array - 1))
 print('c = %.6f' % (hbar * gamma0_tilde * (1/hatt) / (2 * g_dim * ns_tilde * hatrho)))
 '''
 
-path_init = r'/Users/delis/Desktop'
-#path_init = r'/scratch/konstantinos'
-save_folder = path_init + os.sep + 'tests' + '_' + 'Kd' + str(gamma2_tilde/2) + '_' + 'g' + str(g_dim)
-os.mkdir(save_folder)
-
-parallel_map(parallel_func, p_array, task_kwargs=dict(g_dim = g_dim, gr_dim = gr_dim))
+for sigma in [1e-4, 2e-4, 3e-4, 4e-4, 5e-5]:
+#path_init = r'/Users/delis/Desktop'
+    path_init = r'/scratch/konstantinos'
+    save_folder = path_init + os.sep + 'tests' + '_' + 'sigma' + str(sigma) + '_' + 'ns' + str(ns_tilde) + '_' + 'Kd' + str(gamma2_tilde/2) + '_' + 'gamma0' + str(gamma0_tilde)
+    os.mkdir(save_folder)
+    parallel_map(parallel_func, p_array, task_kwargs=dict(g_dim = g_dim, gr_dim = gr_dim))
 
 # =============================================================================
 #  Test plots
 # =============================================================================
-
+'''
 fig,ax = pl.subplots(1,1, figsize=(10,10))
 ax.set_xscale('log')
 ax.set_yscale('log')
@@ -268,7 +268,7 @@ for p in p_array:
     ax.plot(x[int(N/2):]-x[int(N/2)], correlator**2, label=r'$p$ = %.3f' % p)
 ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
 pl.legend(prop=dict(size=20))
-pl.title('Kd = %.3f' % Kd, fontsize = 20)
+pl.title('Kd = %.3f, gamma0 = %.3f' % (Kd, gamma0_tilde), fontsize = 20)
 pl.tight_layout()
 pl.show()
 
@@ -280,7 +280,7 @@ for p in p_array:
     ax.hlines(y = ns_tilde * (p - 1), xmin=t[0], xmax=t[-1])
 ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
 ax.legend(prop=dict(size=20))
-pl.title('Kd = %.3f' % Kd, fontsize=20)
+pl.title('Kd = %.3f, gamma0 = %.3f' % (Kd, gamma0_tilde), fontsize = 20)
 pl.tight_layout()
 pl.show()
 
@@ -293,6 +293,7 @@ ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, 
 ax.set_xlabel('$t$', fontsize = 20)
 ax.set_ylabel(r'$n_v$', fontsize = 20)
 ax.legend(prop=dict(size=20))
-pl.title('Kd = %.3f' % Kd, fontsize=20)
+pl.title('Kd = %.3f, gamma0 = %.3f' % (Kd, gamma0_tilde), fontsize = 20)
 pl.tight_layout()
 pl.show()
+'''
