@@ -251,7 +251,7 @@ print('c = %.6f' % (hbar * gamma0_tilde * (1/hatt) / (2 * g_dim * ns_tilde * hat
 for sigma in [1e-4, 2e-4, 3e-4, 4e-4, 5e-5]:
 #path_init = r'/Users/delis/Desktop'
     path_init = r'/scratch/konstantinos'
-    save_folder = path_init + os.sep + 'tests' + '_' + 'sigma' + str(sigma) + '_' + 'ns' + str(ns_tilde) + '_' + 'Kd' + str(gamma2_tilde/2) + '_' + 'gamma0' + str(gamma0_tilde)
+    save_folder = path_init + os.sep + 'tests' + '_' + 'sigma' + str(sigma) + '_' + 'ns' + str(int(ns_tilde)) + '_' + 'Kd' + str(int(Kd)) + '_' + 'gamma0' + str(gamma0_tilde)
     os.mkdir(save_folder)
     parallel_map(parallel_func, p_array, task_kwargs=dict(g_dim = g_dim, gr_dim = gr_dim))
 
