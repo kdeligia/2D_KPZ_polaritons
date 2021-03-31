@@ -22,9 +22,9 @@ hatrho = 1/hatx**2 # μm^-2
 hatepsilon = hbar/hatt # μeV
 melectron = 0.510998950 * 1e12 / c**2 # μeV/(μm^2/ps^2)
 
-m_tilde = 3.8e-5
+m_tilde = 2e-5
 m_dim = m_tilde * melectron
-gamma0_tilde = 0.22
+gamma0_tilde = 0.2
 gammar_tilde = gamma0_tilde * 0.1
 P_tilde = gamma0_tilde * 1
 R_tilde = gammar_tilde / 1
@@ -37,7 +37,7 @@ Kc = hbar**2 / (2 * m_dim * hatepsilon * hatx**2)
 
 N = 2**6
 L_tilde = 2**6
-dx_tilde = L_tilde / N
+dx_tilde = 0.5
 dkx_tilde = 2 * np.pi / (N * dx_tilde)
 
 def dimensional_units():
@@ -62,13 +62,8 @@ x, kx =  arrays()
 X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
-time_steps = 50000
+time_steps = 100000
 dt_tilde = 1e-2
-every = 100
-i1 = 0
-i2 = time_steps
-lengthwindow = i2-i1
-t = ext.time(dt_tilde, time_steps, i1, i2, every)
 
 class model:
     def __init__(self, sigma, p, om_tilde, g_dim, gr_dim, psi_x=0):
@@ -85,7 +80,7 @@ class model:
             self.uc = 0
         else:
             self.uc =  self.g_tilde * (1 - 2 * self.p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / gammar_tilde))
-        print('sigma = %.2f, p = %.3f, tilde g = %.1f, tilde gr = %.3f, TWR = %.3f' % (self.sigma, self.p, g_dim, gr_dim, self.g_tilde / (gamma0_tilde * dx_tilde**2)))
+        #print('sigma = %.2f, p = %.3f, tilde g = %.1f, tilde gr = %.3f, TWR = %.3f' % (self.sigma, self.p, g_dim, gr_dim, self.g_tilde / (gamma0_tilde * dx_tilde**2)))
 
     def _set_fourier_psi_x(self, psi_x):
         self.psi_mod_x = psi_x * np.exp(-1j * KX[0,0] * X - 1j * KY[0,0] * Y) * dx_tilde * dx_tilde / (2 * np.pi)
@@ -147,20 +142,19 @@ n_batch = 64
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-sigma_array = np.array([1e-2, 2e-2])
-p_knob_array = np.array([1.6])
+sigma_array = np.array([1e-2, 2e-2, 4e-2])
+p_knob_array = np.array([1.8])
 om_knob_array = np.array([10])
 p_array = p_knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
 g_dim = 0
 
 path_init = r'/scratch/konstantinos'
-save_folder = path_init + os.sep + 'x_cor' + '_' + 'ns' + str(int(ns_tilde)) + '_' + 'gamma' + str(gamma0_tilde) + '_' + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim)
+save_folder = path_init + os.sep + 'x_cor' + '_' + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
 os.mkdir(save_folder)
 
-
 for sigma in sigma_array:
-    print('Starting simulations for sigma = %.2f' % sigma)
+    print('Starting simulations for sigma = %.3f' % sigma)
     save_subfolder = save_folder + os.sep + 'p' + str(np.round(p_array[0], 3)) + '_' + 'om' + str(int(om_knob_array[0])) + '_' + 'sigma' + str(sigma)
     os.mkdir(save_subfolder)
 
