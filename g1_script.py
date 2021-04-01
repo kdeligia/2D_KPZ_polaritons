@@ -179,4 +179,4 @@ for sigma in sigma_array:
             '_' + 'p' + str(np.round(p_array[0], 3)) + 
             '_' + 'om' + str(int(om_knob_array[0])) + 
             '_' + 'sigma' + str(sigma) + 
-            '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + 'gamma' + str(gamma0_tilde) +'.npy', result)
+            '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', result)
