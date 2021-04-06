@@ -76,10 +76,6 @@ class model:
         self.psi_x = np.full((N, N), 0.01**(1/2))
         self.psi_x /= hatpsi
         self.psi_mod_k = fft2(self.psi_mod_x)
-        if self.g_tilde == 0:
-            self.uc = 0
-        else:
-            self.uc =  self.g_tilde * (1 - 2 * self.p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / gammar_tilde))
         #print('sigma = %.2f, p = %.3f, tilde g = %.1f, tilde gr = %.3f, TWR = %.3f' % (self.sigma, self.p, g_dim, gr_dim, self.g_tilde / (gamma0_tilde * dx_tilde**2)))
 
     def _set_fourier_psi_x(self, psi_x):
