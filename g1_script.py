@@ -9,7 +9,6 @@ Created on Tue Nov 10 15:09:50 2020
 c = 3E2 #μm/ps
 hbar = 6.582119569 * 1E2 # μeV ps
 
-#from scipy.ndimage import gaussian_filter
 import os
 from scipy.fftpack import fft2, ifft2
 import numpy as np
@@ -62,8 +61,13 @@ x, kx =  arrays()
 X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
-time_steps = 200000
-dt_tilde = 1e-2
+time_steps = 400000
+dt_tilde = 1e-3
+every = 20000
+i1 = 20000
+i2 = time_steps
+lengthwindow = i2-i1
+t = ext.time(dt_tilde, time_steps, i1, i2, every)
 
 class model:
     def __init__(self, sigma, p, om_tilde, g_dim, gr_dim, psi_x=0):
@@ -113,8 +117,12 @@ class model:
 # =============================================================================
     def time_evolution(self):
         np.random.seed()
+        '''
         g1_x = np.zeros(int(N/2), dtype = complex)
         d1_x = np.zeros(int(N/2), dtype = complex)
+        '''
+        g1_x = np.zeros((len(t), int(N/2)), dtype = complex)
+        d1_x = np.zeros((len(t), int(N/2)), dtype = complex)
         for i in range(time_steps+1):
             #self.sigma = gamma0_tilde * (self.p / (1 + self.n() / ns_tilde) + 1) / 4
             self.psi_x *= self.prefactor_x()
@@ -123,9 +131,16 @@ class model:
             self.psi_mod_x = ifft2(self.psi_mod_k)
             self.psi_x *= self.prefactor_x()
             self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N))) / self.damp
+            if i>=i1 and i<=i2 and i%every==0:
+                time_array_index = (i-i1)//every
+                for n in range(N):
+                    g1_x[time_array_index] += np.conjugate(self.psi_x[n, int(N/2)]) * self.psi_x[n, int(N/2):] / N
+                    d1_x[time_array_index] += np.conjugate(self.psi_x[n, int(N/2):]) * self.psi_x[n, int(N/2):] / N
+        '''
         for i in range(N):
             g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / N
             d1_x += np.conjugate(self.psi_x[i, int(N/2):]) * self.psi_x[i, int(N/2):] / N
+        '''
         return g1_x, d1_x
 
 # =============================================================================
@@ -137,8 +152,8 @@ n_batch = 64
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-sigma_array = np.array([1e-2, 2e-2])
-p_knob_array = np.array([1.4, 1.5, 1.8, 2, 2.5, 3, 5])
+sigma_array = np.array([2.1e-2])
+p_knob_array = np.array([2])
 om_knob_array = np.array([1e9])
 p_array = p_knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
@@ -146,6 +161,7 @@ g_dim = 0
 
 path_init_cluster = r'/scratch/konstantinos'
 final_save_cluster = r'/home6/konstantinos'
+
 def create_subfolders(sigma_array, p_array):
     save_folder = path_init_cluster + os.sep + 'x_corr' + '_' + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
     os.mkdir(save_folder)
@@ -161,8 +177,6 @@ def x_g1_parallel(i_batch, sigma, p, om, g_dim, gr_dim):
             gpe = model(sigma, p, om, g_dim, gr_dim)
             g1_x_run, d1_x_run = gpe.time_evolution()
             correlation_batch += np.vstack((g1_x_run, d1_x_run)) / n_internal
-            if i_n % 2 == 0:
-                print('CORRELATION Core', i_batch, 'completed realisation number', i_n + 1)
         np.save(subfolders[str(p), str(sigma)] + os.sep + 'core' + str(i_batch + 1) + '.npy', correlation_batch)
 
 subfolders = create_subfolders(sigma_array, p_array)
