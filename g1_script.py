@@ -22,9 +22,9 @@ hatrho = 1/hatx**2 # μm^-2
 hatepsilon = hbar/hatt # μeV
 melectron = 0.510998950 * 1e12 / c**2 # μeV/(μm^2/ps^2)
 
-m_tilde = 2e-5
+m_tilde = 3.8e-5 * 3
 m_dim = m_tilde * melectron
-gamma0_tilde = 0.2
+gamma0_tilde = 0.2 * 100
 gammar_tilde = gamma0_tilde * 0.1
 P_tilde = gamma0_tilde * 1
 R_tilde = gammar_tilde / 1
@@ -62,7 +62,7 @@ x, kx =  arrays()
 X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
-time_steps = 100000
+time_steps = 200000
 dt_tilde = 1e-2
 
 class model:
@@ -76,7 +76,6 @@ class model:
         self.psi_x = np.full((N, N), 0.01**(1/2))
         self.psi_x /= hatpsi
         self.psi_mod_k = fft2(self.psi_mod_x)
-        #print('sigma = %.2f, p = %.3f, tilde g = %.1f, tilde gr = %.3f, TWR = %.3f' % (self.sigma, self.p, g_dim, gr_dim, self.g_tilde / (gamma0_tilde * dx_tilde**2)))
 
     def _set_fourier_psi_x(self, psi_x):
         self.psi_mod_x = psi_x * np.exp(-1j * KX[0,0] * X - 1j * KY[0,0] * Y) * dx_tilde * dx_tilde / (2 * np.pi)
@@ -133,46 +132,52 @@ class model:
 # Parallel tests
 # =============================================================================
 from qutip import *
-parallel_tasks = 320
+parallel_tasks = 128
 n_batch = 64
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-sigma_array = np.array([1e-2, 2e-2, 4e-2])
-p_knob_array = np.array([1.8])
-om_knob_array = np.array([10])
+sigma_array = np.array([1e-2, 2e-2])
+p_knob_array = np.array([1.4, 1.5, 1.8, 2, 2.5, 3, 5])
+om_knob_array = np.array([1e9])
 p_array = p_knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
 g_dim = 0
 
-path_init = r'/scratch/konstantinos'
-save_folder = path_init + os.sep + 'x_cor' + '_' + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
-os.mkdir(save_folder)
+path_init_cluster = r'/scratch/konstantinos'
+final_save_cluster = r'/home6/konstantinos'
+def create_subfolders(sigma_array, p_array):
+    save_folder = path_init_cluster + os.sep + 'x_corr' + '_' + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
+    os.mkdir(save_folder)
+    subfolders = {}
+    for sigma in sigma_array:
+        for p in p_array:
+            subfolders[str(p), str(sigma)] = save_folder + os.sep + 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'om' + str(int(om_knob_array[0]))
+    return subfolders
 
-for sigma in sigma_array:
-    print('Starting simulations for sigma = %.3f' % sigma)
-    save_subfolder = save_folder + os.sep + 'p' + str(np.round(p_array[0], 3)) + '_' + 'om' + str(int(om_knob_array[0])) + '_' + 'sigma' + str(sigma)
-    os.mkdir(save_subfolder)
-
-    def x_g1_parallel(i_batch):
+def x_g1_parallel(i_batch, sigma, p, om, g_dim, gr_dim):
         correlation_batch = np.zeros((2, int(N/2)), dtype=complex)
         for i_n in range(n_internal):
-            gpe = model(sigma, p_knob_array[0], om_knob_array[0], g_dim, gr_dim)
+            gpe = model(sigma, p, om, g_dim, gr_dim)
             g1_x_run, d1_x_run = gpe.time_evolution()
             correlation_batch += np.vstack((g1_x_run, d1_x_run)) / n_internal
-            print('CORRELATION Core', i_batch, 'completed realisation number', i_n + 1)
-        np.save(save_subfolder + os.sep + 'x_g1' + '_' + 'core' + str(i_batch + 1) + '.npy', correlation_batch)
-    parallel_map(x_g1_parallel, range(n_batch))
+            if i_n % 2 == 0:
+                print('CORRELATION Core', i_batch, 'completed realisation number', i_n + 1)
+        np.save(subfolders[str(p), str(sigma)] + os.sep + 'core' + str(i_batch + 1) + '.npy', correlation_batch)
 
+subfolders = create_subfolders(sigma_array, p_array)
 for sigma in sigma_array:
-    save_subfolder = save_folder + os.sep + 'p' + str(np.round(p_array[0], 3)) + '_' + 'om' + str(int(om_knob_array[0])) + '_' + 'sigma' + str(sigma)
-    result = np.zeros((2, int(N/2)), dtype = complex)
-    for file in os.listdir(save_subfolder):
-        if '.npy' in file:
-            item = np.load(save_subfolder + os.sep + file)
-            result += item / n_batch
-    np.save(r'/home6/konstantinos' + os.sep + 'final_x_g1' + 
-            '_' + 'p' + str(np.round(p_array[0], 3)) + 
-            '_' + 'om' + str(int(om_knob_array[0])) + 
+    for p in p_array:
+        os.mkdir(subfolders[str(p), str(sigma)])
+        final_result = np.zeros((2, int(N/2)), dtype = complex)
+        print('Starting simulations for sigma = %.2f, p = %.1f' % (sigma, p))
+        parallel_map(x_g1_parallel, range(n_batch), task_kwargs=dict(sigma=sigma, p=p, om=om_knob_array[0], g_dim=g_dim, gr_dim=gr_dim))
+        for file in os.listdir(subfolders[str(p), str(sigma)]):
+            if '.npy' in file:
+                item = np.load(subfolders[str(p), str(sigma)] + os.sep + file)
+                final_result += item / n_batch
+        np.save(final_save_cluster + os.sep + 'final_x_g1' + 
             '_' + 'sigma' + str(sigma) + 
-            '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', result)
+            '_' + 'p' + str(p) + 
+            '_' + 'om' + str(int(om_knob_array[0])) + 
+            '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', final_result)
