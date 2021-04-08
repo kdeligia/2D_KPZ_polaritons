@@ -122,7 +122,7 @@ class model:
         d1_x = np.zeros(int(N/2), dtype = complex)
         '''
         g1_x = np.zeros((len(t), int(N/2)), dtype = complex)
-        d1_x = np.zeros((len(t), int(N/2)), dtype = complex)
+        d1_x = np.zeros((len(t), int(N/2)))
         for i in range(time_steps+1):
             #self.sigma = gamma0_tilde * (self.p / (1 + self.n() / ns_tilde) + 1) / 4
             self.psi_x *= self.prefactor_x()
@@ -133,13 +133,13 @@ class model:
             self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N))) / self.damp
             if i>=i1 and i<=i2 and i%every==0:
                 time_array_index = (i-i1)//every
-                for n in range(N):
-                    g1_x[time_array_index] += np.conjugate(self.psi_x[n, int(N/2)]) * self.psi_x[n, int(N/2):] / N
-                    d1_x[time_array_index] += np.conjugate(self.psi_x[n, int(N/2):]) * self.psi_x[n, int(N/2):] / N
+                for n in range(0, N, int(N/8)):
+                    g1_x[time_array_index] += np.conjugate(self.psi_x[n, int(N/2)]) * self.psi_x[n, int(N/2):] / 8
+                    d1_x[time_array_index] += np.conjugate(self.psi_x[n, int(N/2):]) * self.psi_x[n, int(N/2):] / 8
         '''
-        for i in range(N):
-            g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / N
-            d1_x += np.conjugate(self.psi_x[i, int(N/2):]) * self.psi_x[i, int(N/2):] / N
+        for i in range(0, N, int(N/8)):
+            g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 8
+            d1_x += np.conjugate(self.psi_x[i, int(N/2):]) * self.psi_x[i, int(N/2):] / 8
         '''
         return g1_x, d1_x
 
@@ -162,8 +162,8 @@ g_dim = 0
 path_init_cluster = r'/scratch/konstantinos'
 final_save_cluster = r'/home6/konstantinos'
 
-def create_subfolders(sigma_array, p_array):
-    save_folder = path_init_cluster + os.sep + 'x_corr' + '_' + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
+def names_subfolders(sigma_array, p_array):
+    save_folder = path_init_cluster + os.sep + 'spat' + '_' + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
     os.mkdir(save_folder)
     subfolders = {}
     for sigma in sigma_array:
@@ -172,26 +172,41 @@ def create_subfolders(sigma_array, p_array):
     return subfolders
 
 def x_g1_parallel(i_batch, sigma, p, om, g_dim, gr_dim):
-        correlation_batch = np.zeros((2, int(N/2)), dtype=complex)
+        g1_x_batch = np.zeros((len(t), int(N/2)), dtype=complex)
+        d1_x_batch = np.zeros((len(t),int(N/2)))
         for i_n in range(n_internal):
             gpe = model(sigma, p, om, g_dim, gr_dim)
             g1_x_run, d1_x_run = gpe.time_evolution()
-            correlation_batch += np.vstack((g1_x_run, d1_x_run)) / n_internal
-        np.save(subfolders[str(p), str(sigma)] + os.sep + 'core' + str(i_batch + 1) + '.npy', correlation_batch)
+            g1_x_batch += g1_x_run / n_internal
+            d1_x_batch += d1_x_run / n_internal
+        np.save(subfolders[str(p), str(sigma)] + os.sep + 'numerator' +'core' + str(i_batch + 1) + '.npy', g1_x_batch)
+        np.save(subfolders[str(p), str(sigma)] + os.sep + 'denominator' + 'core' + str(i_batch + 1) + '.npy', d1_x_batch)
 
-subfolders = create_subfolders(sigma_array, p_array)
-for sigma in sigma_array:
-    for p in p_array:
-        os.mkdir(subfolders[str(p), str(sigma)])
-        final_result = np.zeros((2, int(N/2)), dtype = complex)
-        print('Starting simulations for sigma = %.2f, p = %.1f' % (sigma, p))
-        parallel_map(x_g1_parallel, range(n_batch), task_kwargs=dict(sigma=sigma, p=p, om=om_knob_array[0], g_dim=g_dim, gr_dim=gr_dim))
-        for file in os.listdir(subfolders[str(p), str(sigma)]):
-            if '.npy' in file:
-                item = np.load(subfolders[str(p), str(sigma)] + os.sep + file)
-                final_result += item / n_batch
-        np.save(final_save_cluster + os.sep + 'final_x_g1' + 
-            '_' + 'sigma' + str(sigma) + 
-            '_' + 'p' + str(p) + 
-            '_' + 'om' + str(int(om_knob_array[0])) + 
-            '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', final_result)
+subfolders = names_subfolders(sigma_array, p_array)
+
+def call_avg():
+    subfolders = names_subfolders(sigma_array, p_array)
+    for sigma in sigma_array:
+        for p in p_array:
+            numerator = np.array((len(t), int(N/2)), dtype=complex)
+            denominator = np.array((len(t), int(N/2)))
+            if subfolders[str(p), str(sigma)] in os.listdir(path_init_cluster):
+                print(f'Folder "{subfolders[str(p), str(sigma)]}" exists.')
+            else:
+                os.mkdir(subfolders[str(p), str(sigma)])
+                print(f'Folder "{subfolders[str(p), str(sigma)]}" succesfully created!')
+            print('Starting simulations for sigma = %.2f, p = %.1f' % (sigma, p))
+            parallel_map(x_g1_parallel, range(n_batch), task_kwargs=dict(sigma=sigma, p=p, om=om_knob_array[0], g_dim=g_dim, gr_dim=gr_dim))
+            for file in os.listdir(subfolders[str(p), str(sigma)]):
+                if 'numerator' and '.npy' in file:
+                    numerator += np.load(subfolders[str(p), str(sigma)] + os.sep + file)/ n_batch
+                elif 'denominator' and 'npy' in file:
+                    denominator += np.load(subfolders[str(p), str(sigma)] + os.sep + file)/ n_batch
+            for i in range(len(t)):
+                denominator[i] *= denominator[i, 0]
+            np.save(final_save_cluster + os.sep + 'spat_g1' + 
+                '_' + 'sigma' + str(sigma) + 
+                '_' + 'p' + str(p) + 
+                '_' + 'om' + str(int(om_knob_array[0])) + 
+                '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', np.abs(numerator)/np.sqrt(denominator))
+

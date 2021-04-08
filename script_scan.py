@@ -169,13 +169,13 @@ class model:
                 v[time_array_index] = vortices(time_array_index, np.angle(self.psi_x))
                 n_sum[time_array_index] = np.mean(self.n())
                 #print(i)
-                for n in range(N):
-                    g1_x[time_array_index] += np.conjugate(self.psi_x[n, int(N/2)]) * self.psi_x[n, int(N/2):] / N
-                    d1_x[time_array_index] += np.conjugate(self.psi_x[n, int(N/2):]) * self.psi_x[n, int(N/2):] / N
+                for n in range(0, N, int(N/8)):
+                    g1_x[time_array_index] += np.conjugate(self.psi_x[n, int(N/2)]) * self.psi_x[n, int(N/2):] / 8
+                    d1_x[time_array_index] += np.conjugate(self.psi_x[n, int(N/2):]) * self.psi_x[n, int(N/2):] / 8
         '''
-        for i in range(N):
-            g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / N
-            d1_x += np.conjugate(self.psi_x[i, int(N/2):]) * self.psi_x[i, int(N/2):] / N
+        for i in range(0, N, int(N/8)):
+            g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 8
+            d1_x += np.conjugate(self.psi_x[i, int(N/2):]) * self.psi_x[i, int(N/2):] / 8
         '''
         return g1_x, d1_x.real, n_sum, v
 
@@ -292,6 +292,7 @@ pl.title('sigma = %.4f, om = %.i, gamma0 = %.3f' % (sigma_array[0], om_knob_arra
 pl.tight_layout()
 pl.show()
 '''
+
 fig,ax = pl.subplots(1,1, figsize=(10,10))
 ax.set_xscale('log')
 ax.set_yscale('log')
