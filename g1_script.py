@@ -148,7 +148,7 @@ class model:
 # =============================================================================
 from qutip import *
 parallel_tasks = 128
-n_batch = 64
+n_batch = 128
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
@@ -159,12 +159,16 @@ p_array = p_knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
 g_dim = 0
 
-path_init_cluster = r'/scratch/konstantinos'
-final_save_cluster = r'/home6/konstantinos'
+path = r'/scratch/konstantinos'
+final_save = r'/home6/konstantinos'
 
 def names_subfolders(sigma_array, p_array):
-    save_folder = path_init_cluster + os.sep + 'spat' + '_' + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
-    os.mkdir(save_folder)
+    save_folder = path+ os.sep + 'spat' + '_' + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
+    if save_folder in os.listdir(path):
+        print(f'Folder "{save_folder}" exists.')
+    else:
+        os.mkdir(save_folder)
+        print(f'Folder "{save_folder}" succesfully created.')
     subfolders = {}
     for sigma in sigma_array:
         for p in p_array:
@@ -179,34 +183,34 @@ def x_g1_parallel(i_batch, sigma, p, om, g_dim, gr_dim):
             g1_x_run, d1_x_run = gpe.time_evolution()
             g1_x_batch += g1_x_run / n_internal
             d1_x_batch += d1_x_run / n_internal
-        np.save(subfolders[str(p), str(sigma)] + os.sep + 'numerator' +'core' + str(i_batch + 1) + '.npy', g1_x_batch)
-        np.save(subfolders[str(p), str(sigma)] + os.sep + 'denominator' + 'core' + str(i_batch + 1) + '.npy', d1_x_batch)
+        np.save(subfolders[str(p), str(sigma)] + os.sep + 'numerator' + '_' +'core' + str(i_batch + 1) + '.npy', g1_x_batch)
+        np.save(subfolders[str(p), str(sigma)] + os.sep + 'denominator' + '_' + 'core' + str(i_batch + 1) + '.npy', d1_x_batch)
 
 subfolders = names_subfolders(sigma_array, p_array)
 
 def call_avg():
-    subfolders = names_subfolders(sigma_array, p_array)
     for sigma in sigma_array:
         for p in p_array:
-            numerator = np.array((len(t), int(N/2)), dtype=complex)
-            denominator = np.array((len(t), int(N/2)))
-            if subfolders[str(p), str(sigma)] in os.listdir(path_init_cluster):
-                print(f'Folder "{subfolders[str(p), str(sigma)]}" exists.')
+            numerator = np.zeros((len(t), int(N/2)), dtype=complex)
+            denominator = np.zeros((len(t), int(N/2)))
+            if subfolders[str(p), str(sigma)] in os.listdir(path):
+                print(f'Subfolder "{subfolders[str(p), str(sigma)]}" exists.')
             else:
                 os.mkdir(subfolders[str(p), str(sigma)])
-                print(f'Folder "{subfolders[str(p), str(sigma)]}" succesfully created!')
+                print(f'Subfolder "{subfolders[str(p), str(sigma)]}" succesfully created.')
             print('Starting simulations for sigma = %.2f, p = %.1f' % (sigma, p))
             parallel_map(x_g1_parallel, range(n_batch), task_kwargs=dict(sigma=sigma, p=p, om=om_knob_array[0], g_dim=g_dim, gr_dim=gr_dim))
             for file in os.listdir(subfolders[str(p), str(sigma)]):
-                if 'numerator' and '.npy' in file:
+                if 'numerator' in file:
                     numerator += np.load(subfolders[str(p), str(sigma)] + os.sep + file)/ n_batch
-                elif 'denominator' and 'npy' in file:
-                    denominator += np.load(subfolders[str(p), str(sigma)] + os.sep + file)/ n_batch
+                elif 'denominator' in file:
+                    denominator += np.load(subfolders[str(p), str(sigma)] + os.sep + file) / n_batch
             for i in range(len(t)):
                 denominator[i] *= denominator[i, 0]
-            np.save(final_save_cluster + os.sep + 'spat_g1' + 
+            np.save(final_save + os.sep + 'spat_g1' + 
                 '_' + 'sigma' + str(sigma) + 
                 '_' + 'p' + str(p) + 
                 '_' + 'om' + str(int(om_knob_array[0])) + 
                 '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', np.abs(numerator)/np.sqrt(denominator))
 
+call_avg()
