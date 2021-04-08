@@ -150,12 +150,8 @@ class model:
         np.random.seed()
         n_sum = np.zeros(len(t))
         v = np.zeros(len(t))
-        g1_x = np.zeros((len(t), int(N/2)), dtype = complex)
-        d1_x = np.zeros((len(t), int(N/2)), dtype = complex)
-        '''
         g1_x = np.zeros(int(N/2), dtype = complex)
         d1_x = np.zeros(int(N/2), dtype = complex)
-        '''
         for i in range(time_steps+1):
             #self.sigma = gamma0_tilde * (self.p / (1 + self.n() / ns_tilde) + 1) / 4
             self.psi_x *= self.prefactor_x()
@@ -169,14 +165,9 @@ class model:
                 v[time_array_index] = vortices(time_array_index, np.angle(self.psi_x))
                 n_sum[time_array_index] = np.mean(self.n())
                 #print(i)
-                for n in range(0, N, int(N/8)):
-                    g1_x[time_array_index] += np.conjugate(self.psi_x[n, int(N/2)]) * self.psi_x[n, int(N/2):] / 8
-                    d1_x[time_array_index] += np.conjugate(self.psi_x[n, int(N/2):]) * self.psi_x[n, int(N/2):] / 8
-        '''
         for i in range(0, N, int(N/8)):
             g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 8
             d1_x += np.conjugate(self.psi_x[i, int(N/2):]) * self.psi_x[i, int(N/2):] / 8
-        '''
         return g1_x, d1_x.real, n_sum, v
 
 def vortices(index, phase):

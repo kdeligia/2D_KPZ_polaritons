@@ -122,7 +122,7 @@ class model:
         d1_x = np.zeros(int(N/2), dtype = complex)
         '''
         g1_x = np.zeros((len(t), int(N/2)), dtype = complex)
-        d1_x = np.zeros((len(t), int(N/2)))
+        d1_x = np.zeros((len(t), int(N/2)), dtype = complex)  #REMOVE DTYPE FOR ERROR
         for i in range(time_steps+1):
             #self.sigma = gamma0_tilde * (self.p / (1 + self.n() / ns_tilde) + 1) / 4
             self.psi_x *= self.prefactor_x()
@@ -175,9 +175,9 @@ def names_subfolders(sigma_array, p_array):
             subfolders[str(p), str(sigma)] = save_folder + os.sep + 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'om' + str(int(om_knob_array[0]))
     return subfolders
 
-def x_g1_parallel(i_batch, sigma, p, om, g_dim, gr_dim):
-        g1_x_batch = np.zeros((len(t), int(N/2)), dtype=complex)
-        d1_x_batch = np.zeros((len(t),int(N/2)))
+def g1(i_batch, sigma, p, om, g_dim, gr_dim):
+        g1_x_batch = np.zeros((len(t), int(N/2)), dtype = complex)
+        d1_x_batch = np.zeros((len(t),int(N/2)), dtype = complex)    # REMOVE DTYPE FOR ERROR
         for i_n in range(n_internal):
             gpe = model(sigma, p, om, g_dim, gr_dim)
             g1_x_run, d1_x_run = gpe.time_evolution()
@@ -191,18 +191,18 @@ subfolders = names_subfolders(sigma_array, p_array)
 def call_avg():
     for sigma in sigma_array:
         for p in p_array:
-            numerator = np.zeros((len(t), int(N/2)), dtype=complex)
-            denominator = np.zeros((len(t), int(N/2)))
+            numerator = np.zeros((len(t), int(N/2)), dtype = complex)
+            denominator = np.zeros((len(t), int(N/2)), dtype = complex)    #REMOVE DTYPE FOR ERROR
             if subfolders[str(p), str(sigma)] in os.listdir(path):
                 print(f'Subfolder "{subfolders[str(p), str(sigma)]}" exists.')
             else:
                 os.mkdir(subfolders[str(p), str(sigma)])
                 print(f'Subfolder "{subfolders[str(p), str(sigma)]}" succesfully created.')
             print('Starting simulations for sigma = %.2f, p = %.1f' % (sigma, p))
-            parallel_map(x_g1_parallel, range(n_batch), task_kwargs=dict(sigma=sigma, p=p, om=om_knob_array[0], g_dim=g_dim, gr_dim=gr_dim))
+            parallel_map(g1, range(n_batch), task_kwargs=dict(sigma=sigma, p=p, om=om_knob_array[0], g_dim=g_dim, gr_dim=gr_dim))
             for file in os.listdir(subfolders[str(p), str(sigma)]):
                 if 'numerator' in file:
-                    numerator += np.load(subfolders[str(p), str(sigma)] + os.sep + file)/ n_batch
+                    numerator += np.load(subfolders[str(p), str(sigma)] + os.sep + file) / n_batch
                 elif 'denominator' in file:
                     denominator += np.load(subfolders[str(p), str(sigma)] + os.sep + file) / n_batch
             for i in range(len(t)):
