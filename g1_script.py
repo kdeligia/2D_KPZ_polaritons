@@ -67,9 +67,9 @@ def dimensional_units():
 class model:
     def __init__(self, p, sigma, om_tilde, g_dim, gr_dim, psi_x=0):
         self.dkx_tilde = kx[1] - kx[0]
+        self.p = p
         self.sigma = sigma
         self.om_tilde = om_tilde
-        self.p = p
         self.g_tilde = g_dim * hatrho / hatepsilon
         self.gr_tilde = gr_dim * hatrho / hatepsilon
         self.damp = 1 + 2 * self.p * self.gr_tilde / (R_tilde * self.om_tilde) + self.p / (2 * self.om_tilde) * 1j 
@@ -139,13 +139,13 @@ class model:
 # Parallel tests
 # =============================================================================
 from qutip import *
-parallel_tasks = 64
-n_batch = 64
+parallel_tasks = 1
+n_batch = 1
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
 sigma_array = np.array([1e-2])
-p_knob_array = np.array([2])
+p_knob_array = np.array([2.])
 om_knob_array = np.array([1e9])
 p_array = p_knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
@@ -155,42 +155,36 @@ path = r'/scratch/konstantinos'
 final_save = r'/home6/konstantinos'
 
 def names_subfolders(sigma_array, p_array):
-    save_folder_spatial = path+ os.sep + 'spatial' + '_' + 'ns' + str(ns_tilde) + '_' + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
-    save_folder_temporal = path+ os.sep + 'temporal' + '_' + 'ns' + str(ns_tilde) + '_' + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
-    if save_folder_spatial in os.listdir(path):
-        print(f'Folder "{save_folder_spatial}" exists.')
+    save_folder = path + os.sep + 'ns' + str(int(ns_tilde)) + '_' + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
+    if save_folder in os.listdir(path):
+        print(f'Folder "{save_folder}" exists.')
     else:
-        os.mkdir(save_folder_spatial)
-        print(f'Folder "{save_folder_spatial}" succesfully created.')
-    if save_folder_temporal in os.listdir(path):
-        print(f'Folder "{save_folder_temporal}" exists.')
-    else:
-        os.mkdir(save_folder_temporal)
-        print(f'Folder "{save_folder_temporal}" succesfully created.')
+        os.mkdir(save_folder)
+        print(f'Folder "{save_folder}" succesfully created.')
     subfolders_spatial = {}
     subfolders_temporal = {}
     for sigma in sigma_array:
         for p in p_array:
-            subfolders_spatial[str(p), str(sigma)] = save_folder_spatial + os.sep + 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'om' + str(int(om_knob_array[0]))
-            subfolders_temporal[str(p), str(sigma)] = save_folder_temporal + os.sep + 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'om' + str(int(om_knob_array[0]))
+            subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)] = save_folder +  os.sep + 'spatial' + '_' + 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'om' + str(int(om_knob_array[0]))
+            subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)] = save_folder + os.sep + 'temporal' + '_' + 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'om' + str(int(om_knob_array[0]))
     return subfolders_spatial, subfolders_temporal
 
-def g1(i_batch, sigma, p, om, g_dim, gr_dim):
+def g1(i_batch, p, sigma, om_tilde, g_dim, gr_dim):
         g1_x_batch = np.zeros(N//2, dtype = complex)
         d1_x_batch = np.zeros(N//2, dtype = complex)
         g1_t_batch = np.zeros(len(t), dtype = complex)
         d1_t_batch = np.zeros(len(t), dtype = complex)
         for i_n in range(n_internal):
-            gpe = model(sigma, p, om, g_dim, gr_dim)
+            gpe = model(p, sigma, om_tilde, g_dim, gr_dim)
             g1_x_run, d1_x_run, g1_t_run, d1_t_run = gpe.time_evolution()
             g1_x_batch += g1_x_run / n_internal
             d1_x_batch += d1_x_run / n_internal
-            g1_t_run += g1_t_run / n_internal
-            d1_t_run += d1_t_run / n_internal
-        np.save(subfolders_spatial[str(p), str(sigma)] + os.sep + 'numerator' + '_' +'core' + str(i_batch + 1) + '.npy', g1_x_batch)
-        np.save(subfolders_spatial[str(p), str(sigma)] + os.sep + 'denominator' + '_' + 'core' + str(i_batch + 1) + '.npy', d1_x_batch)
-        np.save(subfolders_temporal[str(p), str(sigma)] + os.sep + 'numerator' + '_' +'core' + str(i_batch + 1) + '.npy', g1_t_batch)
-        np.save(subfolders_temporal[str(p), str(sigma)] + os.sep + 'denominator' + '_' + 'core' + str(i_batch + 1) + '.npy', d1_t_batch)
+            g1_t_batch += g1_t_run / n_internal
+            d1_t_batch += d1_t_run / n_internal
+        np.save(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'numerator' + '_' +'core' + str(i_batch + 1) + '.npy', g1_x_batch)
+        np.save(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'denominator' + '_' + 'core' + str(i_batch + 1) + '.npy', d1_x_batch)
+        np.save(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'numerator' + '_' +'core' + str(i_batch + 1) + '.npy', g1_t_batch)
+        np.save(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'denominator' + '_' + 'core' + str(i_batch + 1) + '.npy', d1_t_batch)
 
 subfolders_spatial, subfolders_temporal = names_subfolders(sigma_array, p_array)
 
@@ -201,37 +195,29 @@ def call_avg():
             denominator_spatial = np.zeros((N//2), dtype = complex)
             numerator_temporal = np.zeros(len(t), dtype = complex)
             denominator_temporal = np.zeros(len(t), dtype = complex)
-            if subfolders_spatial[str(p), str(sigma)] in os.listdir(path):
-                print(f'Subfolder "{subfolders_spatial[str(p), str(sigma)]}" exists.')
-            else:
-                os.mkdir(subfolders_spatial[str(p), str(sigma)])
-                print(f'Subfolder "{subfolders_temporal[str(p), str(sigma)]}" succesfully created.')
-            if subfolders_temporal[str(p), str(sigma)] in os.listdir(path):
-                print(f'Subfolder "{subfolders_temporal[str(p), str(sigma)]}" exists.')
-            else:
-                os.mkdir(subfolders_temporal[str(p), str(sigma)])
-                print(f'Subfolder "{subfolders_temporal[str(p), str(sigma)]}" succesfully created.')
+            os.mkdir(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)])
+            os.mkdir(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)])
             print('Starting simulations for sigma = %.2f, p = %.1i' % (sigma, p))
-            parallel_map(g1, range(n_batch), task_kwargs=dict(sigma=sigma, p=p, om=om_knob_array[0], g_dim=g_dim, gr_dim=gr_dim))
-            for file in os.listdir(subfolders_spatial[str(p), str(sigma)]):
+            parallel_map(g1, range(n_batch), task_kwargs=dict(p=p, sigma=sigma, om_tilde=om_knob_array[0], g_dim=g_dim, gr_dim=gr_dim))
+            for file in os.listdir(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)]):
                 if 'numerator' in file:
-                    numerator_spatial += np.load(subfolders_spatial[str(p), str(sigma)] + os.sep + file) / n_batch
+                    numerator_spatial += np.load(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
                 elif 'denominator' in file:
-                    denominator_spatial += np.load(subfolders_spatial[str(p), str(sigma)] + os.sep + file) / n_batch
-            for file in os.listdir(subfolders_temporal[str(p), str(sigma)]):
+                    denominator_spatial += np.load(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
+            for file in os.listdir(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)]):
                 if 'numerator' in file:
-                    numerator_temporal += np.load(subfolders_temporal[str(p), str(sigma)] + os.sep + file) / n_batch
+                    numerator_temporal += np.load(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
                 elif 'denominator' in file:
-                    denominator_temporal += np.load(subfolders_temporal[str(p), str(sigma)] + os.sep + file) / n_batch
+                    denominator_temporal += np.load(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
             np.save(final_save + os.sep + 'spatial' + 
                 '_' + 'sigma' + str(sigma) + 
                 '_' + 'p' + str(p) + 
                 '_' + 'om' + str(int(om_knob_array[0])) + 
-                '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', np.abs(numerator_spatial)/np.sqrt(denominator_spatial))
+                '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', (np.abs(numerator_spatial)/np.sqrt(denominator_spatial[0] * denominator_spatial)).real)
             np.save(final_save + os.sep + 'temporal' + 
                 '_' + 'sigma' + str(sigma) + 
                 '_' + 'p' + str(p) + 
                 '_' + 'om' + str(int(om_knob_array[0])) + 
-                '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', np.abs(numerator_temporal)/np.sqrt(denominator_temporal))
+                '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', (np.abs(numerator_temporal)/np.sqrt(denominator_temporal[0] * denominator_temporal)).real)
 
 call_avg()

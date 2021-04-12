@@ -43,7 +43,7 @@ dx_tilde = 0.5
 
 N_steps = 100000
 dt_tilde = 1e-2
-every = 100
+every = 500
 i1 = 20000
 i2 = N_steps
 lengthwindow = i2-i1
@@ -255,8 +255,6 @@ for sigma in sigma_array:
         ax.hlines(y=(p-1)*ns_tilde, xmin=t[0], xmax=t[-1], color='black')
 ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
 ax.legend(prop=dict(size=20))
-ax.set_xlim(t[50], t[-1])
-ax.set_ylim(0.99, 1.01)
 pl.tight_layout()
 pl.show()
 
