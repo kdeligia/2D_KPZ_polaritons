@@ -10,14 +10,10 @@ c = 3e2 #μm/ps
 hbar = 6.582119569 * 1e2 # μeV ps
 
 #from scipy.ndimage import gaussian_filter
-import seaborn as sns
 import os
 from scipy.fftpack import fft2, ifft2
 import numpy as np
 import external as ext
-import matplotlib.pyplot as pl
-pl.rc('font', family='sans-serif')
-pl.rc('text', usetex=True)
 
 hatt = 1 # ps
 hatx = 1 # μm
@@ -30,8 +26,8 @@ m_tilde = 3.8e-5 * 3
 m_dim = m_tilde * melectron
 gamma0_tilde = 0.2 * 100
 gammar_tilde = gamma0_tilde * 0.1
-P_tilde = gamma0_tilde * 10
-R_tilde = gammar_tilde / 10
+P_tilde = gamma0_tilde * 1
+R_tilde = gammar_tilde / 1
 ns_tilde = gammar_tilde / R_tilde
 Kc = hbar**2 / (2 * m_dim * hatepsilon * hatx**2)
 
@@ -44,29 +40,23 @@ print('Kc = %.4f' % Kc)
 N = 2 ** 6
 L_tilde = 2 ** 6
 dx_tilde = 0.5
-dkx_tilde = 2 * np.pi / (N * dx_tilde)
 
-def arrays():
-    x_0 = - N * dx_tilde / 2
-    kx0 = - np.pi / dx_tilde
-    x = x_0 + dx_tilde * np.arange(N)
-    kx = kx0 + dkx_tilde * np.arange(N)
-    return x, kx
+N_steps = 100000
+dt_tilde = 1e-2
+every = 100
+i1 = 20000
+i2 = N_steps
+lengthwindow = i2-i1
 
-x, kx =  arrays()
+t = ext.time(dt_tilde, N_steps, i1, i2, every)
+x, kx =  ext.space_momentum(N, dx_tilde)
+isotropic_indices = ext.get_indices(x)
 X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
-time_steps = 400000
-dt_tilde = 1e-3
-every = 20000
-i1 = 20000
-i2 = time_steps
-lengthwindow = i2-i1
-t = ext.time(dt_tilde, time_steps, i1, i2, every)
-
 class model:
     def __init__(self, p, sigma, om_tilde, g_dim, gr_dim, psi_x=0):
+        self.dkx_tilde = kx[1] - kx[0]
         self.sigma = sigma
         self.om_tilde = om_tilde
         self.p = p
@@ -107,8 +97,8 @@ class model:
         pl.title(r'$g$ = %.i, $gr$ = %.i, $n_s$ = %.i, $p$ = %.1f, $\Omega$ = %.i, $m$ = %.2e' % (g_dim, gr_dim, ns_tilde, self.p, self.om_tilde, m_tilde))
         pl.legend()
         pl.show()
-        #print('Im plus at k=0', im_plus[int(N/2)])
-        #print('Im minus at k=0', im_minus[int(N/2)] == 2*gam_b*mu-2*gam_a*Gamma_ef)
+        #print('Im plus at k=0', im_plus[N//2])
+        #print('Im minus at k=0', im_minus[N//2] == 2*gam_b*mu-2*gam_a*Gamma_ef)
         return im_plus, im_minus
 
     def _set_fourier_psi_x(self, psi_x):
@@ -118,10 +108,10 @@ class model:
         return self.psi_mod_x * np.exp(1j * KX[0,0] * X + 1j * KY[0,0] * Y) * 2 * np.pi / (dx_tilde * dx_tilde)
 
     def _set_fourier_psi_k(self, psi_k):
-        self.psi_mod_k = psi_k * np.exp(1j * X[0,0] * dkx_tilde * np.arange(N) + 1j * Y[0,0] * dkx_tilde * np.arange(N))
+        self.psi_mod_k = psi_k * np.exp(1j * X[0,0] * self.dkx_tilde * np.arange(N) + 1j * Y[0,0] * self.dkx_tilde * np.arange(N))
 
     def _get_psi_k(self):
-        return self.psi_mod_k * np.exp(-1j * X[0,0] * dkx_tilde * np.arange(N) - 1j * Y[0,0] * dkx_tilde * np.arange(N))
+        return self.psi_mod_k * np.exp(-1j * X[0,0] * self.dkx_tilde * np.arange(N) - 1j * Y[0,0] * self.dkx_tilde * np.arange(N))
 
     psi_x = property(_get_psi_x, _set_fourier_psi_x)
     psi_k = property(_get_psi_k, _set_fourier_psi_k)
@@ -145,15 +135,15 @@ class model:
 # =============================================================================
 # Time evolution
 # =============================================================================
-
     def time_evolution(self):
         np.random.seed()
         n_sum = np.zeros(len(t))
         v = np.zeros(len(t))
-        g1_x = np.zeros(int(N/2), dtype = complex)
-        d1_x = np.zeros(int(N/2), dtype = complex)
-        for i in range(time_steps+1):
-            #self.sigma = gamma0_tilde * (self.p / (1 + self.n() / ns_tilde) + 1) / 4
+        g1_x = np.zeros(N//2, dtype = complex)
+        d1_x = np.zeros(N//2, dtype = complex)
+        g1_t = np.zeros(len(t), dtype = complex)
+        d1_t = np.zeros(len(t), dtype = complex)
+        for i in range(N_steps):
             self.psi_x *= self.prefactor_x()
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
@@ -162,57 +152,21 @@ class model:
             self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N))) / self.damp
             if i>=i1 and i<=i2 and i%every==0:
                 time_array_index = (i-i1)//every
-                v[time_array_index] = vortices(time_array_index, np.angle(self.psi_x))
+                v[time_array_index] = ext.vortices(time_array_index, dx_tilde, N, np.angle(self.psi_x))
                 n_sum[time_array_index] = np.mean(self.n())
-                #print(i)
-        for i in range(0, N, int(N/8)):
-            g1_x += np.conjugate(self.psi_x[i, int(N/2)]) * self.psi_x[i, int(N/2):] / 8
-            d1_x += np.conjugate(self.psi_x[i, int(N/2):]) * self.psi_x[i, int(N/2):] / 8
-        return g1_x, d1_x.real, n_sum, v
+                if i == i1:
+                    psi_sampling_begin = self.psi_x[N//2, N//2]
+                g1_t[time_array_index] = np.conjugate(psi_sampling_begin) * self.psi_x[N//2, N//2] 
+                d1_t[time_array_index] = self.n()[N//2, N//2]
+        g1_x = ext.isotropic_avg(self.psi_x, 'psi', **isotropic_indices)
+        d1_x = ext.isotropic_avg(self.psi_x, 'dens', **isotropic_indices)
+        return g1_x, d1_x.real, g1_t, d1_t.real, n_sum, v
 
-def vortices(index, phase):
-    count_v = 0
-    count_av = 0
-    grad = np.gradient(phase, dx_tilde)
-    #v_pos = np.zeros((N, N))
-    #av_pos = np.zeros((N, N))
-    for i in range(1, N-1):
-        for j in range(1, N-1):
-            loop = (2*dx_tilde*(grad[0][j+1, i+1] - grad[1][j+1, i+1]) +
-                    2*dx_tilde*(grad[0][j+1, i-1] + grad[1][j+1, i-1]) +
-                    2*dx_tilde*(-grad[0][j-1, i-1] + grad[1][j-1, i-1]) +
-                    2*dx_tilde*(-grad[0][j-1, i+1] - grad[1][j-1, i+1]) +
-                    2*dx_tilde*(grad[0][j+1, i] + grad[1][j, i-1] - grad[0][j-1, i] - grad[1][j, i+1]))
-            if loop >= 2 * np.pi:
-                count_v += 1
-                #v_pos[i,j] = 1
-            elif loop <= - 2 * np.pi:
-                count_av +=1
-                #av_pos[i,j] = 1
-    '''
-    xv = np.array([x[i] for i in range(N) for j in range(N) if v_pos[i,j]==1])
-    yv = np.array([x[j] for i in range(N) for j in range(N) if v_pos[i,j]==1])
-    xav = np.array([x[i] for i in range(N) for j in range(N) if av_pos[i,j]==1])
-    yav = np.array([x[j] for i in range(N) for j in range(N) if av_pos[i,j]==1])
-    fig,ax = pl.subplots(1,1, figsize=(8,6))
-    ax.plot(xv, yv, 'go', markersize=2)
-    ax.plot(xav, yav, 'ro', markersize=2)
-    ax.set_xlim(x[0], x[-1])
-    ax.set_ylim(x[0], x[-1])
-    im = ax.pcolormesh(X, Y, phase, vmin = -np.pi, vmax = np.pi, cmap='Greys')
-    pl.colorbar(im)
-    pl.title(r't = %.2f' % t[index])
-    #pl.savefig('/Users/delis/Desktop/vortices' + os.sep + 'fig' + str(count) + '.jpg', format='jpg')
-    pl.show()
-    '''
-    total = count_v + count_av
-    return total
-
-def parallel_func(p, sigma, om_tilde, g_dim, gr_dim):
+def g1(p, sigma, om_tilde, g_dim, gr_dim):
     gpe = model(p, sigma, om_tilde, g_dim, gr_dim)
-    g1_x, d1_x, avg, v = gpe.time_evolution()
-    d1_x *= d1_x[0]
-    np.savetxt(subfolders[str(p), str(sigma)] + os.sep + 'g1' + '.dat', np.abs(g1_x)/np.sqrt(d1_x))
+    g1_x, d1_x, g1_t, d1_t, avg, v = gpe.time_evolution()
+    np.savetxt(subfolders[str(p), str(sigma)] + os.sep + 'g1_x' + '.dat', np.abs(g1_x)/np.sqrt(d1_x[0]*d1_x))
+    np.savetxt(subfolders[str(p), str(sigma)] + os.sep + 'g1_t' + '.dat', np.abs(g1_t)/np.sqrt(d1_t[0]*d1_t))
     np.savetxt(subfolders[str(p), str(sigma)] + os.sep + 'avg' + '.dat', avg)
     np.savetxt(subfolders[str(p), str(sigma)] + os.sep + 'vortices' + '.dat', v)
 
@@ -220,52 +174,63 @@ def parallel_func(p, sigma, om_tilde, g_dim, gr_dim):
 # Parallel tests
 # =============================================================================
 from qutip import *
-qutip.settings.num_cpus = 7
+import matplotlib.pyplot as pl
+pl.rc('font', family='sans-serif')
+pl.rc('text', usetex=True)
 
-sigma_array = np.array([2.1e-2])
+qutip.settings.num_cpus = 1
+
+sigma_array = np.array([1e-2])
 p_knob_array = np.array([2])
 om_knob_array = np.array([1e9])
 p_array = p_knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
 g_dim = 0
 
-'''
-print('--- Alternative Parametrization ---')
-print('Kd = %.6f' % (m_dim * gamma2_tilde * (hatx**2 / hatt) / hbar))
-print('nu = ', (p_array - 1))
-print('c = %.6f' % (hbar * gamma0_tilde * (1/hatt) / (2 * g_dim * ns_tilde * hatrho)))
-'''
-
-path_init_cluster = r'/scratch/konstantinos'
-final_save_cluster = r'/home6/konstantinos'
-path_init_local = r'/Users/delis/Desktop'
-final_save_local = path_init_local
+path = r'/Users/delis/Desktop'
+final_save = path
 
 def create_subfolders(sigma_array, p_array):
-    save_folder = path_init_local + os.sep + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
-    #os.mkdir(save_folder)
+    save_folder = path + os.sep + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
+    os.mkdir(save_folder)
     subfolders = {}
     for sigma in sigma_array:
         for p in p_array:
             subfolders[str(p), str(sigma)] = save_folder + os.sep + 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'om' + str(int(om_knob_array[0]))
-            #os.mkdir(subfolders[str(p), str(sigma)])
+            os.mkdir(subfolders[str(p), str(sigma)])
     return subfolders
 
 subfolders = create_subfolders(sigma_array, p_array)
-#for sigma in sigma_array:
-#    parallel_map(parallel_func, p_array, task_kwargs=dict(sigma = sigma, om_tilde = om_knob_array[0], g_dim = g_dim, gr_dim = gr_dim))
+
+for sigma in sigma_array:
+    parallel_map(g1, p_array, task_kwargs=dict(sigma = sigma, om_tilde = om_knob_array[0], g_dim = g_dim, gr_dim = gr_dim))
 # =============================================================================
 # Plots
 # =============================================================================
+dr = np.arange(N//2) * dx_tilde
 
 ji = np.loadtxt('/Users/delis/Desktop/ji exact/64x64.txt')
-'''
 fig,ax = pl.subplots(1,1, figsize=(10,10))
+ax.set_xscale('log')
+ax.set_yscale('log')
 for sigma in sigma_array:
     for p in p_array:
-        density = np.loadtxt(subfolders[str(p), str(sigma)] + os.sep + 'avg' + '.dat')
-        ax.plot(t, density, label=r'p = %.2f' % p)
-        ax.hlines(y = ns_tilde * (p - 1), xmin=t[0], xmax=t[-1])
+        correlator_x = np.loadtxt(subfolders[str(p), str(sigma)] + os.sep + 'g1_x' + '.dat')
+        ax.plot(dr, correlator_x, label=r'sigma = %.2f, p = %.1f' % (sigma, p))
+ax.plot(ji[:, 0], ji[:,1])
+ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
+ax.legend(prop=dict(size=20))
+pl.title('sigma = %.4f, om = %.i, gamma0 = %.3f' % (sigma_array[0], om_knob_array[0], gamma0_tilde), fontsize = 20)
+pl.tight_layout()
+pl.show()
+
+fig,ax = pl.subplots(1,1, figsize=(10,10))
+ax.set_xscale('log')
+ax.set_yscale('log')
+for sigma in sigma_array:
+    for p in p_array:
+        correlator_t = np.loadtxt(subfolders[str(p), str(sigma)] + os.sep + 'g1_t' + '.dat')
+        ax.plot(t-t[0], correlator_t, label=r'sigma = %.2f, p = %.1f' % (sigma, p))
 ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
 ax.legend(prop=dict(size=20))
 pl.title('sigma = %.4f, om = %.i, gamma0 = %.3f' % (sigma_array[0], om_knob_array[0], gamma0_tilde), fontsize = 20)
@@ -276,25 +241,28 @@ fig,ax = pl.subplots(1,1, figsize=(10,10))
 for sigma in sigma_array:
     for p in p_array:
         vort = np.loadtxt(subfolders[str(p), str(sigma)] + os.sep + 'vortices' + '.dat')
-        ax.plot(t, vort/N**2, label=r'p = %.2f' % p)
+        ax.plot(t, vort/N**2, 'bo-', label=r'sigma = %.2f, p = %.1f' % (sigma, p))
 ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
 ax.legend(prop=dict(size=20))
-pl.title('sigma = %.4f, om = %.i, gamma0 = %.3f' % (sigma_array[0], om_knob_array[0], gamma0_tilde), fontsize = 20)
 pl.tight_layout()
 pl.show()
-'''
 
 fig,ax = pl.subplots(1,1, figsize=(10,10))
-ax.set_xscale('log')
-ax.set_yscale('log')
 for sigma in sigma_array:
     for p in p_array:
-        correlator = np.loadtxt(subfolders[str(p), str(sigma)] + os.sep + 'g1' + '.dat')
-        for i in range(len(t)):
-            ax.plot(x[int(N/2):]-x[int(N/2)], correlator[i], label=r't = %.2f' % t[i])
-ax.plot(x[int(N/2):]-x[int(N/2)], np.exp(-((x[int(N/2):]-x[int(N/2)])/(500))**0.78))
+        avg = np.loadtxt(subfolders[str(p), str(sigma)] + os.sep + 'avg' + '.dat')
+        ax.plot(t, avg, label=r'sigma = %.2f, p = %.1f' % (sigma, p))
+        ax.hlines(y=(p-1)*ns_tilde, xmin=t[0], xmax=t[-1], color='black')
 ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
 ax.legend(prop=dict(size=20))
-pl.title('sigma = %.4f, om = %.i, gamma0 = %.3f' % (sigma_array[0], om_knob_array[0], gamma0_tilde), fontsize = 20)
+ax.set_xlim(t[50], t[-1])
+ax.set_ylim(0.99, 1.01)
 pl.tight_layout()
 pl.show()
+
+'''
+print('--- Alternative Parametrization ---')
+print('Kd = %.6f' % (m_dim * gamma2_tilde * (hatx**2 / hatt) / hbar))
+print('nu = ', (p_array - 1))
+print('c = %.6f' % (hbar * gamma0_tilde * (1/hatt) / (2 * g_dim * ns_tilde * hatrho)))
+'''
