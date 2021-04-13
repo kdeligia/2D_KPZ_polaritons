@@ -41,7 +41,7 @@ N = 2 ** 6
 L_tilde = 2 ** 6
 dx_tilde = 0.5
 
-N_steps = 100000
+N_steps = 500000
 dt_tilde = 1e-2
 every = 500
 i1 = 20000
@@ -97,8 +97,8 @@ class model:
         pl.title(r'$g$ = %.i, $gr$ = %.i, $n_s$ = %.i, $p$ = %.1f, $\Omega$ = %.i, $m$ = %.2e' % (g_dim, gr_dim, ns_tilde, self.p, self.om_tilde, m_tilde))
         pl.legend()
         pl.show()
-        #print('Im plus at k=0', im_plus[N//2])
-        #print('Im minus at k=0', im_minus[N//2] == 2*gam_b*mu-2*gam_a*Gamma_ef)
+        print('Lowest mode achievable k = %.5f' % (2*np.pi/L_tilde))
+        print('Im plus near it', im_plus[N//2+1])
         return im_plus, im_minus
 
     def _set_fourier_psi_x(self, psi_x):
@@ -178,10 +178,10 @@ import matplotlib.pyplot as pl
 pl.rc('font', family='sans-serif')
 pl.rc('text', usetex=True)
 
-qutip.settings.num_cpus = 1
+qutip.settings.num_cpus = 4
 
 sigma_array = np.array([1e-2])
-p_knob_array = np.array([2])
+p_knob_array = np.array([1.8, 2, 3, 5])
 om_knob_array = np.array([1e9])
 p_array = p_knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
@@ -225,23 +225,10 @@ pl.tight_layout()
 pl.show()
 
 fig,ax = pl.subplots(1,1, figsize=(10,10))
-ax.set_xscale('log')
-ax.set_yscale('log')
-for sigma in sigma_array:
-    for p in p_array:
-        correlator_t = np.loadtxt(subfolders[str(p), str(sigma)] + os.sep + 'g1_t' + '.dat')
-        ax.plot(t-t[0], correlator_t, label=r'sigma = %.2f, p = %.1f' % (sigma, p))
-ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
-ax.legend(prop=dict(size=20))
-pl.title('sigma = %.4f, om = %.i, gamma0 = %.3f' % (sigma_array[0], om_knob_array[0], gamma0_tilde), fontsize = 20)
-pl.tight_layout()
-pl.show()
-
-fig,ax = pl.subplots(1,1, figsize=(10,10))
 for sigma in sigma_array:
     for p in p_array:
         vort = np.loadtxt(subfolders[str(p), str(sigma)] + os.sep + 'vortices' + '.dat')
-        ax.plot(t, vort/N**2, 'bo-', label=r'sigma = %.2f, p = %.1f' % (sigma, p))
+        ax.plot(t, vort/N**2, label=r'sigma = %.2f, p = %.1f' % (sigma, p))
 ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
 ax.legend(prop=dict(size=20))
 pl.tight_layout()

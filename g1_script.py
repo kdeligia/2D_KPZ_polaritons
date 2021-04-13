@@ -139,13 +139,13 @@ class model:
 # Parallel tests
 # =============================================================================
 from qutip import *
-parallel_tasks = 1
-n_batch = 1
+parallel_tasks = 512
+n_batch = 128
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
 sigma_array = np.array([1e-2])
-p_knob_array = np.array([2.])
+p_knob_array = np.array([1.5, 2., 3., 5.])
 om_knob_array = np.array([1e9])
 p_array = p_knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
