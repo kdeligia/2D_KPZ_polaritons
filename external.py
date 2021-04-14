@@ -87,10 +87,10 @@ def isotropic_avg(matrix, obs, **args):
     center_indices = args.get('r = ' + str(0))
     for rad in range(N//2):
         indices = args.get('r = ' + str(rad))
-        if obs == 'psi':
+        if obs == 'psi correlation':
             for i in range(len(indices)):
                 avg[rad] += np.conjugate(matrix[center_indices[0][0], center_indices[0][1]]) * matrix[indices[i][0], indices[i][1]] / len(indices)
-        elif obs == 'dens':
+        elif obs == 'density average':
             for i in range(len(indices)):
-                avg[rad] += np.conjugate(matrix[indices[i][0], indices[i][1]]) * matrix[indices[i][0], indices[i][1]] / len(indices)
+                avg[rad] += matrix[indices[i][0], indices[i][1]] / len(indices)
     return avg

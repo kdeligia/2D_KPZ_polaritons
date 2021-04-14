@@ -118,16 +118,16 @@ class model:
 # =============================================================================
 # Definition of the split steps
 # =============================================================================
-    def n(self):
-        return (self.psi_x * np.conjugate(self.psi_x)).real
+    def n(self, psi):
+        return (psi * np.conjugate(psi)).real
 
-    def prefactor_x(self):
+    def prefactor_x(self, n):
         if self.g_tilde == 0:
             self.uc_tilde = 0
         else:
-            self.uc_tilde = self.g_tilde * (self.n() + 2 * self.p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / R_tilde) * (1 / (1 + self.n() / ns_tilde)))
-        self.I_tilde = (gamma0_tilde / 2) * (self.p / (1 + self.n() / ns_tilde) - 1)
-        return np.exp(-1j * 0.5 * dt_tilde * (self.uc_tilde + 1j * self.I_tilde) / self.damp)
+            self.uc_tilde = self.g_tilde * (n + 2 * self.p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / R_tilde) * (1 / (1 + n / ns_tilde)))
+        self.rd_tilde = (gamma0_tilde / 2) * (self.p / (1 + n / ns_tilde) - 1)
+        return np.exp(-1j * 0.5 * dt_tilde * (self.uc_tilde + 1j * self.rd_tilde) / self.damp)
 
     def prefactor_k(self):
         return np.exp(-1j * dt_tilde * (KX ** 2 + KY ** 2) * Kc / self.damp)
@@ -137,37 +137,28 @@ class model:
 # =============================================================================
     def time_evolution(self):
         np.random.seed()
-        n_sum = np.zeros(len(t))
+        density = np.zeros(len(t))
         v = np.zeros(len(t))
-        g1_x = np.zeros(N//2, dtype = complex)
-        d1_x = np.zeros(N//2, dtype = complex)
-        g1_t = np.zeros(len(t), dtype = complex)
-        d1_t = np.zeros(len(t), dtype = complex)
         for i in range(N_steps):
-            self.psi_x *= self.prefactor_x()
+            self.psi_x *= self.prefactor_x(self.n(self.psi_x))
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
             self.psi_mod_x = ifft2(self.psi_mod_k)
-            self.psi_x *= self.prefactor_x()
+            self.psi_x *= self.prefactor_x(self.n(self.psi_x))
             self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N))) / self.damp
             if i>=i1 and i<=i2 and i%every==0:
                 time_array_index = (i-i1)//every
                 v[time_array_index] = ext.vortices(time_array_index, dx_tilde, N, np.angle(self.psi_x))
-                n_sum[time_array_index] = np.mean(self.n())
-                if i == i1:
-                    psi_sampling_begin = self.psi_x[N//2, N//2]
-                g1_t[time_array_index] = np.conjugate(psi_sampling_begin) * self.psi_x[N//2, N//2] 
-                d1_t[time_array_index] = self.n()[N//2, N//2]
-        g1_x = ext.isotropic_avg(self.psi_x, 'psi', **isotropic_indices)
-        d1_x = ext.isotropic_avg(self.psi_x, 'dens', **isotropic_indices)
-        return g1_x, d1_x.real, g1_t, d1_t.real, n_sum, v
+                density[time_array_index] = np.mean(self.n(self.psi_x))
+        psi_correlation_x = ext.isotropic_avg(self.psi_x, 'psi correlation', **isotropic_indices)
+        n_avg_x = ext.isotropic_avg(self.n(self.psi_x), 'density average', **isotropic_indices)
+        return psi_correlation_x, n_avg_x.real, density, v
 
 def g1(p, sigma, om_tilde, g_dim, gr_dim):
     gpe = model(p, sigma, om_tilde, g_dim, gr_dim)
-    g1_x, d1_x, g1_t, d1_t, avg, v = gpe.time_evolution()
-    np.savetxt(subfolders[str(p), str(sigma)] + os.sep + 'g1_x' + '.dat', np.abs(g1_x)/np.sqrt(d1_x[0]*d1_x))
-    np.savetxt(subfolders[str(p), str(sigma)] + os.sep + 'g1_t' + '.dat', np.abs(g1_t)/np.sqrt(d1_t[0]*d1_t))
-    np.savetxt(subfolders[str(p), str(sigma)] + os.sep + 'avg' + '.dat', avg)
+    psi_correlation_x, n_avg_x, n, v = gpe.time_evolution()
+    np.savetxt(subfolders[str(p), str(sigma)] + os.sep + 'g1_x' + '.dat', np.abs(psi_correlation_x)/np.sqrt(n_avg_x[0]*n_avg_x))
+    np.savetxt(subfolders[str(p), str(sigma)] + os.sep + 'n' + '.dat', n)
     np.savetxt(subfolders[str(p), str(sigma)] + os.sep + 'vortices' + '.dat', v)
 
 # =============================================================================
@@ -181,7 +172,7 @@ pl.rc('text', usetex=True)
 qutip.settings.num_cpus = 4
 
 sigma_array = np.array([1e-2])
-p_knob_array = np.array([1.8, 2, 3, 5])
+p_knob_array = np.array([1.5, 2, 3, 5])
 om_knob_array = np.array([1e9])
 p_array = p_knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
@@ -192,18 +183,18 @@ final_save = path
 
 def create_subfolders(sigma_array, p_array):
     save_folder = path + os.sep + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
-    os.mkdir(save_folder)
+    #os.mkdir(save_folder)
     subfolders = {}
     for sigma in sigma_array:
         for p in p_array:
             subfolders[str(p), str(sigma)] = save_folder + os.sep + 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'om' + str(int(om_knob_array[0]))
-            os.mkdir(subfolders[str(p), str(sigma)])
+            #os.mkdir(subfolders[str(p), str(sigma)])
     return subfolders
 
 subfolders = create_subfolders(sigma_array, p_array)
 
-for sigma in sigma_array:
-    parallel_map(g1, p_array, task_kwargs=dict(sigma = sigma, om_tilde = om_knob_array[0], g_dim = g_dim, gr_dim = gr_dim))
+#for sigma in sigma_array:
+#    parallel_map(g1, p_array, task_kwargs=dict(sigma = sigma, om_tilde = om_knob_array[0], g_dim = g_dim, gr_dim = gr_dim))
 # =============================================================================
 # Plots
 # =============================================================================
@@ -215,8 +206,8 @@ ax.set_xscale('log')
 ax.set_yscale('log')
 for sigma in sigma_array:
     for p in p_array:
-        correlator_x = np.loadtxt(subfolders[str(p), str(sigma)] + os.sep + 'g1_x' + '.dat')
-        ax.plot(dr, correlator_x, label=r'sigma = %.2f, p = %.1f' % (sigma, p))
+        g1_x = np.loadtxt(subfolders[str(p), str(sigma)] + os.sep + 'g1_x' + '.dat')
+        ax.plot(dr, g1_x, label=r'sigma = %.2f, p = %.1f' % (sigma, p))
 ax.plot(ji[:, 0], ji[:,1])
 ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)
 ax.legend(prop=dict(size=20))
@@ -237,7 +228,7 @@ pl.show()
 fig,ax = pl.subplots(1,1, figsize=(10,10))
 for sigma in sigma_array:
     for p in p_array:
-        avg = np.loadtxt(subfolders[str(p), str(sigma)] + os.sep + 'avg' + '.dat')
+        avg = np.loadtxt(subfolders[str(p), str(sigma)] + os.sep + 'n' + '.dat')
         ax.plot(t, avg, label=r'sigma = %.2f, p = %.1f' % (sigma, p))
         ax.hlines(y=(p-1)*ns_tilde, xmin=t[0], xmax=t[-1], color='black')
 ax.tick_params(axis='both', which='both', direction='in', labelsize=20, pad=12, length=12)

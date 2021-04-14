@@ -95,16 +95,16 @@ class model:
 # =============================================================================
 # Definition of the split steps
 # =============================================================================
-    def n(self):
-        return (self.psi_x * np.conjugate(self.psi_x)).real
+    def n(self, psi):
+        return (psi * np.conjugate(psi)).real
 
-    def prefactor_x(self):
+    def prefactor_x(self, n):
         if self.g_tilde == 0:
             self.uc_tilde = 0
         else:
-            self.uc_tilde = self.g_tilde * (self.n() + 2 * self.p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / R_tilde) * (1 / (1 + self.n() / ns_tilde)))
-        self.I_tilde = (gamma0_tilde / 2) * (self.p / (1 + self.n() / ns_tilde) - 1)
-        return np.exp(-1j * 0.5 * dt_tilde * (self.uc_tilde + 1j * self.I_tilde) / self.damp)
+            self.uc_tilde = self.g_tilde * (n + 2 * self.p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / R_tilde) * (1 / (1 + n / ns_tilde)))
+        self.rd_tilde = (gamma0_tilde / 2) * (self.p / (1 + n / ns_tilde) - 1)
+        return np.exp(-1j * 0.5 * dt_tilde * (self.uc_tilde + 1j * self.rd_tilde) / self.damp)
 
     def prefactor_k(self):
         return np.exp(-1j * dt_tilde * (KX ** 2 + KY ** 2) * Kc / self.damp)
@@ -114,26 +114,24 @@ class model:
 # =============================================================================
     def time_evolution(self):
         np.random.seed()
-        g1_x = np.zeros(N//2, dtype = complex)
-        d1_x = np.zeros(N//2, dtype = complex)
-        g1_t = np.zeros(len(t), dtype = complex)
-        d1_t = np.zeros(len(t), dtype = complex)
+        psi_correlation_t = np.zeros(len(t), dtype = complex)
+        n_avg_t = np.zeros(len(t), dtype = complex)
         for i in range(N_steps):
-            self.psi_x *= self.prefactor_x()
+            self.psi_x *= self.prefactor_x(self.n(self.psi_x))
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
             self.psi_mod_x = ifft2(self.psi_mod_k)
-            self.psi_x *= self.prefactor_x()
+            self.psi_x *= self.prefactor_x(self.n(self.psi_x))
             self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N))) / self.damp
             if i>=i1 and i<=i2 and i%every==0:
                 time_array_index = (i-i1)//every
                 if i == i1:
                     psi_sampling_begin = self.psi_x[N//2, N//2]
-                g1_t[time_array_index] = np.conjugate(psi_sampling_begin) * self.psi_x[N//2, N//2] 
-                d1_t[time_array_index] = self.n()[N//2, N//2]
-        g1_x = ext.isotropic_avg(self.psi_x, 'psi', **isotropic_indices)
-        d1_x = ext.isotropic_avg(self.psi_x, 'dens', **isotropic_indices)
-        return g1_x, d1_x.real, g1_t, d1_t.real
+                psi_correlation_t[time_array_index] = np.conjugate(psi_sampling_begin) * self.psi_x[N//2, N//2] 
+                n_avg_t[time_array_index] = self.n(self.psi_x)[N//2, N//2]
+        psi_correlation_x = ext.isotropic_avg(self.psi_x, 'psi correlation', **isotropic_indices)
+        n_avg_x = ext.isotropic_avg(self.n(self.psi_x), 'density average', **isotropic_indices)
+        return psi_correlation_x, n_avg_x.real, psi_correlation_t, n_avg_t.real
 
 # =============================================================================
 # Parallel tests
@@ -171,20 +169,20 @@ def names_subfolders(sigma_array, p_array):
 
 def g1(i_batch, p, sigma, om_tilde, g_dim, gr_dim):
         g1_x_batch = np.zeros(N//2, dtype = complex)
-        d1_x_batch = np.zeros(N//2, dtype = complex)
+        avg_dens_x_batch = np.zeros(N//2, dtype = complex)
         g1_t_batch = np.zeros(len(t), dtype = complex)
-        d1_t_batch = np.zeros(len(t), dtype = complex)
+        avg_dens_t_batch = np.zeros(len(t), dtype = complex)
         for i_n in range(n_internal):
             gpe = model(p, sigma, om_tilde, g_dim, gr_dim)
-            g1_x_run, d1_x_run, g1_t_run, d1_t_run = gpe.time_evolution()
+            g1_x_run, avg_dens_x_run, g1_t_run, avg_dens_t_run = gpe.time_evolution()
             g1_x_batch += g1_x_run / n_internal
-            d1_x_batch += d1_x_run / n_internal
+            avg_dens_x_batch += avg_dens_x_run / n_internal
             g1_t_batch += g1_t_run / n_internal
-            d1_t_batch += d1_t_run / n_internal
+            avg_dens_t_batch += avg_dens_t_run / n_internal
         np.save(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'numerator' + '_' +'core' + str(i_batch + 1) + '.npy', g1_x_batch)
-        np.save(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'denominator' + '_' + 'core' + str(i_batch + 1) + '.npy', d1_x_batch)
+        np.save(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'denominator' + '_' + 'core' + str(i_batch + 1) + '.npy', avg_dens_x_batch)
         np.save(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'numerator' + '_' +'core' + str(i_batch + 1) + '.npy', g1_t_batch)
-        np.save(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'denominator' + '_' + 'core' + str(i_batch + 1) + '.npy', d1_t_batch)
+        np.save(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'denominator' + '_' + 'core' + str(i_batch + 1) + '.npy', avg_dens_t_batch)
 
 subfolders_spatial, subfolders_temporal = names_subfolders(sigma_array, p_array)
 
@@ -192,32 +190,32 @@ def call_avg():
     for sigma in sigma_array:
         for p in p_array:
             numerator_spatial = np.zeros((N//2), dtype = complex)
-            denominator_spatial = np.zeros((N//2), dtype = complex)
+            avg_dens_spatial = np.zeros((N//2), dtype = complex)
             numerator_temporal = np.zeros(len(t), dtype = complex)
-            denominator_temporal = np.zeros(len(t), dtype = complex)
+            avg_dens_temporal = np.zeros(len(t), dtype = complex)
             os.mkdir(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)])
             os.mkdir(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)])
-            print('Starting simulations for sigma = %.2f, p = %.1i' % (sigma, p))
+            print('Starting simulations for sigma = %.2f, p = %.1f' % (sigma, p))
             parallel_map(g1, range(n_batch), task_kwargs=dict(p=p, sigma=sigma, om_tilde=om_knob_array[0], g_dim=g_dim, gr_dim=gr_dim))
             for file in os.listdir(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)]):
                 if 'numerator' in file:
                     numerator_spatial += np.load(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
                 elif 'denominator' in file:
-                    denominator_spatial += np.load(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
+                    avg_dens_spatial += np.load(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
             for file in os.listdir(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)]):
                 if 'numerator' in file:
                     numerator_temporal += np.load(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
                 elif 'denominator' in file:
-                    denominator_temporal += np.load(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
+                    avg_dens_temporal += np.load(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
             np.save(final_save + os.sep + 'spatial' + 
                 '_' + 'sigma' + str(sigma) + 
                 '_' + 'p' + str(p) + 
                 '_' + 'om' + str(int(om_knob_array[0])) + 
-                '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', (np.abs(numerator_spatial)/np.sqrt(denominator_spatial[0] * denominator_spatial)).real)
+                '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', (np.abs(numerator_spatial)/np.sqrt(avg_dens_spatial[0] * avg_dens_spatial)).real)
             np.save(final_save + os.sep + 'temporal' + 
                 '_' + 'sigma' + str(sigma) + 
                 '_' + 'p' + str(p) + 
                 '_' + 'om' + str(int(om_knob_array[0])) + 
-                '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', (np.abs(numerator_temporal)/np.sqrt(denominator_temporal[0] * denominator_temporal)).real)
+                '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', (np.abs(numerator_temporal)/np.sqrt(avg_dens_temporal[0] * avg_dens_temporal)).real)
 
 call_avg()
