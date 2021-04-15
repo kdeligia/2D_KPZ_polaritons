@@ -67,7 +67,6 @@ class model:
         self.psi_x = np.full((N, N), 0.01**(1/2))
         self.psi_x /= hatpsi
         self.psi_mod_k = fft2(self.psi_mod_x)
-        print('sigma = %.4f, omega = %.i, p = %.3f, Kd = %.5f, TWR = %.3f' % (self.sigma, self.om_tilde, self.p, (Kc/self.damp).imag, self.g_tilde / (gamma0_tilde * dx_tilde**2)))
 
     def _set_fourier_psi_x(self, psi_x):
         self.psi_mod_x = psi_x * np.exp(-1j * KX[0,0] * X - 1j * KY[0,0] * Y) * dx_tilde * dx_tilde / (2 * np.pi)
@@ -105,7 +104,7 @@ class model:
 # =============================================================================
     def time_evolution(self):
         np.random.seed()
-        n_avg_t = np.zeros(len(t), dtype = complex)
+        n_sqrt_avg_t = np.zeros(len(t), dtype = complex)
         n_correlation_t = np.zeros(len(t), dtype=complex)
         for i in range(N_steps):
             self.psi_x *= self.prefactor_x(self.n(self.psi_x))
@@ -118,9 +117,9 @@ class model:
                 time_array_index = (i-i1)//every
                 if i == i1:
                     n_sampling_begin = self.n(self.psi_x)[N//2, N//2]
-                n_avg_t[time_array_index] = np.sqrt(self.n(self.psi_x)[N//2, N//2])
+                n_sqrt_avg_t[time_array_index] = np.sqrt(self.n(self.psi_x)[N//2, N//2])
                 n_correlation_t[time_array_index] = np.sqrt(n_sampling_begin) * np.sqrt(self.n(self.psi_x)[N//2, N//2])
-        return n_correlation_t, n_avg_t
+        return n_correlation_t, n_sqrt_avg_t
 
 # =============================================================================
 # Parallel tests
@@ -156,14 +155,14 @@ def names_subfolders(sigma_array, p_array):
 
 def g2(i_batch, p, sigma, om_tilde, g_dim, gr_dim):
         n_correlation_t_batch = np.zeros(len(t), dtype = complex)
-        n_avg_t_batch = np.zeros(len(t), dtype = complex)
+        n_sqrt_avg_t_batch = np.zeros(len(t), dtype = complex)
         for i_n in range(n_internal):
             gpe = model(p, sigma, om_tilde, g_dim, gr_dim)
-            n_correlation_t_run, n_avg_t_run = gpe.time_evolution()
+            n_correlation_t_run, n_sqrt_avg_t_run = gpe.time_evolution()
             n_correlation_t_batch += n_correlation_t_run / n_internal
-            n_avg_t_batch += n_avg_t_run / n_internal
+            n_sqrt_avg_t_batch += n_sqrt_avg_t_run / n_internal
         np.save(subfolders['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'density_correlation' + '_' +'core' + str(i_batch + 1) + '.npy', n_correlation_t_batch)
-        np.save(subfolders['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'density_average' + '_' + 'core' + str(i_batch + 1) + '.npy', n_avg_t_batch)
+        np.save(subfolders['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'density_average' + '_' + 'core' + str(i_batch + 1) + '.npy', n_sqrt_avg_t_batch)
 
 subfolders = names_subfolders(sigma_array, p_array)
 
@@ -171,19 +170,19 @@ def call_avg():
     for sigma in sigma_array:
         for p in p_array:
             n_correlation_t = np.zeros(len(t), dtype = complex)
-            n_avg_t = np.zeros(len(t), dtype = complex)
+            n_sqrt_avg_t = np.zeros(len(t), dtype = complex)
             os.mkdir(subfolders['p=' + str(p), 'sigma=' + str(sigma)])
-            print('Starting simulations for sigma = %.2f, p = %.1f' % (sigma, p))
+            print('Starting g2 simulations for sigma = %.2f, p = %.1f' % (sigma, p))
             parallel_map(g2, range(n_batch), task_kwargs=dict(p=p, sigma=sigma, om_tilde=om_knob_array[0], g_dim=g_dim, gr_dim=gr_dim))
             for file in os.listdir(subfolders['p=' + str(p), 'sigma=' + str(sigma)]):
                 if 'density_correlation' in file:
                     n_correlation_t += np.load(subfolders['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
                 elif 'density_average' in file:
-                    n_avg_t += np.load(subfolders['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
+                    n_sqrt_avg_t += np.load(subfolders['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
             np.save(final_save + os.sep + 'g2' + 
                 '_' + 'sigma' + str(sigma) + 
                 '_' + 'p' + str(p) + 
                 '_' + 'om' + str(int(om_knob_array[0])) + 
-                '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', (np.abs(n_correlation_t)/(n_avg_t[0] * n_avg_t).real))
+                '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', (np.abs(n_correlation_t)/(n_sqrt_avg_t[0] * n_sqrt_avg_t).real))
 
 call_avg()

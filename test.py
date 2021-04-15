@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Nov 10 15:09:50 2020
+Created on Thu Apr 15 16:19:12 2021
 
 @author: delis
 """
@@ -40,10 +40,10 @@ N = 2 ** 6
 L_tilde = 2 ** 6
 dx_tilde = 0.5
 
-N_steps = 500000
-dt_tilde = 1e-2
-every = 500
-i1 = 50000
+N_steps = 5000000
+dt_tilde = 1e-3
+every = 5000
+i1 = 500000
 i2 = N_steps
 lengthwindow = i2-i1
 
@@ -114,12 +114,8 @@ class model:
 # =============================================================================
     def time_evolution(self):
         np.random.seed()
-        '''
         psi_correlation_t = np.zeros(len(t), dtype = complex)
         n_avg_t = np.zeros(len(t), dtype = complex)
-        '''
-        psi_correlation_tot = np.zeros((len(t), N//2), dtype = complex)
-        n_avg_tot = np.zeros((len(t), N//2), dtype = complex)
         for i in range(N_steps):
             self.psi_x *= self.prefactor_x(self.n(self.psi_x))
             self.psi_mod_k = fft2(self.psi_mod_x)
@@ -132,28 +128,23 @@ class model:
                 if i == i1:
                     center_indices = isotropic_indices.get('r = ' + str(0))
                     psi_x0t0 = self.psi_x[center_indices[0][0], center_indices[0][1]]
-                psi_correlation_tot[time_array_index] =  ext.isotropic_avg(self.psi_x, psi_x0t0, 'psi correlation', **isotropic_indices)
-                n_avg_tot[time_array_index] = ext.isotropic_avg(self.n(self.psi_x), None, 'density average', **isotropic_indices)
-                '''
-                psi_correlation_t[time_array_index] = np.conjugate(psi_sampling_begin) * self.psi_x[N//2, N//2] 
+                psi_correlation_t[time_array_index] = np.conjugate(psi_x0t0) * self.psi_x[N//2, N//2] 
                 n_avg_t[time_array_index] = self.n(self.psi_x)[N//2, N//2]
-        psi_correlation_x = ext.isotropic_avg(self.psi_x, 'psi correlation', **isotropic_indices)
-        n_avg_x = ext.isotropic_avg(self.n(self.psi_x), 'density average', **isotropic_indices)
+        psi_correlation_x = ext.isotropic_avg(self.psi_x, psi_x0t0, 'psi correlation', **isotropic_indices)
+        n_avg_x = ext.isotropic_avg(self.n(self.psi_x), None, 'density average', **isotropic_indices)
         return psi_correlation_x, n_avg_x.real, psi_correlation_t, n_avg_t.real
-        '''
-        return psi_correlation_tot, n_avg_tot
 
 # =============================================================================
 # Parallel tests
 # =============================================================================
 from qutip import *
-parallel_tasks = 512
-n_batch = 128
+parallel_tasks = 10
+n_batch = 5
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
 sigma_array = np.array([1e-2])
-p_knob_array = np.array([1.5, 2., 3., 5.])
+p_knob_array = np.array([2.])
 om_knob_array = np.array([1e9])
 p_array = p_knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
@@ -163,7 +154,7 @@ path = r'/scratch/konstantinos'
 final_save = r'/home6/konstantinos'
 
 def names_subfolders(sigma_array, p_array):
-    save_folder = path + os.sep + 'ns' + str(int(ns_tilde)) + '_' + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
+    save_folder = path + os.sep + 'test' + '_' + 'ns' + str(int(ns_tilde)) + '_' + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
     if save_folder in os.listdir(path):
         print(f'Folder "{save_folder}" exists.')
     else:
@@ -197,7 +188,6 @@ def g1_separate(i_batch, p, sigma, om_tilde, g_dim, gr_dim):
         np.save(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'average_density_spatial' + '_' + 'core' + str(i_batch + 1) + '.npy', avg_dens_x_batch)
         np.save(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'correlator_temporal' + '_' +'core' + str(i_batch + 1) + '.npy', g1_t_batch)
         np.save(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'average_density_temporal' + '_' + 'core' + str(i_batch + 1) + '.npy', avg_dens_t_batch)
-        return None
 
 def g1_full(i_batch, p, sigma, om_tilde, g_dim, gr_dim):
         g1_full_batch = np.zeros((len(t), N//2), dtype = complex)
@@ -209,7 +199,6 @@ def g1_full(i_batch, p, sigma, om_tilde, g_dim, gr_dim):
             avg_dens_full_batch += avg_dens_full_run / n_internal
         np.save(subfolders_full['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'correlator' + '_' +'core' + str(i_batch + 1) + '.npy', g1_full_batch)
         np.save(subfolders_full['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'average_density' + '_' + 'core' + str(i_batch + 1) + '.npy', avg_dens_full_batch)
-        return None
 
 def call_avg(key):
     if key == 'separate':
@@ -263,4 +252,4 @@ def call_avg(key):
                     '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', (np.abs(correlation)/np.sqrt(avg_dens[0] * avg_dens)).real)
     return None
 
-call_avg('full')
+call_avg('separate')
