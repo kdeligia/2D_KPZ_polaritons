@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Feb  5 16:26:53 2021
+Created on Thu Apr 15 16:19:12 2021
 
 @author: delis
 """
@@ -13,74 +13,59 @@ import os
 from scipy.fftpack import fft2, ifft2
 import numpy as np
 import external as ext
-from qutip import *
 
 hatt = 1 # ps
 hatx = 1 # μm
 hatpsi = 1/hatx # μm^-1
 hatrho = 1/hatx**2 # μm^-2
 hatepsilon = hbar/hatt # μeV
-melectron = 0.510998950 * 1E12 / c**2 # μeV/(μm^2/ps^2)
+melectron = 0.510998950 * 1e12 / c**2 # μeV/(μm^2/ps^2)
 
-m_tilde = -3.2e-5
-gamma0_tilde = 0.22
-gammar_tilde = 0.1 * gamma0_tilde
-gamma2_tilde = 0.06
-P_tilde = 23.1 * 0.1 * 1.8
-R_tilde = gammar_tilde / 10
-p = P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
-
+m_tilde = 3.8e-5 * 3
+m_dim = m_tilde * melectron
+gamma0_tilde = 0.2 * 100
+gammar_tilde = gamma0_tilde * 0.1
+P_tilde = gamma0_tilde * 1
+R_tilde = gammar_tilde / 1
 ns_tilde = gammar_tilde / R_tilde
-n0_tilde = ns_tilde * (p - 1)
+Kc = hbar**2 / (2 * m_dim * hatepsilon * hatx**2)
 
-N = 2**7
-L_tilde = 2**7
-dx_tilde = L_tilde / N
-dkx_tilde = 2 * np.pi / (N * dx_tilde)
+print('ns = %.i' % (ns_tilde * hatrho))
+print('Kc = %.4f' % Kc)
 
-def dimensional_units():
-    L_dim = L_tilde * hatx                                                      # result in μm
-    P_dim = P_tilde * (1/(hatx**2 * hatt))                                      # result in μm^-2 ps^-1
-    R_dim = R_tilde * (hatx**2/hatt)                                            # result in μm^2 ps^-1
-    gamma0_dim = gamma0_tilde * (1/hatt)                                        # result in ps^-1
-    gammar_dim = gammar_tilde * (1/hatt)                                        # result in ps^-1
-    gamma2_dim = gamma2_tilde * (hatx**2 / hatt)                                # result in μm^2 ps^-1
-    ns_dim = ns_tilde * hatrho                                                  # result in μm^-2
-    m_dim = m_tilde * melectron
-    n0_dim = n0_tilde * hatrho                                                  # result in μm^-2
-    return L_dim, P_dim, R_dim, gamma0_dim, gammar_dim, gamma2_dim, ns_dim, m_dim, n0_dim
+# =============================================================================
+# 
+# =============================================================================
+N = 2 ** 6
+L_tilde = 2 ** 6
+dx_tilde = 0.5
 
-def arrays():
-    x_0 = - N * dx_tilde / 2
-    kx0 = - np.pi / dx_tilde
-    x = x_0 + dx_tilde * np.arange(N)
-    kx = kx0 + dkx_tilde * np.arange(N)
-    return x, kx
+N_steps = 500000
+dt_tilde = 1e-2
+every = 1000
+i1 = 20000
+i2 = N_steps
+lengthwindow = i2-i1
 
-L_dim, P_dim, R_dim, gamma0_dim, gammar_dim, gamma2_dim, ns_dim, m_dim, n0_dim = dimensional_units()
-x, kx =  arrays()
+t = ext.time(dt_tilde, N_steps, i1, i2, every)
+x, kx =  ext.space_momentum(N, dx_tilde)
+isotropic_indices = ext.get_indices(x)
 X, Y = np.meshgrid(x, x)
 KX, KY = np.meshgrid(kx, kx)
 
-time_steps = 50000
-dt_tilde = 1e-2
-every = 500
-i1 = 0
-i2 = time_steps
-lengthwindow = i2-i1
-t = ext.time(dt_tilde, time_steps, i1, i2, every)
-
 class model:
-    def __init__(self, gr_dim, g_dim, psi_x=0):
+    def __init__(self, p, sigma, om_tilde, g_dim, gr_dim, psi_x=0):
+        self.dkx_tilde = kx[1] - kx[0]
+        self.p = p
+        self.sigma = sigma
+        self.om_tilde = om_tilde
         self.g_tilde = g_dim * hatrho / hatepsilon
         self.gr_tilde = gr_dim * hatrho / hatepsilon
-        self.sigma = gamma0_tilde * (p + 1) / (4 * dx_tilde**2)
+        self.damp = 1 + 2 * self.p * self.gr_tilde / (R_tilde * self.om_tilde) + self.p / (2 * self.om_tilde) * 1j 
         self.psi_x = psi_x
-        self.psi_x = np.full((N, N), np.sqrt(1 / (2 * dx_tilde**2)) + 0.1)
+        self.psi_x = np.full((N, N), 0.01**(1/2))
         self.psi_x /= hatpsi
         self.psi_mod_k = fft2(self.psi_mod_x)
-        self.Kc = hbar**2 / (2 * m_dim * hatepsilon * hatx**2)
-        self.Kd = gamma2_tilde / 2
 
     def _set_fourier_psi_x(self, psi_x):
         self.psi_mod_x = psi_x * np.exp(-1j * KX[0,0] * X - 1j * KY[0,0] * Y) * dx_tilde * dx_tilde / (2 * np.pi)
@@ -89,113 +74,106 @@ class model:
         return self.psi_mod_x * np.exp(1j * KX[0,0] * X + 1j * KY[0,0] * Y) * 2 * np.pi / (dx_tilde * dx_tilde)
 
     def _set_fourier_psi_k(self, psi_k):
-        self.psi_mod_k = psi_k * np.exp(1j * X[0,0] * dkx_tilde * np.arange(N) + 1j * Y[0,0] * dkx_tilde * np.arange(N))
+        self.psi_mod_k = psi_k * np.exp(1j * X[0,0] * self.dkx_tilde * np.arange(N) + 1j * Y[0,0] * self.dkx_tilde * np.arange(N))
 
     def _get_psi_k(self):
-        return self.psi_mod_k * np.exp(-1j * X[0,0] * dkx_tilde * np.arange(N) - 1j * Y[0,0] * dkx_tilde * np.arange(N))
+        return self.psi_mod_k * np.exp(-1j * X[0,0] * self.dkx_tilde * np.arange(N) - 1j * Y[0,0] * self.dkx_tilde * np.arange(N))
 
     psi_x = property(_get_psi_x, _set_fourier_psi_x)
     psi_k = property(_get_psi_k, _set_fourier_psi_k)
 # =============================================================================
 # Definition of the split steps
 # =============================================================================
-    def n(self):
-        return (self.psi_x * np.conjugate(self.psi_x)).real - 1/(2 * dx_tilde**2)
+    def n(self, psi):
+        return (psi * np.conjugate(psi)).real
 
-    def prefactor_x(self):
-        self.uc_tilde = self.g_tilde * (self.n() + 2 * (self.gr_tilde / self.g_tilde) * (P_tilde / gammar_tilde) * (1 / (1 + self.n() / ns_tilde)))
-        self.I_tilde = (gamma0_tilde / 2) * (p * (1 / (1 + self.n() / ns_tilde)) - 1)
-        return np.exp(-1j * 0.5 * dt_tilde * (self.uc_tilde + 1j * self.I_tilde))
+    def prefactor_x(self, n):
+        if self.g_tilde == 0:
+            self.uc_tilde = 0
+        else:
+            self.uc_tilde = self.g_tilde * (n + 2 * self.p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / R_tilde) * (1 / (1 + n / ns_tilde)))
+        self.rd_tilde = (gamma0_tilde / 2) * (self.p / (1 + n / ns_tilde) - 1)
+        return np.exp(-1j * 0.5 * dt_tilde * (self.uc_tilde + 1j * self.rd_tilde) / self.damp)
 
     def prefactor_k(self):
-        return np.exp(-1j * dt_tilde * ((KX ** 2 + KY ** 2)*(self.Kc - 1j * self.Kd)))
+        return np.exp(-1j * dt_tilde * (KX ** 2 + KY ** 2) * Kc / self.damp)
 
 # =============================================================================
 # Time evolution
 # =============================================================================
-    def vortices(self):
-        count_v = 0
-        count_av = 0
-        theta = np.angle(self.psi_x)
-        grad = np.gradient(theta, dx_tilde)
-        #v_pos = np.zeros((N, N))
-        #av_pos = np.zeros((N, N))
-        for i in range(1, N-1):
-            for j in range(1, N-1):
-                loop = (2*dx_tilde*(grad[0][j+1, i+1] - grad[1][j+1, i+1]) +
-                        2*dx_tilde*(grad[0][j+1, i-1] + grad[1][j+1, i-1]) +
-                        2*dx_tilde*(-grad[0][j-1, i-1] + grad[1][j-1, i-1]) +
-                        2*dx_tilde*(-grad[0][j-1, i+1] - grad[1][j-1, i+1]) +
-                        2*dx_tilde*(grad[0][j+1, i] + grad[1][j, i-1] - grad[0][j-1, i] - grad[1][j, i+1]))
-                if loop >= 2 * np.pi:
-                    count_v += 1
-                    #v_pos[i,j] = 1
-                elif loop <= - 2 * np.pi:
-                    count_av +=1
-                    #av_pos[i,j] = 1
-        total = count_v + count_av
-        '''
-        fig,ax = pl.subplots(1,1, figsize=(8,6))
-        xv = np.array([x[i] for i in range(N) for j in range(N) if v_pos[i,j]==1])
-        yv = np.array([x[j] for i in range(N) for j in range(N) if v_pos[i,j]==1])
-        xav = np.array([x[i] for i in range(N) for j in range(N) if av_pos[i,j]==1])
-        yav = np.array([x[j] for i in range(N) for j in range(N) if av_pos[i,j]==1])
-        ax.plot(xv, yv, 'go', markersize=2)
-        ax.plot(xav, yav, 'ro', markersize=2)
-        ax.set_xlim(x[0], x[-1])
-        ax.set_ylim(x[0], x[-1])
-        im = ax.pcolormesh(X, Y, theta, cmap='Greys')
-        pl.colorbar(im)
-        pl.show()
-        '''
-        return total
-
     def time_evolution(self):
         np.random.seed()
-        vortexnumber = np.zeros(len(t))
-        for i in range(time_steps+1):
-            self.psi_x *= self.prefactor_x()
+        v = np.zeros(len(t))
+        for i in range(N_steps):
+            self.psi_x *= self.prefactor_x(self.n(self.psi_x))
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
             self.psi_mod_x = ifft2(self.psi_mod_k)
-            self.psi_x *= self.prefactor_x()
-            self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma) * (np.random.normal(0, 1, (N,N)) + 1j*np.random.normal(0, 1, (N,N)))
+            self.psi_x *= self.prefactor_x(self.n(self.psi_x))
+            self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N))) / self.damp
             if i>=i1 and i<=i2 and i%every==0:
-                vortexnumber[(i-i1)//every] = self.vortices()
-        return vortexnumber
+                time_array_index = (i-i1)//every
+                v[time_array_index] = ext.vortices(time_array_index, x, t, np.angle(self.psi_x))
+        return v
 
 # =============================================================================
 # 
 # =============================================================================
-name_remote = r'/scratch/konstantinos/'
-save_remote = r'/home6/konstantinos/'
-
-parallel_tasks = 560
-n_batch = 80
+from qutip import *
+parallel_tasks = 1
+n_batch = 1
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-gr_dim_array = np.array([0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29])
-g_dim = 4
+sigma_array = np.array([1e-2])
+p_knob_array = np.array([2.])
+om_knob_array = np.array([1e9])
+p_array = p_knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
+gr_dim = 0
+g_dim = 0
 
-for gr_dim in gr_dim_array:
-    print('Starting for gr = ', gr_dim)
-    os.mkdir(name_remote+'correlation_'+str(gr_dim)+'_'+str(g_dim))
+path = r'/Users/delis/Desktop'
+final_save = r'/Users/delis/Desktop'
 
-    def g1_parallel(i_batch):
+def names_subfolders(sigma_array, p_array):
+    save_folder = path + os.sep + 'vortices' + '_' + 'ns' + str(int(ns_tilde)) + '_' + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
+    if save_folder in os.listdir(path):
+        print(f'Folder "{save_folder}" exists.')
+    else:
+        os.mkdir(save_folder)
+        print(f'Folder "{save_folder}" succesfully created.')
+    subfolders = {}
+    for sigma in sigma_array:
+        for p in p_array:
+            subfolders['p=' + str(p), 'sigma=' + str(sigma)] = save_folder +  os.sep + 'spatial' + '_' + 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'om' + str(int(om_knob_array[0]))
+    return subfolders
+
+subfolders = names_subfolders(sigma_array, p_array)
+
+def vortices(i_batch, p, sigma, om_tilde, g_dim, gr_dim):
         v_batch = np.zeros(len(t))
         for i_n in range(n_internal):
-            gpe = model(gr_dim, g_dim)
-            v = gpe.time_evolution()
-            v_batch += v / n_internal
-            print('VORTICES Core', i_batch, 'completed realisation number', i_n+1)
-        np.save(name_remote + 'vortices' + '_' + str(gr_dim) + '_' + str(g_dim) + os.sep + 'file_core' + str(i_batch+1) + '.npy', v_batch)
-    parallel_map(g1_parallel, range(n_batch))
+            gpe = model(p, sigma, om_tilde, g_dim, gr_dim)
+            v_run = gpe.time_evolution()
+            v_batch += v_run / n_internal
+        np.savetxt(subfolders['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'vortices' + '_' +'core' + str(i_batch + 1) + '.dat', v_batch)
+        return None
 
-for gr_dim in gr_dim_array:
-    result = np.zeros(len(t))
-    for file in os.listdir(name_remote + 'correlation_' + str(gr_dim) + '_' + str(g_dim)):
-        if '.npy' in file:
-            item = np.load(name_remote + 'correlation_' + str(gr_dim) + '_' + str(g_dim) + os.sep + file)
-            result += item / n_batch
-    np.save(save_remote + 'vortices' + '_' + str(gr_dim) + '_' + str(g_dim) + '_' + str(p) + '_result.npy', result)
+def call_avg():
+    for sigma in sigma_array:
+        for p in p_array:
+            v = np.zeros(len(t))
+            os.mkdir(subfolders['p=' + str(p), 'sigma=' + str(sigma)])
+            print('Starting vortices simulations for sigma = %.2f, p = %.1f' % (sigma, p))
+            parallel_map(vortices, range(n_batch), task_kwargs=dict(p=p, sigma=sigma, om_tilde=om_knob_array[0], g_dim=g_dim, gr_dim=gr_dim))
+            for file in os.listdir(subfolders['p=' + str(p), 'sigma=' + str(sigma)]):
+                if 'correlation_spatial' in file:
+                    v += np.load(subfolders['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
+            np.savetxt(final_save + os.sep + 'vortices' + 
+                '_' + 'sigma' + str(sigma) + 
+                '_' + 'p' + str(p) + 
+                '_' + 'om' + str(int(om_knob_array[0])) + 
+                '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.dat', v)
+    return None
+
+call_avg()
