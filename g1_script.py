@@ -148,8 +148,8 @@ p_array = p_knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
 g_dim = 0
 
-path = r'/Users/delis/Desktop'
-final_save = r'/Users/delis/Desktop'
+path = r'/scratch/konstantinos'
+final_save = r'/home6/konstantinos'
 
 def names_subfolders(sigma_array, p_array):
     save_folder = path + os.sep + 'ns' + str(int(ns_tilde)) + '_' + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
