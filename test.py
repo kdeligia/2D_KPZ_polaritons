@@ -210,7 +210,7 @@ def call_avg(key):
                 avg_dens_temporal = np.zeros(len(t), dtype = complex)
                 os.mkdir(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)])
                 os.mkdir(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)])
-                print('Starting spatial and temporal g1 simulations for sigma = %.2f, p = %.1f' % (sigma, p))
+                print('Starting SPATIAL/TEMPORAL g1 simulations for sigma = %.2f, p = %.1f' % (sigma, p))
                 parallel_map(g1_separate, range(n_batch), task_kwargs=dict(p=p, sigma=sigma, om_tilde=om_knob_array[0], g_dim=g_dim, gr_dim=gr_dim))
                 for file in os.listdir(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)]):
                     if 'correlation_spatial' in file:
@@ -238,9 +238,9 @@ def call_avg(key):
                 correlation = np.zeros((len(t), N//2), dtype = complex)
                 avg_dens = np.zeros((len(t), N//2), dtype = complex)
                 os.mkdir(subfolders_full['p=' + str(p), 'sigma=' + str(sigma)])
-                print('Starting full g1 simulations for sigma = %.2f, p = %.1f' % (sigma, p))
+                print('Starting FULL g1 simulations for sigma = %.2f, p = %.1f' % (sigma, p))
                 parallel_map(g1_full, range(n_batch), task_kwargs=dict(p=p, sigma=sigma, om_tilde=om_knob_array[0], g_dim=g_dim, gr_dim=gr_dim))
-                for file in os.listdir(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)]):
+                for file in os.listdir(subfolders_full['p=' + str(p), 'sigma=' + str(sigma)]):
                     if 'correlation' in file:
                         correlation += np.load(subfolders_full['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
                     elif 'avg_density' in file:

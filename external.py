@@ -61,10 +61,11 @@ def vortices(index, x, t, phase):
                     2 * dx * (grad[0][j+1, i] + grad[1][j, i-1] - grad[0][j-1, i] - grad[1][j, i+1]))
             if loop >= 2 * np.pi:
                 count_v += 1
-                v_pos[i,j] = 1
+                v_pos[i, j] = 1
             elif loop <= - 2 * np.pi:
                 count_av +=1
-                av_pos[i,j] = 1
+                av_pos[i, j] = 1
+    '''
     xv = np.array([x[i] for i in range(size) for j in range(size) if v_pos[i,j]==1])
     yv = np.array([x[j] for i in range(size) for j in range(size) if v_pos[i,j]==1])
     xav = np.array([x[i] for i in range(size) for j in range(size) if av_pos[i,j]==1])
@@ -79,8 +80,9 @@ def vortices(index, x, t, phase):
     pl.title(r't = %.2f' % t[index])
     pl.savefig('/Users/delis/Desktop/vortices' + os.sep + 'fig' + str(index) + '.jpg', format='jpg')
     pl.show()
-    total = count_v + count_av
-    return total
+    '''
+    total_number = count_v + count_av
+    return total_number, v_pos + av_pos
 
 def get_indices(x):
     indices = {}

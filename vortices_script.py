@@ -41,7 +41,7 @@ L_tilde = 2 ** 6
 dx_tilde = 0.5
 
 N_steps = 500000
-dt_tilde = 1e-2
+dt_tilde = 1e-3
 every = 1000
 i1 = 20000
 i2 = N_steps
@@ -56,6 +56,8 @@ KX, KY = np.meshgrid(kx, kx)
 class model:
     def __init__(self, p, sigma, om_tilde, g_dim, gr_dim, psi_x=0):
         self.dkx_tilde = kx[1] - kx[0]
+        self.X, self.Y = np.meshgrid(x, x)
+        self.KX, self.KY = np.meshgrid(kx, kx)
         self.p = p
         self.sigma = sigma
         self.om_tilde = om_tilde
@@ -68,20 +70,20 @@ class model:
         self.psi_mod_k = fft2(self.psi_mod_x)
 
     def _set_fourier_psi_x(self, psi_x):
-        self.psi_mod_x = psi_x * np.exp(-1j * KX[0,0] * X - 1j * KY[0,0] * Y) * dx_tilde * dx_tilde / (2 * np.pi)
+        self.psi_mod_x = psi_x * np.exp(-1j * self.KX[0,0] * self.X - 1j * self.KY[0,0] * self.Y) * dx_tilde * dx_tilde / (2 * np.pi)
 
     def _get_psi_x(self):
-        return self.psi_mod_x * np.exp(1j * KX[0,0] * X + 1j * KY[0,0] * Y) * 2 * np.pi / (dx_tilde * dx_tilde)
+        return self.psi_mod_x * np.exp(1j * self.KX[0,0] * self.X + 1j * self.KY[0,0] * self.Y) * 2 * np.pi / (dx_tilde * dx_tilde)
 
     def _set_fourier_psi_k(self, psi_k):
-        self.psi_mod_k = psi_k * np.exp(1j * X[0,0] * self.dkx_tilde * np.arange(N) + 1j * Y[0,0] * self.dkx_tilde * np.arange(N))
+        self.psi_mod_k = psi_k * np.exp(1j * self.X[0,0] * self.dkx_tilde * np.arange(N) + 1j * self.Y[0,0] * self.dkx_tilde * np.arange(N))
 
     def _get_psi_k(self):
-        return self.psi_mod_k * np.exp(-1j * X[0,0] * self.dkx_tilde * np.arange(N) - 1j * Y[0,0] * self.dkx_tilde * np.arange(N))
+        return self.psi_mod_k * np.exp(-1j * self.X[0,0] * self.dkx_tilde * np.arange(N) - 1j * self.Y[0,0] * self.dkx_tilde * np.arange(N))
 
     psi_x = property(_get_psi_x, _set_fourier_psi_x)
     psi_k = property(_get_psi_k, _set_fourier_psi_k)
-# =============================================================================
+# =======================================================================f======
 # Definition of the split steps
 # =============================================================================
     def n(self, psi):
@@ -104,17 +106,29 @@ class model:
     def time_evolution(self):
         np.random.seed()
         v = np.zeros(len(t))
-        for i in range(N_steps):
+        theta = np.zeros(len(t))
+        local_number = np.zeros((len(t), N//2))
+        for l in range(N_steps):
             self.psi_x *= self.prefactor_x(self.n(self.psi_x))
             self.psi_mod_k = fft2(self.psi_mod_x)
             self.psi_k *= self.prefactor_k()
             self.psi_mod_x = ifft2(self.psi_mod_k)
             self.psi_x *= self.prefactor_x(self.n(self.psi_x))
             self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N))) / self.damp
-            if i>=i1 and i<=i2 and i%every==0:
-                time_array_index = (i-i1)//every
-                v[time_array_index] = ext.vortices(time_array_index, x, t, np.angle(self.psi_x))
-        return v
+            if l>=i1 and l<=i2 and l%every==0:
+                print(l)
+                indices = []
+                time_array_index = (l-i1)//every
+                v[time_array_index], vortex_matrix = ext.vortices(time_array_index, x, t, np.angle(self.psi_x))
+                for rad in range(N//2):
+                    count = 0
+                    indices += isotropic_indices.get('r = ' + str(rad))
+                    print(indices)
+                    for index_pair in range(len(indices)):
+                        if vortex_matrix[indices[index_pair][0], indices[index_pair][1]] == 1:
+                            count += 1
+                    local_number[time_array_index, rad] = count
+        return v, local_number
 
 # =============================================================================
 # 
@@ -140,7 +154,7 @@ def names_subfolders(sigma_array, p_array):
     if save_folder in os.listdir(path):
         print(f'Folder "{save_folder}" exists.')
     else:
-        os.mkdir(save_folder)
+        #os.mkdir(save_folder)
         print(f'Folder "{save_folder}" succesfully created.')
     subfolders = {}
     for sigma in sigma_array:
@@ -148,7 +162,7 @@ def names_subfolders(sigma_array, p_array):
             subfolders['p=' + str(p), 'sigma=' + str(sigma)] = save_folder +  os.sep + 'spatial' + '_' + 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'om' + str(int(om_knob_array[0]))
     return subfolders
 
-subfolders = names_subfolders(sigma_array, p_array)
+#subfolders = names_subfolders(sigma_array, p_array)
 
 def vortices(i_batch, p, sigma, om_tilde, g_dim, gr_dim):
         v_batch = np.zeros(len(t))
@@ -163,8 +177,8 @@ def call_avg():
     for sigma in sigma_array:
         for p in p_array:
             v = np.zeros(len(t))
-            os.mkdir(subfolders['p=' + str(p), 'sigma=' + str(sigma)])
-            print('Starting vortices simulations for sigma = %.2f, p = %.1f' % (sigma, p))
+            #os.mkdir(subfolders['p=' + str(p), 'sigma=' + str(sigma)])
+            #print('Starting vortices simulations for sigma = %.2f, p = %.1f' % (sigma, p))
             parallel_map(vortices, range(n_batch), task_kwargs=dict(p=p, sigma=sigma, om_tilde=om_knob_array[0], g_dim=g_dim, gr_dim=gr_dim))
             for file in os.listdir(subfolders['p=' + str(p), 'sigma=' + str(sigma)]):
                 if 'correlation_spatial' in file:
@@ -176,4 +190,14 @@ def call_avg():
                 '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.dat', v)
     return None
 
-call_avg()
+import matplotlib.pyplot as pl
+gpe = model(p_array[0], sigma_array[0], om_knob_array[0], g_dim, gr_dim)
+v, local_number = gpe.time_evolution()
+
+pl.plot(t, v, c='black')
+pl.plot(t, local_number[:, 1], c='red')
+pl.plot(t, local_number[:, 2], c='cyan')
+pl.plot(t, local_number[:, 4], c='blue')
+pl.plot(t, local_number[:, 8], c='green')
+pl.plot(t, local_number[:, -1], c='green')
+pl.show()
