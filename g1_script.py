@@ -104,10 +104,6 @@ class model:
     def time_evolution(self):
         np.random.seed()
         center_indices = isotropic_indices.get('r = ' + str(0))
-        '''
-        psi_correlation_t = np.zeros(len(t), dtype = complex)
-        n_avg_t = np.zeros(len(t), dtype = complex)
-        '''
         psi_correlation = np.zeros((len(t), N//2), dtype = complex)
         n_avg = np.zeros((len(t), N//2), dtype = complex)
         for i in range(N_steps):
@@ -121,16 +117,9 @@ class model:
                 time_array_index = (i-i1)//every
                 if i == i1:
                     psi_x0t0 = self.psi_x[center_indices[0][0], center_indices[0][1]]
-                psi_correlation[time_array_index] =  ext.isotropic_avg(self.psi_x, psi_x0t0, 'psi correlation', **isotropic_indices)
-                n_avg[time_array_index] = ext.isotropic_avg(self.n(self.psi_x), None, 'density average', **isotropic_indices)
+                psi_correlation[time_array_index] =  ext.isotropic_avg('psi correlation', self.psi_x, psi_x0t0, **isotropic_indices)
+                n_avg[time_array_index] = ext.isotropic_avg('density average', self.n(self.psi_x), None, **isotropic_indices)
         return psi_correlation, n_avg
-    '''
-                psi_correlation_t[time_array_index] = np.conjugate(psi_x0t0) * self.psi_x[N//2, N//2] 
-                n_avg_t[time_array_index] = self.n(self.psi_x)[N//2, N//2]
-        psi_correlation_x = ext.isotropic_avg(self.psi_x, psi_x0t0, 'psi correlation', **isotropic_indices)
-        n_avg_x = ext.isotropic_avg(self.n(self.psi_x), None, 'density average', **isotropic_indices)
-        return psi_correlation_x, n_avg_x.real, psi_correlation_t, n_avg_t.real
-    '''
 
 # =============================================================================
 # Parallel tests
@@ -143,50 +132,17 @@ qutip.settings.num_cpus = n_batch
 
 sigma_array = np.array([1e-2])
 p_knob_array = np.array([2.])
-om_knob_array = np.array([1e9])
+om_array = np.array([1e9])
 p_array = p_knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
 gr_dim = 0
 g_dim = 0
 
-path = r'/scratch/konstantinos'
-final_save = r'/home6/konstantinos'
+path_remote = r'/scratch/konstantinos'
+final_save_remote = r'/home6/konstantinos'
+path_local = r'/Users/delis/Desktop'
+final_save_local = r'/Users/delis/Desktop'
 
-def names_subfolders(sigma_array, p_array):
-    save_folder = path + os.sep + 'ns' + str(int(ns_tilde)) + '_' + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
-    if save_folder in os.listdir(path):
-        print(f'Folder "{save_folder}" exists.')
-    else:
-        #os.mkdir(save_folder)
-        print(f'Folder "{save_folder}" is succesfully created.')
-    subfolders_spatial = {}
-    subfolders_temporal = {}
-    subfolders_full = {}
-    for sigma in sigma_array:
-        for p in p_array:
-            subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)] = save_folder +  os.sep + 'spatial' + '_' + 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'om' + str(int(om_knob_array[0]))
-            subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)] = save_folder + os.sep + 'temporal' + '_' + 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'om' + str(int(om_knob_array[0]))
-            subfolders_full['p=' + str(p), 'sigma=' + str(sigma)] = save_folder + os.sep + 'full' + '_' + 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'om' + str(int(om_knob_array[0]))
-    return subfolders_spatial, subfolders_temporal, subfolders_full
-
-subfolders_spatial, subfolders_temporal, subfolders_full = names_subfolders(sigma_array, p_array)
-
-def g1_separate(i_batch, p, sigma, om_tilde, g_dim, gr_dim):
-        correlation_x_batch = np.zeros(N//2, dtype = complex)
-        avg_dens_x_batch = np.zeros(N//2, dtype = complex)
-        correlation_t_batch = np.zeros(len(t), dtype = complex)
-        avg_dens_t_batch = np.zeros(len(t), dtype = complex)
-        for i_n in range(n_internal):
-            gpe = model(p, sigma, om_tilde, g_dim, gr_dim)
-            correlation_x_run, avg_dens_x_run, correlation_t_run, avg_dens_t_run = gpe.time_evolution()
-            correlation_x_batch += correlation_x_run / n_internal
-            avg_dens_x_batch += avg_dens_x_run / n_internal
-            correlation_t_batch += correlation_t_run / n_internal
-            avg_dens_t_batch += avg_dens_t_run / n_internal
-        np.save(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'correlation_spatial' + '_' +'core' + str(i_batch + 1) + '.npy', correlation_x_batch)
-        np.save(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'avg_density_spatial' + '_' + 'core' + str(i_batch + 1) + '.npy', avg_dens_x_batch)
-        np.save(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'correlation_temporal' + '_' +'core' + str(i_batch + 1) + '.npy', correlation_t_batch)
-        np.save(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'avg_density_temporal' + '_' + 'core' + str(i_batch + 1) + '.npy', avg_dens_t_batch)
-        return None
+subfolders = ext.names_subfolders(True, path_local, sigma_array, p_array, om_array, g_dim, gr_dim, gamma0_tilde, ns_tilde)
 
 def g1(i_batch, p, sigma, om_tilde, g_dim, gr_dim):
         correlation_batch = np.zeros((len(t), N//2), dtype = complex)
@@ -196,60 +152,29 @@ def g1(i_batch, p, sigma, om_tilde, g_dim, gr_dim):
             correlation_run, avg_dens_run = gpe.time_evolution()
             correlation_batch += correlation_run / n_internal
             avg_dens_batch += avg_dens_run / n_internal
-        np.save(subfolders_full['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'correlation' + '_' +'core' + str(i_batch + 1) + '.npy', correlation_batch)
-        np.save(subfolders_full['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'avg_density' + '_' + 'core' + str(i_batch + 1) + '.npy', avg_dens_batch)
+        np.save(subfolders['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'correlation' + '_' +'core' + str(i_batch + 1) + '.npy', correlation_batch)
+        np.save(subfolders['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'avg_density' + '_' + 'core' + str(i_batch + 1) + '.npy', avg_dens_batch)
         return None
 
-def call_avg(key):
-    if key == 'separate':
-        for sigma in sigma_array:
-            for p in p_array:
-                correlation_spatial = np.zeros((N//2), dtype = complex)
-                avg_dens_spatial = np.zeros((N//2), dtype = complex)
-                correlation_temporal = np.zeros(len(t), dtype = complex)
-                avg_dens_temporal = np.zeros(len(t), dtype = complex)
-                os.mkdir(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)])
-                os.mkdir(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)])
-                print('Starting spatial and temporal g1 simulations for sigma = %.2f, p = %.1f' % (sigma, p))
-                parallel_map(g1_separate, range(n_batch), task_kwargs=dict(p=p, sigma=sigma, om_tilde=om_knob_array[0], g_dim=g_dim, gr_dim=gr_dim))
-                for file in os.listdir(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)]):
-                    if 'correlation_spatial' in file:
-                        correlation_spatial += np.load(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
-                    elif 'avg_density_spatial' in file:
-                        avg_dens_spatial += np.load(subfolders_spatial['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
-                for file in os.listdir(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)]):
-                    if 'correlation_temporal' in file:
-                        correlation_temporal += np.load(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
-                    elif 'avg_density_temporal' in file:
-                        avg_dens_temporal += np.load(subfolders_temporal['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
-                np.save(final_save + os.sep + 'spatial' + 
-                    '_' + 'sigma' + str(sigma) + 
-                    '_' + 'p' + str(p) + 
-                    '_' + 'om' + str(int(om_knob_array[0])) + 
-                    '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', np.abs(correlation_spatial).real/np.sqrt(avg_dens_spatial[0].real * avg_dens_spatial.real))
-                np.save(final_save + os.sep + 'temporal' + 
-                    '_' + 'sigma' + str(sigma) + 
-                    '_' + 'p' + str(p) + 
-                    '_' + 'om' + str(int(om_knob_array[0])) + 
-                    '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', np.abs(correlation_temporal).real/np.sqrt(avg_dens_temporal[0].real * avg_dens_temporal.real))
-    elif key == 'full':
-        for sigma in sigma_array:
-            for p in p_array:
+def call_avg():
+    for sigma in sigma_array:
+        for p in p_array:
+            for om in om_array:
                 correlation = np.zeros((len(t), N//2), dtype = complex)
                 avg_dens = np.zeros((len(t), N//2), dtype = complex)
-                #os.mkdir(subfolders_full['p=' + str(p), 'sigma=' + str(sigma)])
-                #print('Starting full g1 simulations for sigma = %.2f, p = %.1f' % (sigma, p))
-                #parallel_map(g1, range(n_batch), task_kwargs=dict(p=p, sigma=sigma, om_tilde=om_knob_array[0], g_dim=g_dim, gr_dim=gr_dim))
-                for file in os.listdir(subfolders_full['p=' + str(p), 'sigma=' + str(sigma)]):
+                os.mkdir(subfolders['p=' + str(p), 'sigma=' + str(sigma)])
+                print('Starting full g1 simulations for sigma = %.2f, p = %.1f' % (sigma, p))
+                parallel_map(g1, range(n_batch), task_kwargs=dict(p=p, sigma=sigma, om_tilde=om, g_dim=g_dim, gr_dim=gr_dim))
+                for file in os.listdir(subfolders['p=' + str(p), 'sigma=' + str(sigma)]):
                     if 'correlation' in file:
-                        correlation += np.load(subfolders_full['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
+                        correlation += np.load(subfolders['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
                     elif 'avg_density' in file:
-                        avg_dens += np.load(subfolders_full['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
-                np.save(final_save + os.sep + 'g1' + 
+                        avg_dens += np.load(subfolders['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
+                np.save(final_save_remote + os.sep + 'g1' + 
                     '_' + 'sigma' + str(sigma) + 
                     '_' + 'p' + str(p) + 
-                    '_' + 'om' + str(int(om_knob_array[0])) + 
+                    '_' + 'om' + str(int(om)) + 
                     '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', np.abs(correlation).real/np.sqrt(avg_dens[0].real * avg_dens.real))
     return None
 
-call_avg('full')
+call_avg()

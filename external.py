@@ -43,46 +43,57 @@ def time(dt, N_steps, i1, i2, secondarystep):
             t[(i-i1)//secondarystep] = i*dt
     return t
 
-def vortices(index, x, t, phase):
+def names_subfolders(create, path, sigma_array, p_array, om_array, g_dim, gr_dim, gamma0_tilde, ns_tilde):
+    init = path + os.sep + 'ns' + str(int(ns_tilde)) + '_' + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
+    if create == True:
+        os.mkdir(init)
+    subfolders = {}
+    for sigma in sigma_array:
+        for p in p_array:
+            for om in om_array:
+                subfolders['p=' + str(p), 'sigma=' + str(sigma)] = init + os.sep + 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'om' + str(int(om))
+    return subfolders
+
+def vortices(x, phase):
     size = len(x)
     dx = x[1] - x[0]
-    X, Y = np.meshgrid(x, x)
     count_v = 0
     count_av = 0
-    grad = np.gradient(phase, dx)
-    v_pos = np.zeros((size, size))
-    av_pos = np.zeros((size, size))
-    for i in range(1, size-1):
-        for j in range(1, size-1):
-            loop = (2 * dx * (grad[0][j+1, i+1] - grad[1][j+1, i+1]) +
-                    2 * dx * (grad[0][j+1, i-1] + grad[1][j+1, i-1]) +
-                    2 * dx * (-grad[0][j-1, i-1] + grad[1][j-1, i-1]) +
-                    2 * dx * (-grad[0][j-1, i+1] - grad[1][j-1, i+1]) +
-                    2 * dx * (grad[0][j+1, i] + grad[1][j, i-1] - grad[0][j-1, i] - grad[1][j, i+1]))
-            if loop >= 2 * np.pi:
+    grad_y, grad_x = np.gradient(phase, dx, dx)
+    positions = np.zeros((size, size))
+    for y0 in range(1, size-1):
+        for x0 in range(1, size-1):
+            Cd = 2 * dx * (grad_x[y0 + 1, x0 - 1] + grad_x[y0 + 1, x0] + grad_x[y0 + 1, x0 + 1])
+            Cu = 2 * dx * (- grad_x[y0 - 1, x0 - 1] - grad_x[y0 - 1, x0] - grad_x[y0 - 1, x0 - 1])
+            Cl = 2 * dx * (grad_y[y0 - 1, x0 - 1] + grad_y[y0, x0 - 1] + grad_y[y0 + 1, x0 - 1])
+            Cr = 2 * dx * (- grad_y[y0 + 1, x0 + 1] - grad_y[y0, x0 + 1] - grad_y[y0 - 1, x0 + 1])
+            loop = Cd + Cu + Cl + Cr
+            if (np.abs(loop) % (2 * np.pi) >= 0.95) and (np.abs(loop) % (2 * np.pi) <= 1.05) and loop > 0 :
                 count_v += 1
-                v_pos[i, j] = 1
-            elif loop <= - 2 * np.pi:
-                count_av +=1
-                av_pos[i, j] = 1
-    '''
-    xv = np.array([x[i] for i in range(size) for j in range(size) if v_pos[i,j]==1])
-    yv = np.array([x[j] for i in range(size) for j in range(size) if v_pos[i,j]==1])
-    xav = np.array([x[i] for i in range(size) for j in range(size) if av_pos[i,j]==1])
-    yav = np.array([x[j] for i in range(size) for j in range(size) if av_pos[i,j]==1])
-    fig,ax = pl.subplots(1,1, figsize=(10, 8))
-    ax.plot(xv, yv, 'go', markersize=6)
-    ax.plot(xav, yav, 'ro', markersize=6)
-    ax.set_xlim(x[0], x[-1])
-    ax.set_ylim(x[0], x[-1])
-    im = ax.pcolormesh(X, Y, phase, vmin = -np.pi, vmax = np.pi, cmap='Greys')
-    pl.colorbar(im)
-    pl.title(r't = %.2f' % t[index])
-    pl.savefig('/Users/delis/Desktop/vortices' + os.sep + 'fig' + str(index) + '.jpg', format='jpg')
-    pl.show()
-    '''
+                positions[y0, x0] = 1
+            if (np.abs(loop) % (2 * np.pi) >= 0.95) and (np.abs(loop) % (2 * np.pi) <= 1.05) and loop < 0 :
+                count_av += 1
+                positions[y0, x0] = -1
     total_number = count_v + count_av
-    return total_number, v_pos + av_pos
+    return total_number, positions
+
+def vortex_plots(x, t, index, positions, phase):
+    size = len(x)
+    X, Y = np.meshgrid(x, x, indexing='ij')
+    fig,ax = pl.subplots(1,1, figsize=(10, 8))
+    for y0 in range(size):
+        for x0 in range(size):
+            if positions[y0, x0] == 1:
+                ax.plot(x[y0], x[x0], 'go')
+            elif positions[y0, x0] == -1:
+                ax.plot(x[y0], x[x0], 'bo')
+    ax.plot(x[size//2], x[size//2], 'ro', markersize=4)
+    im = pl.pcolormesh(X, Y, phase, vmin = -np.pi, vmax = np.pi, cmap = 'twilight')
+    pl.colorbar(im)
+    pl.title(r't = %.1f' % t[index])
+    pl.savefig('/Users/delis/Desktop/vortices' + os.sep + 'fig' + str(index) + '.jpg', format='jpg')
+    pl.close();
+    return None
 
 def get_indices(x):
     indices = {}
@@ -97,15 +108,35 @@ def get_indices(x):
                     indices['r = ' + str(rad_count)] = l
     return indices
 
-def isotropic_avg(matrix, center, obs, **args):
+def isotropic_avg(key, matrix, center, **args):
     N = len(matrix[0])
     avg = np.zeros(N//2, dtype=complex)
     for rad in range(N//2):
         indices = args.get('r = ' + str(rad))
-        if obs == 'psi correlation':
+        if key == 'psi correlation':
             for i in range(len(indices)):
                 avg[rad] += np.conjugate(center) * matrix[indices[i][0], indices[i][1]] / len(indices)
-        elif obs == 'density average':
+        elif key == 'density average':
             for i in range(len(indices)):
                 avg[rad] += matrix[indices[i][0], indices[i][1]] / len(indices)
     return avg
+
+def unwinding(theta_wound_new, theta_wound_old, theta_unwound_old, cutoff):
+    if type(theta_wound_new) is np.float64:
+        length = 1
+        theta_unwound_new = np.zeros(length)
+        deltatheta = theta_wound_new - theta_wound_old
+        if abs(deltatheta) > cutoff * 2 * np.pi:
+            theta_unwound_new = theta_unwound_old + deltatheta - np.sign(deltatheta) * 2 * np.pi
+        else:
+            theta_unwound_new = theta_unwound_old + deltatheta
+    else:
+        length = len(theta_wound_new)
+        theta_unwound_new = np.zeros(length)
+        for i in range(length):
+            deltatheta = theta_wound_new [i]- theta_wound_old[i]
+            if abs(deltatheta) > cutoff * 2 * np.pi:
+                theta_unwound_new[i] = theta_unwound_old[i] + deltatheta - np.sign(deltatheta) * 2 * np.pi
+            else:
+                theta_unwound_new[i] = theta_unwound_old[i] + deltatheta
+    return theta_unwound_new
