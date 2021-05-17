@@ -36,8 +36,8 @@ print('Kc = %.4f' % Kc)
 # =============================================================================
 # 
 # =============================================================================
-N = 2 ** 6
-L_tilde = 2 ** 6
+N = 2 ** 3
+L_tilde = 2 ** 3
 dx_tilde = 0.5
 
 N_steps = 500000
@@ -142,7 +142,7 @@ final_save_remote = r'/home6/konstantinos'
 path_local = r'/Users/delis/Desktop'
 final_save_local = r'/Users/delis/Desktop'
 
-subfolders = ext.names_subfolders(True, path_local, sigma_array, p_array, om_array, g_dim, gr_dim, gamma0_tilde, ns_tilde)
+#subfolders = ext.names_subfolders(True, path_local, sigma_array, p_array, om_array, g_dim, gr_dim, gamma0_tilde, ns_tilde)
 
 def g1(i_batch, p, sigma, om_tilde, g_dim, gr_dim):
         correlation_batch = np.zeros((len(t), N//2), dtype = complex)
@@ -177,4 +177,4 @@ def call_avg():
                     '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', np.abs(correlation).real/np.sqrt(avg_dens[0].real * avg_dens.real))
     return None
 
-call_avg()
+#call_avg()

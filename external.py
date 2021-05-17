@@ -5,7 +5,7 @@ Created on Fri Aug 30 11:03:50 2019
 
 @author: delis
 """
-
+from scipy.interpolate import griddata
 import os
 import numpy as np
 import matplotlib.pyplot as pl
@@ -54,45 +54,136 @@ def names_subfolders(create, path, sigma_array, p_array, om_array, g_dim, gr_dim
                 subfolders['p=' + str(p), 'sigma=' + str(sigma)] = init + os.sep + 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'om' + str(int(om))
     return subfolders
 
-def vortices(x, phase):
-    size = len(x)
+def vortices(a, theta, x, y):
+    # The integral should be calculated counter clock wise. 
+    #   D------I3------C
+    #   |              |
+    #   |              |
+    #   |              |
+    #   I4  (xc, yc)  I2,       I = I1 + I2 + I3 + I4
+    #   |              |
+    #   |              |
+    #   |              |
+    #   A------I1------B
+    #   <-----2a------->
     dx = x[1] - x[0]
-    count_v = 0
-    count_av = 0
-    grad_y, grad_x = np.gradient(phase, dx, dx)
-    positions = np.zeros((size, size))
-    for y0 in range(1, size-1):
-        for x0 in range(1, size-1):
-            Cd = 2 * dx * (grad_x[y0 + 1, x0 - 1] + grad_x[y0 + 1, x0] + grad_x[y0 + 1, x0 + 1])
-            Cu = 2 * dx * (- grad_x[y0 - 1, x0 - 1] - grad_x[y0 - 1, x0] - grad_x[y0 - 1, x0 - 1])
-            Cl = 2 * dx * (grad_y[y0 - 1, x0 - 1] + grad_y[y0, x0 - 1] + grad_y[y0 + 1, x0 - 1])
-            Cr = 2 * dx * (- grad_y[y0 + 1, x0 + 1] - grad_y[y0, x0 + 1] - grad_y[y0 - 1, x0 + 1])
-            loop = Cd + Cu + Cl + Cr
-            if (np.abs(loop) % (2 * np.pi) >= 0.95) and (np.abs(loop) % (2 * np.pi) <= 1.05) and loop > 0 :
-                count_v += 1
-                positions[y0, x0] = 1
-            if (np.abs(loop) % (2 * np.pi) >= 0.95) and (np.abs(loop) % (2 * np.pi) <= 1.05) and loop < 0 :
-                count_av += 1
-                positions[y0, x0] = -1
-    total_number = count_v + count_av
-    return total_number, positions
+    N = len(x)
+    loops = np.zeros((N, N))
+    positions = np.zeros((N, N))
+    for i in range(0, N//2, 2 * int(a/dx) + 1):
+        col = N//2 + i
+        for j in range(0, N//2, 2 * int(a/dx) + 1):
+            for row in [N//2 + j, N//2 - j]:
+                x0 = x[col]
+                y0 = y[row]
+                thetaplus  = theta[np.where(abs(y - y0) <= a)[0][0],  np.where(abs(x - x0) <= a)[0][-2]]
+                thetaminus = theta[np.where(abs(y - y0) <= a)[0][0],  np.where(abs(x - x0) <= a)[0][1]]
+                if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.7:
+                    thetaplus -= 2 * np.pi * np.sign(thetaplus - thetaminus)
+                I1 = thetaplus - thetaminus
+                thetaplus  = theta[np.where(abs(y - y0) <= a)[0][-2],  np.where(abs(x - x0) <= a)[0][-1]]
+                thetaminus = theta[np.where(abs(y - y0) <= a)[0][1],  np.where(abs(x - x0) <= a)[0][-1]]
+                if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.7:
+                    thetaplus -= 2 * np.pi * np.sign(thetaplus - thetaminus)
+                I2 = thetaplus - thetaminus
+                thetaplus  = theta[np.where(abs(y - y0) <= a)[0][-1],  np.where(abs(x - x0) <= a)[0][1]]
+                thetaminus = theta[np.where(abs(y - y0) <= a)[0][-1],  np.where(abs(x - x0) <= a)[0][-2]]
+                if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.7:
+                    thetaplus -= 2 * np.pi * np.sign(thetaplus - thetaminus)
+                I3 = thetaplus - thetaminus
+                thetaplus  = theta[np.where(abs(y - y0) <= a)[0][1],  np.where(abs(x - x0) <= a)[0][0]]
+                thetaminus = theta[np.where(abs(y - y0) <= a)[0][-2],  np.where(abs(x - x0) <= a)[0][0]]
+                if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.7:
+                    thetaplus -= 2 * np.pi * np.sign(thetaplus - thetaminus)
+                I4 = thetaplus - thetaminus
+                I = (I1 + I2 + I3 + I4) / (2 * np.pi)
+                loops[row ,col] = I 
+                if np.abs(I) > 0.25 and np.abs(I) < 1.:
+                    positions[row, col] = np.sign(I)
+    for i in range(0, N//2, 2 * int(a/dx) + 1):
+        if i!= 0 :
+            col = N//2 - i
+            for j in range(0, N//2, 2 * int(a/dx) + 1):
+                for row in [N//2 + j, N//2 - j]:
+                    x0 = x[col]
+                    y0 = y[row]
+                    thetaplus  = theta[np.where(abs(y - y0) <= a)[0][0],  np.where(abs(x - x0) <= a)[0][-2]]
+                    thetaminus = theta[np.where(abs(y - y0) <= a)[0][0],  np.where(abs(x - x0) <= a)[0][1]]
+                    if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.7:
+                        thetaplus -= 2 * np.pi * np.sign(thetaplus - thetaminus)
+                    I1 = thetaplus - thetaminus
+                    thetaplus  = theta[np.where(abs(y - y0) <= a)[0][-2],  np.where(abs(x - x0) <= a)[0][-1]]
+                    thetaminus = theta[np.where(abs(y - y0) <= a)[0][1],  np.where(abs(x - x0) <= a)[0][-1]]
+                    if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.7:
+                        thetaplus -= 2 * np.pi * np.sign(thetaplus - thetaminus)
+                    I2 = thetaplus - thetaminus
+                    thetaplus  = theta[np.where(abs(y - y0) <= a)[0][-1],  np.where(abs(x - x0) <= a)[0][1]]
+                    thetaminus = theta[np.where(abs(y - y0) <= a)[0][-1],  np.where(abs(x - x0) <= a)[0][-2]]
+                    if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.7:
+                        thetaplus -= 2 * np.pi * np.sign(thetaplus - thetaminus)
+                    I3 = thetaplus - thetaminus
+                    thetaplus  = theta[np.where(abs(y - y0) <= a)[0][1],  np.where(abs(x - x0) <= a)[0][0]]
+                    thetaminus = theta[np.where(abs(y - y0) <= a)[0][-2],  np.where(abs(x - x0) <= a)[0][0]]
+                    if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.7:
+                        thetaplus -= 2 * np.pi * np.sign(thetaplus - thetaminus)
+                    I4 = thetaplus - thetaminus
+                    I = (I1 + I2 + I3 + I4) / (2 * np.pi)
+                    loops[row, col] = I 
+                    if np.abs(I) > 0.25 and np.abs(I) < 1.:
+                        positions[row, col] = np.sign(I)
+    return positions, loops
 
-def vortex_plots(x, t, index, positions, phase):
-    size = len(x)
-    X, Y = np.meshgrid(x, x, indexing='ij')
-    fig,ax = pl.subplots(1,1, figsize=(10, 8))
-    for y0 in range(size):
-        for x0 in range(size):
-            if positions[y0, x0] == 1:
-                ax.plot(x[y0], x[x0], 'go')
-            elif positions[y0, x0] == -1:
-                ax.plot(x[y0], x[x0], 'bo')
-    ax.plot(x[size//2], x[size//2], 'ro', markersize=4)
-    im = pl.pcolormesh(X, Y, phase, vmin = -np.pi, vmax = np.pi, cmap = 'twilight')
-    pl.colorbar(im)
-    pl.title(r't = %.1f' % t[index])
-    pl.savefig('/Users/delis/Desktop/vortices' + os.sep + 'fig' + str(index) + '.jpg', format='jpg')
-    pl.close();
+'''
+            delta = 0
+            fig, ax = pl.subplots(1,1, figsize=(10, 10))
+            for n in range(2 * int(a / dx) + 1):
+                ax.plot(delta, theta[np.where(y0 - y == a)[0][0],  np.where(abs(x0 - x) <= a)[0][n]], 'ro', markersize=5)
+                delta += dx
+                print(theta[np.where(y0 - y == a)[0][0],  np.where(abs(x0 - x) <= a)[0][n]])
+            print('Next side')
+            for n in range(1, 2 * int(a / dx) + 1):
+                ax.plot(delta, theta[np.where(abs(y0 - y) <= a)[0][n],  np.where(x0 - x == - a)[0][0]], 'bo', markersize=5)
+                delta += dx
+                print(theta[np.where(abs(y0 - y) <= a)[0][n],  np.where(x0 - x == - a)[0][0]])
+            print('Next side')
+            for n in range(1, 2 * int(a / dx) + 1):
+                ax.plot(delta, theta[np.where(y0 - y == - a)[0][0],  np.where(abs(x - x0) <= a)[0][2 * int(a / dx) - n]], 'go', markersize=5)
+                delta += dx
+                print(theta[np.where(y0 - y == - a)[0][0],  np.where(abs(x - x0) <= a)[0][2 * int(a / dx) - n]])
+            print('Next side')
+            for n in range(1, 2 * int(a / dx) + 1):
+                ax.plot(delta, theta[np.where(abs(y0 - y) <= a)[0][2 * int(a / dx) - n], np.where(x0 - x == a)[0][0]], 'yo', markersize=5)
+                delta += dx
+                print(theta[np.where(abs(y0 - y) <= a)[0][2 * int(a / dx) - n], np.where(x0 - x == a)[0][0]])
+            ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
+            pl.show()
+'''
+
+def vortex_plots(x, t, index, vortex_positions, phase, density):
+    path = '/Users/delis/Desktop/vortices'
+    X, Y = np.meshgrid(x, x, indexing='xy')
+    fig, ax = pl.subplots(2, 1, sharex=True, sharey=True, figsize=(10, 12))
+    im1 = ax[0].pcolormesh(X, Y, phase, vmin = -np.pi, vmax = np.pi, cmap='twilight')
+    ax[0].plot(x[np.where(vortex_positions == 1)[1]], x[np.where(vortex_positions == 1)[0]], 'go', markersize=12)
+    ax[0].plot(x[np.where(vortex_positions == -1)[1]], x[np.where(vortex_positions == -1)[0]], 'bo', markersize=12)
+    ax[0].set_xlabel(r'$x$', fontsize=  20)
+    ax[0].set_ylabel(r'$y$', fontsize = 20)
+    ax[0].tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
+    cbar1 = pl.colorbar(im1, ax = ax[0])
+    cbar1.ax.tick_params(labelsize=16)
+    cbar1.ax.set_ylabel(r'$\theta(x,y)$', fontsize = 20)
+    im2 = ax[1].pcolormesh(X, Y, density, vmin = 0.2 * np.mean(density), vmax = 2 * np.mean(density), cmap='RdBu_r')
+    ax[1].plot(x[np.where(vortex_positions == 1)[1]], x[np.where(vortex_positions == 1)[0]], 'go', markersize=12)
+    ax[1].plot(x[np.where(vortex_positions == -1)[1]], x[np.where(vortex_positions == -1)[0]], 'bo', markersize=12)
+    ax[1].set_xlabel(r'$x$', fontsize = 20)
+    ax[1].set_ylabel(r'$y$', fontsize = 20)
+    ax[1].tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
+    cbar2 = pl.colorbar(im2, ax=ax[1])
+    cbar2.ax.tick_params(labelsize=16)
+    cbar2.ax.set_ylabel(r'n(x,y)', fontsize = 20)
+    fig.suptitle(r't = %.1f' % t[index], fontsize=16)
+    pl.savefig(path + os.sep + 'fig' + str(index) + '.jpg', format='jpg')
+    pl.close()
     return None
 
 def get_indices(x):
@@ -122,21 +213,12 @@ def isotropic_avg(key, matrix, center, **args):
     return avg
 
 def unwinding(theta_wound_new, theta_wound_old, theta_unwound_old, cutoff):
-    if type(theta_wound_new) is np.float64:
-        length = 1
-        theta_unwound_new = np.zeros(length)
-        deltatheta = theta_wound_new - theta_wound_old
+    length = len(theta_wound_new)
+    theta_unwound_new = np.zeros(length)
+    for i in range(length):
+        deltatheta = theta_wound_new [i]- theta_wound_old[i]
         if abs(deltatheta) > cutoff * 2 * np.pi:
-            theta_unwound_new = theta_unwound_old + deltatheta - np.sign(deltatheta) * 2 * np.pi
+            theta_unwound_new[i] = theta_unwound_old[i] + deltatheta - np.sign(deltatheta) * 2 * np.pi
         else:
-            theta_unwound_new = theta_unwound_old + deltatheta
-    else:
-        length = len(theta_wound_new)
-        theta_unwound_new = np.zeros(length)
-        for i in range(length):
-            deltatheta = theta_wound_new [i]- theta_wound_old[i]
-            if abs(deltatheta) > cutoff * 2 * np.pi:
-                theta_unwound_new[i] = theta_unwound_old[i] + deltatheta - np.sign(deltatheta) * 2 * np.pi
-            else:
-                theta_unwound_new[i] = theta_unwound_old[i] + deltatheta
+            theta_unwound_new[i] = theta_unwound_old[i] + deltatheta
     return theta_unwound_new
