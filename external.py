@@ -27,12 +27,15 @@ def dimensional_units(**args):
     return None
 
 def space_momentum(N, dx_tilde):
+    '''
     dkx_tilde = 2 * np.pi / (N * dx_tilde)
-    x_0 = - N * dx_tilde / 2
     kx0 = - np.pi / dx_tilde
-    x = x_0 + dx_tilde * np.arange(N)
     kx = kx0 + dkx_tilde * np.arange(N)
-    return x, kx
+    '''
+    x_0 = - N * dx_tilde / 2
+    x = x_0 + dx_tilde * np.arange(N)
+    y = x
+    return x, y
 
 def time(dt, N_steps, i1, i2, secondarystep):
     lengthindex = i2-i1
@@ -43,15 +46,16 @@ def time(dt, N_steps, i1, i2, secondarystep):
             t[(i-i1)//secondarystep] = i*dt
     return t
 
-def names_subfolders(create, path, sigma_array, p_array, om_array, g_dim, gr_dim, gamma0_tilde, ns_tilde):
-    init = path + os.sep + 'ns' + str(int(ns_tilde)) + '_' + 'g' + str(g_dim)+ '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde)
-    if create == True:
+def names_subfolders(keyword, path, sigma_array, p_array, gamma2_array, gamma0_array, g, ns):
+    init = path + os.sep + 'ns' + str(int(ns)) + '_' + 'g' + str(g)
+    if keyword == True:
         os.mkdir(init)
     subfolders = {}
     for sigma in sigma_array:
         for p in p_array:
-            for om in om_array:
-                subfolders['p=' + str(p), 'sigma=' + str(sigma)] = init + os.sep + 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'om' + str(int(om))
+            for gamma2 in gamma2_array:
+                for gamma0 in gamma0_array:
+                    subfolders['p=' + str(p), 'sigma=' + str(sigma), 'gamma2=' + str(gamma2), 'gamma0=' + str(gamma0)] = init + os.sep + 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_' + 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0) 
     return subfolders
 
 def vortices(a, theta, x, y):
@@ -133,34 +137,7 @@ def vortices(a, theta, x, y):
                         positions[row, col] = np.sign(I)
     return positions, loops
 
-'''
-            delta = 0
-            fig, ax = pl.subplots(1,1, figsize=(10, 10))
-            for n in range(2 * int(a / dx) + 1):
-                ax.plot(delta, theta[np.where(y0 - y == a)[0][0],  np.where(abs(x0 - x) <= a)[0][n]], 'ro', markersize=5)
-                delta += dx
-                print(theta[np.where(y0 - y == a)[0][0],  np.where(abs(x0 - x) <= a)[0][n]])
-            print('Next side')
-            for n in range(1, 2 * int(a / dx) + 1):
-                ax.plot(delta, theta[np.where(abs(y0 - y) <= a)[0][n],  np.where(x0 - x == - a)[0][0]], 'bo', markersize=5)
-                delta += dx
-                print(theta[np.where(abs(y0 - y) <= a)[0][n],  np.where(x0 - x == - a)[0][0]])
-            print('Next side')
-            for n in range(1, 2 * int(a / dx) + 1):
-                ax.plot(delta, theta[np.where(y0 - y == - a)[0][0],  np.where(abs(x - x0) <= a)[0][2 * int(a / dx) - n]], 'go', markersize=5)
-                delta += dx
-                print(theta[np.where(y0 - y == - a)[0][0],  np.where(abs(x - x0) <= a)[0][2 * int(a / dx) - n]])
-            print('Next side')
-            for n in range(1, 2 * int(a / dx) + 1):
-                ax.plot(delta, theta[np.where(abs(y0 - y) <= a)[0][2 * int(a / dx) - n], np.where(x0 - x == a)[0][0]], 'yo', markersize=5)
-                delta += dx
-                print(theta[np.where(abs(y0 - y) <= a)[0][2 * int(a / dx) - n], np.where(x0 - x == a)[0][0]])
-            ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
-            pl.show()
-'''
-
-def vortex_plots(x, t, index, vortex_positions, phase, density):
-    path = '/Users/delis/Desktop/vortices'
+def vortex_plots(folder, x, t, index, vortex_positions, phase, density):
     X, Y = np.meshgrid(x, x, indexing='xy')
     fig, ax = pl.subplots(2, 1, sharex=True, sharey=True, figsize=(10, 12))
     im1 = ax[0].pcolormesh(X, Y, phase, vmin = -np.pi, vmax = np.pi, cmap='twilight')
@@ -182,7 +159,7 @@ def vortex_plots(x, t, index, vortex_positions, phase, density):
     cbar2.ax.tick_params(labelsize=16)
     cbar2.ax.set_ylabel(r'n(x,y)', fontsize = 20)
     fig.suptitle(r't = %.1f' % t[index], fontsize=16)
-    pl.savefig(path + os.sep + 'fig' + str(index) + '.jpg', format='jpg')
+    pl.savefig(folder + os.sep + 'fig' + str(index) + '.jpg', format='jpg')
     pl.close()
     return None
 
@@ -199,15 +176,15 @@ def get_indices(x):
                     indices['r = ' + str(rad_count)] = l
     return indices
 
-def isotropic_avg(key, matrix, center, **args):
+def isotropic_avg(keyword, matrix, center, **args):
     N = len(matrix[0])
     avg = np.zeros(N//2, dtype=complex)
     for rad in range(N//2):
         indices = args.get('r = ' + str(rad))
-        if key == 'psi correlation':
+        if keyword == 'psi correlation':
             for i in range(len(indices)):
                 avg[rad] += np.conjugate(center) * matrix[indices[i][0], indices[i][1]] / len(indices)
-        elif key == 'density average':
+        elif keyword == 'density average':
             for i in range(len(indices)):
                 avg[rad] += matrix[indices[i][0], indices[i][1]] / len(indices)
     return avg

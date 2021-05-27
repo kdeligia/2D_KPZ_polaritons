@@ -10,9 +10,9 @@ c = 3e2 #μm/ps
 hbar = 6.582119569 * 1e2 # μeV ps
 
 import os
-from scipy.fftpack import fft2, ifft2
 import numpy as np
 import external as ext
+from scipy.fftpack import fft2, ifft2
 
 hatt = 1 # ps
 hatx = 1 # μm
@@ -21,23 +21,22 @@ hatrho = 1/hatx**2 # μm^-2
 hatepsilon = hbar/hatt # μeV
 melectron = 0.510998950 * 1e12 / c**2 # μeV/(μm^2/ps^2)
 
+'''
+m_tilde = 6.2e-5
+gamma0_tilde = 0.22
+gammar_tilde = gamma0_tilde * 0.1
+P_tilde = gamma0_tilde * 500
+R_tilde = gammar_tilde / 500
+'''
+
 m_tilde = 3.8e-5 * 3
 m_dim = m_tilde * melectron
-gamma0_tilde = 0.2 * 100
-gammar_tilde = gamma0_tilde * 0.1
-P_tilde = gamma0_tilde * 1
-R_tilde = gammar_tilde / 1
-ns_tilde = gammar_tilde / R_tilde
-Kc = hbar**2 / (2 * m_dim * hatepsilon * hatx**2)
-
-print('ns = %.i' % (ns_tilde * hatrho))
-print('Kc = %.4f' % Kc)
+Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx**2)
 
 # =============================================================================
 # 
 # =============================================================================
-N = 2 ** 3
-L_tilde = 2 ** 3
+N = 2 ** 7
 dx_tilde = 0.5
 
 N_steps = 500000
@@ -46,57 +45,52 @@ every = 500
 i1 = 20000
 i2 = N_steps
 lengthwindow = i2-i1
-
 t = ext.time(dt_tilde, N_steps, i1, i2, every)
-x, kx =  ext.space_momentum(N, dx_tilde)
+
+x, y = ext.space_momentum(N, dx_tilde)
 isotropic_indices = ext.get_indices(x)
 
+kx = (2*np.pi)/dx_tilde * np.fft.fftfreq(N, d=1)
+ky = (2*np.pi)/dx_tilde * np.fft.fftfreq(N, d=1)
+
 class model:
-    def __init__(self, p, sigma, om_tilde, g_dim, gr_dim, psi_x=0):
-        self.X, self.Y = np.meshgrid(x, x)
-        self.KX, self.KY = np.meshgrid(kx, kx)
-        self.dkx_tilde = kx[1] - kx[0]
-        self.p = p
+    def __init__(self, p, sigma, gamma2, gamma0, g, gr, ns):
+        self.KX, self.KY = np.meshgrid(kx, ky, sparse=True)
+        self.gamma2_tilde = gamma2  * hatt / hatx **2
+        self.gamma0_tilde = gamma0 * hatt
+        self.gammar_tilde = 0.1 * self.gamma0_tilde
+        
+        self.Kd = self.gamma2_tilde / 2
+        self.g_tilde = g * hatrho / hatepsilon
+        self.gr_tilde = gr * hatrho / hatepsilon
+        
+        self.R_tilde = self.gammar_tilde / ns
+        self.ns_tilde = self.gammar_tilde / self.R_tilde
+        self.P_tilde = p * self.gamma0_tilde * self.ns_tilde
+        self.p = self.P_tilde * self. R_tilde / (self.gamma0_tilde * self.gammar_tilde)
         self.sigma = sigma
-        self.om_tilde = om_tilde
-        self.g_tilde = g_dim * hatrho / hatepsilon
-        self.gr_tilde = gr_dim * hatrho / hatepsilon
-        self.damp = 1 + 2 * self.p * self.gr_tilde / (R_tilde * self.om_tilde) + self.p / (2 * self.om_tilde) * 1j 
-        self.psi_x = psi_x
-        self.psi_x = np.full((N, N), 0.01**(1/2))
+
+        self.initcond = np.full((N,N), 5)
+        rot = np.ones((N, N), dtype = complex)
+        self.psi_x = rot * self.initcond
         self.psi_x /= hatpsi
-        self.psi_mod_k = fft2(self.psi_mod_x)
 
-    def _set_fourier_psi_x(self, psi_x):
-        self.psi_mod_x = psi_x * np.exp(-1j * self.KX[0,0] * self.X - 1j * self.KY[0,0] * self.Y) * dx_tilde * dx_tilde / (2 * np.pi)
-
-    def _get_psi_x(self):
-        return self.psi_mod_x * np.exp(1j * self.KX[0,0] * self.X + 1j * self.KY[0,0] * self.Y) * 2 * np.pi / (dx_tilde * dx_tilde)
-
-    def _set_fourier_psi_k(self, psi_k):
-        self.psi_mod_k = psi_k * np.exp(1j * self.X[0,0] * self.dkx_tilde * np.arange(N) + 1j * self.Y[0,0] * self.dkx_tilde * np.arange(N))
-
-    def _get_psi_k(self):
-        return self.psi_mod_k * np.exp(-1j * self.X[0,0] * self.dkx_tilde * np.arange(N) - 1j * self.Y[0,0] * self.dkx_tilde * np.arange(N))
-
-    psi_x = property(_get_psi_x, _set_fourier_psi_x)
-    psi_k = property(_get_psi_k, _set_fourier_psi_k)
 # =============================================================================
 # Definition of the split steps
 # =============================================================================
     def n(self, psi):
         return (psi * np.conjugate(psi)).real
 
-    def prefactor_x(self, n):
+    def exp_x(self, dt, n):
         if self.g_tilde == 0:
             self.uc_tilde = 0
         else:
-            self.uc_tilde = self.g_tilde * (n + 2 * self.p * (self.gr_tilde / self.g_tilde) * (gamma0_tilde / R_tilde) * (1 / (1 + n / ns_tilde)))
-        self.rd_tilde = (gamma0_tilde / 2) * (self.p / (1 + n / ns_tilde) - 1)
-        return np.exp(-1j * 0.5 * dt_tilde * (self.uc_tilde + 1j * self.rd_tilde) / self.damp)
+            self.uc_tilde = self.g_tilde * (n + 2 * self.p * (self.gr_tilde / self.g_tilde) * (self.gamma0_tilde / self.R_tilde) * (1 / (1 + n / self.ns_tilde)))
+        self.rd_tilde = (self.gamma0_tilde / 2) * (self.p / (1 + n / self.ns_tilde) - 1)
+        return np.exp(-1j * dt * (self.uc_tilde + 1j * self.rd_tilde))
 
-    def prefactor_k(self):
-        return np.exp(-1j * dt_tilde * (self.KX ** 2 + self.KY ** 2) * Kc / self.damp)
+    def exp_k(self, dt):
+        return np.exp(-1j * dt * (self.KX ** 2 + self.KY ** 2) * (Kc - 1j * self.Kd))
 
 # =============================================================================
 # Time evolution
@@ -107,12 +101,12 @@ class model:
         psi_correlation = np.zeros((len(t), N//2), dtype = complex)
         n_avg = np.zeros((len(t), N//2), dtype = complex)
         for i in range(N_steps):
-            self.psi_x *= self.prefactor_x(self.n(self.psi_x))
-            self.psi_mod_k = fft2(self.psi_mod_x)
-            self.psi_k *= self.prefactor_k()
-            self.psi_mod_x = ifft2(self.psi_mod_k)
-            self.psi_x *= self.prefactor_x(self.n(self.psi_x))
-            self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N))) / self.damp
+            self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
+            psi_k = fft2(self.psi_x)
+            psi_k *= self.exp_k(dt_tilde)
+            self.psi_x = ifft2(psi_k)
+            self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
+            self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N)))
             if i>=i1 and i<=i2 and i%every==0:
                 time_array_index = (i-i1)//every
                 if i == i1:
@@ -125,56 +119,61 @@ class model:
 # Parallel tests
 # =============================================================================
 from qutip import *
-parallel_tasks = 512
+parallel_tasks = 256
 n_batch = 64
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
 sigma_array = np.array([1e-2])
-p_knob_array = np.array([2.])
-om_array = np.array([1e9])
-p_array = p_knob_array * P_tilde * R_tilde / (gamma0_tilde * gammar_tilde)
-gr_dim = 0
-g_dim = 0
+p_array = np.array([2.0])
+gamma2_array = np.array([1e-10])
+gamma0_array = np.array([20])
+gr = 0
+g = 0
+ns = 1
 
 path_remote = r'/scratch/konstantinos'
 final_save_remote = r'/home6/konstantinos'
 path_local = r'/Users/delis/Desktop'
 final_save_local = r'/Users/delis/Desktop'
 
-#subfolders = ext.names_subfolders(True, path_local, sigma_array, p_array, om_array, g_dim, gr_dim, gamma0_tilde, ns_tilde)
+subfolders = ext.names_subfolders(True, path_remote, sigma_array, p_array, gamma2_array, gamma0_array, g, ns)
 
-def g1(i_batch, p, sigma, om_tilde, g_dim, gr_dim):
-        correlation_batch = np.zeros((len(t), N//2), dtype = complex)
-        avg_dens_batch = np.zeros((len(t), N//2), dtype = complex)
-        for i_n in range(n_internal):
-            gpe = model(p, sigma, om_tilde, g_dim, gr_dim)
-            correlation_run, avg_dens_run = gpe.time_evolution()
-            correlation_batch += correlation_run / n_internal
-            avg_dens_batch += avg_dens_run / n_internal
-        np.save(subfolders['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'correlation' + '_' +'core' + str(i_batch + 1) + '.npy', correlation_batch)
-        np.save(subfolders['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + 'avg_density' + '_' + 'core' + str(i_batch + 1) + '.npy', avg_dens_batch)
-        return None
-
-def call_avg():
-    for sigma in sigma_array:
-        for p in p_array:
-            for om in om_array:
-                correlation = np.zeros((len(t), N//2), dtype = complex)
-                avg_dens = np.zeros((len(t), N//2), dtype = complex)
-                os.mkdir(subfolders['p=' + str(p), 'sigma=' + str(sigma)])
-                print('Starting full g1 simulations for sigma = %.2f, p = %.1f' % (sigma, p))
-                parallel_map(g1, range(n_batch), task_kwargs=dict(p=p, sigma=sigma, om_tilde=om, g_dim=g_dim, gr_dim=gr_dim))
-                for file in os.listdir(subfolders['p=' + str(p), 'sigma=' + str(sigma)]):
-                    if 'correlation' in file:
-                        correlation += np.load(subfolders['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
-                    elif 'avg_density' in file:
-                        avg_dens += np.load(subfolders['p=' + str(p), 'sigma=' + str(sigma)] + os.sep + file) / n_batch
-                np.save(final_save_remote + os.sep + 'g1' + 
-                    '_' + 'sigma' + str(sigma) + 
-                    '_' + 'p' + str(p) + 
-                    '_' + 'om' + str(int(om)) + 
-                    '_' + 'g' + str(g_dim) + '_' + 'gr' + str(gr_dim) + '_' + 'gamma' + str(gamma0_tilde) +'.npy', np.abs(correlation).real/np.sqrt(avg_dens[0].real * avg_dens.real))
+def g1(i_batch, p, sigma, gamma2, gamma0, g, gr, ns):
+    correlation_batch = np.zeros((len(t), N//2), dtype = complex)
+    avg_dens_batch = np.zeros((len(t), N//2), dtype = complex)
+    path_current = subfolders.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma2=' + str(gamma2), 'gamma0=' + str(gamma0)))
+    for i_n in range(n_internal):
+        gpe = model(p, sigma, gamma2, gamma0, g, gr, ns)
+        correlation_run, avg_dens_run = gpe.time_evolution()
+        correlation_batch += correlation_run / n_internal
+        avg_dens_batch += avg_dens_run / n_internal
+        if i_n % 2 == 1:
+            print('Core %.i finished realisation number %.i' % (i_batch, i_n + 1))
+    np.save(path_current + os.sep + 'correlation' + '_' +'core' + str(i_batch + 1) + '.npy', correlation_batch)
+    np.save(path_current + os.sep + 'avg_density' + '_' + 'core' + str(i_batch + 1) + '.npy', avg_dens_batch)
     return None
 
-#call_avg()
+def call_avg(final_save_path):
+    print('--- Secondary simulation parameters: g = %.2f, ns = %.i' % (g, ns))
+    print('--- Kinetic term: Kc = %.4f' % Kc)
+    for sigma in sigma_array:
+        for p in p_array:
+            for gamma2 in gamma2_array:
+                for gamma0 in gamma0_array:
+                    id_string = 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_'+ 'gamma2' + str(gamma2) + '_' + 'gamma' + str(gamma0) + '_' + 'g' + str(g)
+                    path_current = subfolders.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma2=' + str(gamma2), 'gamma0=' + str(gamma0)))
+                    os.mkdir(path_current)
+                    correlation = np.zeros((len(t), N//2), dtype = complex)
+                    avg_dens = np.zeros((len(t), N//2), dtype = complex)
+                    print('Primary simulation parameters: p = %.1f, sigma = %.2f, gamma0 = %.2f, gamma2 = %.e' % (p, sigma, gamma0, gamma2))
+                    parallel_map(g1, range(n_batch), task_kwargs=dict(p = p, sigma = sigma, gamma2 = gamma2, gamma0 = gamma0, g = g, gr = gr, ns = ns), progress_bar = True)
+                    for file in os.listdir(path_current):
+                        if 'correlation' in file:
+                            correlation += np.load(path_current + os.sep + file) / n_batch
+                        elif 'avg_density' in file:
+                            avg_dens += np.load(path_current + os.sep + file) / n_batch
+                    np.save(final_save_path + os.sep + id_string + '_' + 'g1' + '.npy', np.abs(correlation).real/np.sqrt(avg_dens[0].real * avg_dens.real))
+    return None
+
+call_avg(final_save_remote)
