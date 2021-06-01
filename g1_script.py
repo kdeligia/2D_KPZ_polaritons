@@ -29,7 +29,7 @@ P_tilde = gamma0_tilde * 500
 R_tilde = gammar_tilde / 500
 '''
 
-m_tilde = 3.8e-5 * 3
+m_tilde = 1.14e-4
 m_dim = m_tilde * melectron
 Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx**2)
 
@@ -41,7 +41,7 @@ dx_tilde = 0.5
 
 N_steps = 500000
 dt_tilde = 1e-2
-every = 500
+every = 100
 i1 = 20000
 i2 = N_steps
 lengthwindow = i2-i1
@@ -50,8 +50,8 @@ t = ext.time(dt_tilde, N_steps, i1, i2, every)
 x, y = ext.space_momentum(N, dx_tilde)
 isotropic_indices = ext.get_indices(x)
 
-kx = (2*np.pi)/dx_tilde * np.fft.fftfreq(N, d=1)
-ky = (2*np.pi)/dx_tilde * np.fft.fftfreq(N, d=1)
+kx = (2 * np.pi) / dx_tilde * np.fft.fftfreq(N, d = 1)
+ky = (2 * np.pi) / dx_tilde * np.fft.fftfreq(N, d = 1)
 
 class model:
     def __init__(self, p, sigma, gamma2, gamma0, g, gr, ns):
@@ -107,7 +107,7 @@ class model:
             self.psi_x = ifft2(psi_k)
             self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
             self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N)))
-            if i>=i1 and i<=i2 and i%every==0:
+            if i >= i1 and i <= i2 and i%every==0:
                 time_array_index = (i-i1)//every
                 if i == i1:
                     psi_x0t0 = self.psi_x[center_indices[0][0], center_indices[0][1]]
@@ -124,20 +124,20 @@ n_batch = 64
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-sigma_array = np.array([1e-2])
-p_array = np.array([2.0])
-gamma2_array = np.array([1e-10])
-gamma0_array = np.array([20])
+sigma_array = np.array([1e-2, 2e-2, 4e-2])
+p_array = np.array([1.6, 1.8, 2])
+gamma2_array = np.array([5e-1, 1e-1, 5e-2, 1e-2, 1e-5, 1e-10])
+gamma0_array = np.array([16, 18, 20])
 gr = 0
 g = 0
-ns = 1
+ns = 80
 
 path_remote = r'/scratch/konstantinos'
 final_save_remote = r'/home6/konstantinos'
 path_local = r'/Users/delis/Desktop'
 final_save_local = r'/Users/delis/Desktop'
 
-subfolders = ext.names_subfolders(True, path_remote, sigma_array, p_array, gamma2_array, gamma0_array, g, ns)
+subfolders = ext.names_subfolders(False, path_local, N, sigma_array, p_array, gamma2_array, gamma0_array, g, ns)
 
 def g1(i_batch, p, sigma, gamma2, gamma0, g, gr, ns):
     correlation_batch = np.zeros((len(t), N//2), dtype = complex)
@@ -160,10 +160,12 @@ def call_avg(final_save_path):
     for sigma in sigma_array:
         for p in p_array:
             for gamma2 in gamma2_array:
+                print('--- Kinetic term: Kd = %.6f' % (gamma2/2))
+                '''
                 for gamma0 in gamma0_array:
-                    id_string = 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_'+ 'gamma2' + str(gamma2) + '_' + 'gamma' + str(gamma0) + '_' + 'g' + str(g)
-                    path_current = subfolders.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma2=' + str(gamma2), 'gamma0=' + str(gamma0)))
-                    os.mkdir(path_current)
+                    #id_string = 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_'+ 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0) + '_' + 'g' + str(g)
+                    #path_current = subfolders.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma2=' + str(gamma2), 'gamma0=' + str(gamma0)))
+                    #os.mkdir(path_current)
                     correlation = np.zeros((len(t), N//2), dtype = complex)
                     avg_dens = np.zeros((len(t), N//2), dtype = complex)
                     print('Primary simulation parameters: p = %.1f, sigma = %.2f, gamma0 = %.2f, gamma2 = %.e' % (p, sigma, gamma0, gamma2))
@@ -174,6 +176,7 @@ def call_avg(final_save_path):
                         elif 'avg_density' in file:
                             avg_dens += np.load(path_current + os.sep + file) / n_batch
                     np.save(final_save_path + os.sep + id_string + '_' + 'g1' + '.npy', np.abs(correlation).real/np.sqrt(avg_dens[0].real * avg_dens.real))
+    '''
     return None
 
-call_avg(final_save_remote)
+call_avg(None)

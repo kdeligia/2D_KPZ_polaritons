@@ -39,14 +39,14 @@ def space_momentum(N, dx_tilde):
 
 def time(dt, N_steps, i1, i2, secondarystep):
     lengthindex = i2-i1
-    length = lengthindex//secondarystep
+    length = int(lengthindex / secondarystep)
     t = np.zeros(length)
     for i in range(N_steps):
         if i>=i1 and i<=i2 and i%secondarystep==0:
             t[(i-i1)//secondarystep] = i*dt
     return t
 
-def names_subfolders(keyword, path, sigma_array, p_array, gamma2_array, gamma0_array, g, ns):
+def names_subfolders(keyword, path, N, sigma_array, p_array, gamma2_array, gamma0_array, g, ns):
     init = path + os.sep + 'ns' + str(int(ns)) + '_' + 'g' + str(g)
     if keyword == True:
         os.mkdir(init)
@@ -55,7 +55,7 @@ def names_subfolders(keyword, path, sigma_array, p_array, gamma2_array, gamma0_a
         for p in p_array:
             for gamma2 in gamma2_array:
                 for gamma0 in gamma0_array:
-                    subfolders['p=' + str(p), 'sigma=' + str(sigma), 'gamma2=' + str(gamma2), 'gamma0=' + str(gamma0)] = init + os.sep + 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_' + 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0) 
+                    subfolders['p=' + str(p), 'sigma=' + str(sigma), 'gamma2=' + str(gamma2), 'gamma0=' + str(gamma0)] = init + os.sep + 'N' + str(N) + '_' + 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_' + 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0) 
     return subfolders
 
 def vortices(a, theta, x, y):
