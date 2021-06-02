@@ -5,7 +5,6 @@ Created on Fri Aug 30 11:03:50 2019
 
 @author: delis
 """
-from scipy.interpolate import griddata
 import os
 import numpy as np
 import matplotlib.pyplot as pl
@@ -143,22 +142,22 @@ def vortex_plots(folder, x, t, index, vortex_positions, phase, density):
     im1 = ax[0].pcolormesh(X, Y, phase, vmin = -np.pi, vmax = np.pi, cmap='twilight')
     ax[0].plot(x[np.where(vortex_positions == 1)[1]], x[np.where(vortex_positions == 1)[0]], 'go', markersize=12)
     ax[0].plot(x[np.where(vortex_positions == -1)[1]], x[np.where(vortex_positions == -1)[0]], 'bo', markersize=12)
-    ax[0].set_xlabel(r'$x$', fontsize=  20)
-    ax[0].set_ylabel(r'$y$', fontsize = 20)
+    #ax[0].set_xlabel('$x$', fontsize=  20)
+    #ax[0].set_ylabel('$y$', fontsize = 20)
     ax[0].tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
     cbar1 = pl.colorbar(im1, ax = ax[0])
     cbar1.ax.tick_params(labelsize=16)
-    cbar1.ax.set_ylabel(r'$\theta(x,y)$', fontsize = 20)
+    #cbar1.ax.set_ylabel(r'$\theta(x,y)$', fontsize = 20)
     im2 = ax[1].pcolormesh(X, Y, density, vmin = 0.2 * np.mean(density), vmax = 2 * np.mean(density), cmap='RdBu_r')
     ax[1].plot(x[np.where(vortex_positions == 1)[1]], x[np.where(vortex_positions == 1)[0]], 'go', markersize=12)
     ax[1].plot(x[np.where(vortex_positions == -1)[1]], x[np.where(vortex_positions == -1)[0]], 'bo', markersize=12)
-    ax[1].set_xlabel(r'$x$', fontsize = 20)
-    ax[1].set_ylabel(r'$y$', fontsize = 20)
+    #ax[1].set_xlabel(r'$x$', fontsize = 20)
+    #ax[1].set_ylabel(r'$y$', fontsize = 20)
     ax[1].tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
     cbar2 = pl.colorbar(im2, ax=ax[1])
     cbar2.ax.tick_params(labelsize=16)
-    cbar2.ax.set_ylabel(r'n(x,y)', fontsize = 20)
-    fig.suptitle(r't = %.1f' % t[index], fontsize=16)
+    #cbar2.ax.set_ylabel(r'$n(x,y)$', fontsize = 20)
+    fig.suptitle('t = %.1f' % t[index], fontsize=16)
     pl.savefig(folder + os.sep + 'fig' + str(index) + '.jpg', format='jpg')
     pl.close()
     return None

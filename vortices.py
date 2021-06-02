@@ -14,12 +14,15 @@ import numpy as np
 import external as ext
 from scipy.fftpack import fft2, ifft2
 import matplotlib.pyplot as pl
+import re
+'''
 from matplotlib import rc
 from matplotlib.texmanager import TexManager
 import re
 pl.rc('font', family='sans-serif')
 pl.rc('text', usetex=True)
 pl.close('all')
+'''
 #import pyfftw
 #pyfftw.interfaces.cache.enable()
 
@@ -40,9 +43,9 @@ Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx**2)
 N = 2 ** 7
 dx_tilde = 0.5
 
-N_steps = 100000
-dt_tilde = 5e-3
-every = 200
+N_steps = 200000
+dt_tilde = 1e-2
+every = 400
 i1 = 0
 i2 = N_steps
 lengthwindow = i2-i1
@@ -120,24 +123,24 @@ class model:
 # 
 # =============================================================================
 from qutip import *
-n_batch = 4
+n_batch = 10
 qutip.settings.num_cpus = n_batch
 
-sigma_array = np.array([2e-2, 3e-2, 4e-2])
+sigma_array = np.array([1e-2])
 p_array = np.array([1.6, 1.8])
-gamma2_array = np.array([5e-1, 1e-1, 5e-2, 1e-2])
-gamma0_array = np.array([16, 18])
+gamma2_array = np.array([1e-1, 5e-2, 1e-2, 1e-10])
+gamma0_array = np.array([0.1, 0.2, 1, 2, 5, 10, 12, 14, 16, 18])
 gr = 0
 g = 0
-ns = 80
+ns = 1
 
 path_remote = r'/scratch/konstantinos'
 path_local = r'/Users/delis/Desktop'
 
-init = path_remote + os.sep + 'ns' + str(int(ns)) + '_' + 'g' + str(g)
-os.mkdir(init)
+init = path_local + os.sep + 'ns' + str(int(ns)) + '_' + 'g' + str(g)
+#os.mkdir(init)
 
-def vortices(gamma2, gamma0, p, sigma):
+def vortices(gamma0, gamma2, p, sigma):
     id_string = 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0)
     os.mkdir(init + os.sep + id_string)
     gpe = model(p, sigma, gamma2, gamma0, g = g, gr = gr, ns = ns)
@@ -148,12 +151,12 @@ def vortices(gamma2, gamma0, p, sigma):
 
 
 def call_avg():
-    print('Parallel in gamma2 = ', gamma2_array)
-    for gamma0 in gamma0_array:
+    print('Parallel in gamma0 = ', gamma0_array)
+    for gamma2 in gamma2_array:
         for p in p_array:
             for sigma in sigma_array:
-                print('Auxiliary parameters: gamma0 = %.i, p = %.1f, sigma = %.2f' % (gamma0, p, sigma))
-                parallel_map(vortices, gamma2_array, task_kwargs=dict(gamma0 = gamma0, p = p, sigma = sigma))
+                print('Auxiliary parameters: gamma2 = %.i, p = %.1f, sigma = %.2f' % (gamma2, p, sigma))
+                parallel_map(vortices, gamma0_array, task_kwargs=dict(gamma2 = gamma2, p = p, sigma = sigma))
                 print('Done!')
 call_avg()
 
