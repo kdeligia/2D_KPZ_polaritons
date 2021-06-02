@@ -123,13 +123,14 @@ class model:
 # 
 # =============================================================================
 from qutip import *
-n_batch = 10
+n_batch = 6
 qutip.settings.num_cpus = n_batch
 
 sigma_array = np.array([1e-2])
-p_array = np.array([1.6, 1.8])
-gamma2_array = np.array([1e-1, 5e-2, 1e-2, 1e-10])
-gamma0_array = np.array([0.1, 0.2, 1, 2, 5, 10, 12, 14, 16, 18])
+p_array = np.array([2])
+gamma2_array = np.array([0.8, 0.5, 0.1, 0.05, 0.01, 0.005])
+gamma0_array = np.array([0.1, 2 , 8, 12, 16, 18])
+
 gr = 0
 g = 0
 ns = 1
@@ -137,52 +138,83 @@ ns = 1
 path_remote = r'/scratch/konstantinos'
 path_local = r'/Users/delis/Desktop'
 
-init = path_local + os.sep + 'ns' + str(int(ns)) + '_' + 'g' + str(g)
-#os.mkdir(init)
+init = path_remote + os.sep + 'sigma' + str(sigma_array[0]) + '_' + 'p' + str(p_array[0]) + '_' + 'ns' + str(int(ns)) + '_' + 'g' + str(int(g))
+os.mkdir(init)
 
 def vortices(gamma0, gamma2, p, sigma):
-    id_string = 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0)
+    id_string = 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0)
     os.mkdir(init + os.sep + id_string)
     gpe = model(p, sigma, gamma2, gamma0, g = g, gr = gr, ns = ns)
-    nv, n = gpe.time_evolution(init + os.sep + id_string)
+    ob, nv, n = gpe.time_evolution(init + os.sep + id_string)
+    pl.plot(ob)
     np.savetxt(init + os.sep + id_string + '_' + 'nv' + '.dat', nv)
     np.savetxt(init + os.sep + id_string + '_' + 'dens' + '.dat', n)
     return None
 
-
 def call_avg():
-    print('Parallel in gamma0 = ', gamma0_array)
-    for gamma2 in gamma2_array:
-        for p in p_array:
-            for sigma in sigma_array:
-                print('Auxiliary parameters: gamma2 = %.i, p = %.1f, sigma = %.2f' % (gamma2, p, sigma))
-                parallel_map(vortices, gamma0_array, task_kwargs=dict(gamma2 = gamma2, p = p, sigma = sigma))
-                print('Done!')
+    parfor(vortices, gamma0_array, gamma2_array, p = p_array[0], sigma = sigma_array[0])
 call_avg()
 
+#id_string = ''
+#gpe = model(p_array[0], sigma_array[0], gamma2_array[0], gamma0_array[0], g = g, gr = gr, ns = ns)
+#ob, nv, n = gpe.time_evolution(init + os.sep + id_string)
+#pl.plot(ob)
+
 '''
+from mpl_toolkits import mplot3d
+fig = pl.figure(figsize=(8, 6))
+ax = pl.axes(projection ='3d')
+
+gamma0_mesh, gamma2_mesh = np.meshgrid(gamma0_array, gamma2_array)
+P = np.ones_like(gamma0_mesh)
+for p in p_array:
+    ax.plot_surface(gamma0_mesh, gamma2_mesh, p * P)
+ax.scatter(gamma0_array[2], gamma2_array[1], p_array[1], 'o', color='red', s = 100)
+ax.set_title(r'Phase diagram: $\sigma$ = %.2f, $n_s$ = %.i' % (sigma_array[0], ns))
+ax.set_xlabel(r'$\gamma_0$', fontsize = 16)
+ax.set_ylabel(r'$\gamma_2$', fontsize = 16)
+ax.set_zlabel(r'$p$', fontsize = 16)
+pl.show()
+'''
+
+
 fig, ax = pl.subplots(1,1, figsize=(8, 6))
 for file in os.listdir(init):
     if 'nv.dat' in file:
         s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
-        if s[3] in gamma0_array and s[2] in gamma2_array:
-            ax.plot(t, np.loadtxt(init + os.sep + file), label=r'$p$ = %.1f, $\sigma$ = %.2f, $\gamma_2$ = %.i, $\gamma_0$ = %.2f' % (s[1], s[0], int(s[2]), s[3]))
+        if s[1] == p_array[0]:
+            
+            '''
+            if len(s) == 4:
+                print(index)
+                if s[3] == gamma0_array[index] and s[2] == gamma2_array[index]:
+                    ax.plot(t, np.loadtxt(init + os.sep + file), label=r'$p$ = %.1f, $\gamma_2$ = %.e, $\gamma_0$ = %.1f' % (s[1], s[2], s[3]))
+            index += 1
 ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
 ax.legend(prop=dict(size=12))
 ax.set_xlabel(r'$t$', fontsize=20)
 ax.set_ylabel(r'$n_v$', fontsize=20)
+pl.tight_layout()
 pl.show()
-
+'''
+'''
 fig, ax = pl.subplots(1,1, figsize=(8, 6))
 for file in os.listdir(init):
     if 'dens.dat' in file:
         s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
-        if s[3] in gamma0_array and s[2] in gamma2_array:
-            ax.plot(t, np.loadtxt(init + os.sep + file), label=r'$p$ = %.1f, $\sigma$ = %.2f, $\gamma_2$ = %.i, $\gamma_0$ = %.2f' % (s[1], s[0], int(s[2]), s[3]))
-ax.hlines(y=ns * (p_array[0] - 1), xmin=t[0], xmax=t[-1], color='red')
+        if len(s) == 4:
+            if s[3] == gamma0_array[-1] and s[2] in gamma2_array:
+                ax.plot(t, np.loadtxt(init + os.sep + file), label=r'$p$ = %.1f, $\gamma_2$ = %.e, $\gamma_0$ = %.1f' % (s[1], s[2], s[3]))
+        elif len(s) == 5:
+            if s[4] == gamma0_array[-1]:
+                ax.plot(t, np.loadtxt(init + os.sep + file), label=r'$p$ = %.1f, $\gamma_2$ = 1 \times exp %.f, $\gamma_0$ = %.1f' % (s[1], s[3], s[4]))
+ax.hlines(y=ns * (p_array[0] - 1), xmin=t[0], xmax=t[-1], color='black')
+ax.hlines(y=ns * (p_array[1] - 1), xmin=t[0], xmax=t[-1], color='black')
 ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
 ax.legend(prop=dict(size=12))
 ax.set_xlabel(r'$t$', fontsize=20)
 ax.set_ylabel(r'$n$', fontsize=20)
+ax.set_ylim(0, 2)
+pl.tight_layout()
 pl.show()
 '''
