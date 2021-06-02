@@ -39,10 +39,10 @@ Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx**2)
 N = 2 ** 7
 dx_tilde = 0.5
 
-N_steps = 500000
-dt_tilde = 1e-2
-every = 100
-i1 = 20000
+N_steps = 1000000
+dt_tilde = 5e-3
+every = 500
+i1 = 50000
 i2 = N_steps
 lengthwindow = i2-i1
 t = ext.time(dt_tilde, N_steps, i1, i2, every)
@@ -124,27 +124,27 @@ n_batch = 64
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-sigma_array = np.array([1e-2, 2e-2, 4e-2])
-p_array = np.array([1.6, 1.8, 2])
-gamma2_array = np.array([5e-1, 1e-1, 5e-2, 1e-2, 1e-5, 1e-10])
-gamma0_array = np.array([16, 18, 20])
+sigma_array = np.array([1e-2])
+p_array = np.array([2])
+gamma2_array = np.array([0.8, 0.5, 0.1, 0.05, 0.01, 0.005])
+gamma0_array = np.array([0.1, 2, 8, 12, 16, 18])
 gr = 0
 g = 0
-ns = 80
+ns = 1
 
 path_remote = r'/scratch/konstantinos'
 final_save_remote = r'/home6/konstantinos'
 path_local = r'/Users/delis/Desktop'
 final_save_local = r'/Users/delis/Desktop'
 
-subfolders = ext.names_subfolders(False, path_local, N, sigma_array, p_array, gamma2_array, gamma0_array, g, ns)
+subfolders = ext.names_subfolders(True, path_remote, N, sigma_array, p_array, gamma2_array, gamma0_array, g, ns)
 
-def g1(i_batch, p, sigma, gamma2, gamma0, g, gr, ns):
+def g1(i_batch, p, sigma, gamma2, gamma0):
     correlation_batch = np.zeros((len(t), N//2), dtype = complex)
     avg_dens_batch = np.zeros((len(t), N//2), dtype = complex)
     path_current = subfolders.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma2=' + str(gamma2), 'gamma0=' + str(gamma0)))
     for i_n in range(n_internal):
-        gpe = model(p, sigma, gamma2, gamma0, g, gr, ns)
+        gpe = model(p, sigma, gamma2, gamma0, g = g, gr = gr, ns = ns)
         correlation_run, avg_dens_run = gpe.time_evolution()
         correlation_batch += correlation_run / n_internal
         avg_dens_batch += avg_dens_run / n_internal
@@ -161,22 +161,21 @@ def call_avg(final_save_path):
         for p in p_array:
             for gamma2 in gamma2_array:
                 print('--- Kinetic term: Kd = %.6f' % (gamma2/2))
-                '''
+                gamma0 = gamma0_array[np.where(gamma2_array == gamma2)][0]
                 for gamma0 in gamma0_array:
-                    #id_string = 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_'+ 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0) + '_' + 'g' + str(g)
-                    #path_current = subfolders.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma2=' + str(gamma2), 'gamma0=' + str(gamma0)))
-                    #os.mkdir(path_current)
+                    id_string = 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_'+ 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0) + '_' + 'g' + str(g)
+                    path_current = subfolders.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma2=' + str(gamma2), 'gamma0=' + str(gamma0)))
+                    os.mkdir(path_current)
                     correlation = np.zeros((len(t), N//2), dtype = complex)
                     avg_dens = np.zeros((len(t), N//2), dtype = complex)
                     print('Primary simulation parameters: p = %.1f, sigma = %.2f, gamma0 = %.2f, gamma2 = %.e' % (p, sigma, gamma0, gamma2))
-                    parallel_map(g1, range(n_batch), task_kwargs=dict(p = p, sigma = sigma, gamma2 = gamma2, gamma0 = gamma0, g = g, gr = gr, ns = ns), progress_bar = True)
+                    parallel_map(g1, range(n_batch), task_kwargs=dict(p = p, sigma = sigma, gamma2 = gamma2, gamma0 = gamma0), progress_bar = True)
                     for file in os.listdir(path_current):
                         if 'correlation' in file:
                             correlation += np.load(path_current + os.sep + file) / n_batch
                         elif 'avg_density' in file:
                             avg_dens += np.load(path_current + os.sep + file) / n_batch
                     np.save(final_save_path + os.sep + id_string + '_' + 'g1' + '.npy', np.abs(correlation).real/np.sqrt(avg_dens[0].real * avg_dens.real))
-    '''
     return None
 
-call_avg(None)
+call_avg(final_save_remote)

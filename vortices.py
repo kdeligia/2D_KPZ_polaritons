@@ -138,8 +138,8 @@ ns = 1
 path_remote = r'/scratch/konstantinos'
 path_local = r'/Users/delis/Desktop'
 
-init = path_remote + os.sep + 'sigma' + str(sigma_array[0]) + '_' + 'p' + str(p_array[0]) + '_' + 'ns' + str(int(ns)) + '_' + 'g' + str(int(g))
-os.mkdir(init)
+init = path_local + os.sep + 'sigma' + str(sigma_array[0]) + '_' + 'p' + str(p_array[0]) + '_' + 'ns' + str(int(ns)) + '_' + 'g' + str(int(g))
+#os.mkdir(init)
 
 def vortices(gamma0, gamma2, p, sigma):
     id_string = 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0)
@@ -153,7 +153,7 @@ def vortices(gamma0, gamma2, p, sigma):
 
 def call_avg():
     parfor(vortices, gamma0_array, gamma2_array, p = p_array[0], sigma = sigma_array[0])
-call_avg()
+#call_avg()
 
 #id_string = ''
 #gpe = model(p_array[0], sigma_array[0], gamma2_array[0], gamma0_array[0], g = g, gr = gr, ns = ns)
@@ -182,34 +182,21 @@ fig, ax = pl.subplots(1,1, figsize=(8, 6))
 for file in os.listdir(init):
     if 'nv.dat' in file:
         s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
-        if s[1] == p_array[0]:
-            
-            '''
-            if len(s) == 4:
-                print(index)
-                if s[3] == gamma0_array[index] and s[2] == gamma2_array[index]:
-                    ax.plot(t, np.loadtxt(init + os.sep + file), label=r'$p$ = %.1f, $\gamma_2$ = %.e, $\gamma_0$ = %.1f' % (s[1], s[2], s[3]))
-            index += 1
+        ax.plot(t, np.loadtxt(init + os.sep + file), label=r'$\gamma_2$ = %.e, $\gamma_0$ = %.1f' % (s[0], s[1]))
 ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
 ax.legend(prop=dict(size=12))
 ax.set_xlabel(r'$t$', fontsize=20)
 ax.set_ylabel(r'$n_v$', fontsize=20)
 pl.tight_layout()
 pl.show()
-'''
-'''
+
+
 fig, ax = pl.subplots(1,1, figsize=(8, 6))
 for file in os.listdir(init):
     if 'dens.dat' in file:
         s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
-        if len(s) == 4:
-            if s[3] == gamma0_array[-1] and s[2] in gamma2_array:
-                ax.plot(t, np.loadtxt(init + os.sep + file), label=r'$p$ = %.1f, $\gamma_2$ = %.e, $\gamma_0$ = %.1f' % (s[1], s[2], s[3]))
-        elif len(s) == 5:
-            if s[4] == gamma0_array[-1]:
-                ax.plot(t, np.loadtxt(init + os.sep + file), label=r'$p$ = %.1f, $\gamma_2$ = 1 \times exp %.f, $\gamma_0$ = %.1f' % (s[1], s[3], s[4]))
+        ax.plot(t, np.loadtxt(init + os.sep + file), label=r'$\gamma_2$ = %.e, $\gamma_0$ = %.1f' % (s[0], s[1]))
 ax.hlines(y=ns * (p_array[0] - 1), xmin=t[0], xmax=t[-1], color='black')
-ax.hlines(y=ns * (p_array[1] - 1), xmin=t[0], xmax=t[-1], color='black')
 ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
 ax.legend(prop=dict(size=12))
 ax.set_xlabel(r'$t$', fontsize=20)
@@ -217,4 +204,3 @@ ax.set_ylabel(r'$n$', fontsize=20)
 ax.set_ylim(0, 2)
 pl.tight_layout()
 pl.show()
-'''
