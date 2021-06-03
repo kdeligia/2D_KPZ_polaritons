@@ -126,8 +126,8 @@ qutip.settings.num_cpus = n_batch
 
 sigma_array = np.array([1e-2])
 p_array = np.array([2])
-gamma2_array = np.array([0.8, 0.5, 0.1, 0.05, 0.01, 0.005])
-gamma0_array = np.array([0.1, 2, 8, 12, 16, 18])
+gamma2_array = np.array([0.5, 0.1, 0.05, 0.01, 0.005])
+gamma0_array = np.array([2, 8, 12, 16, 18])
 gr = 0
 g = 0
 ns = 1
@@ -137,7 +137,7 @@ final_save_remote = r'/home6/konstantinos'
 path_local = r'/Users/delis/Desktop'
 final_save_local = r'/Users/delis/Desktop'
 
-subfolders = ext.names_subfolders(True, path_remote, N, sigma_array, p_array, gamma2_array, gamma0_array, g, ns)
+subfolders = ext.names_subfolders(False, path_remote, N, sigma_array, p_array, gamma2_array, gamma0_array, g, ns)
 
 def g1(i_batch, p, sigma, gamma2, gamma0):
     correlation_batch = np.zeros((len(t), N//2), dtype = complex)
@@ -156,26 +156,24 @@ def g1(i_batch, p, sigma, gamma2, gamma0):
 
 def call_avg(final_save_path):
     print('--- Secondary simulation parameters: g = %.2f, ns = %.i' % (g, ns))
-    print('--- Kinetic term: Kc = %.4f' % Kc)
     for sigma in sigma_array:
         for p in p_array:
             for gamma2 in gamma2_array:
-                print('--- Kinetic term: Kd = %.6f' % (gamma2/2))
+                print('--- Kinetic terms: Kc = %.5f, Kd = %.5f' % (Kc, gamma2/2))
                 gamma0 = gamma0_array[np.where(gamma2_array == gamma2)][0]
-                for gamma0 in gamma0_array:
-                    id_string = 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_'+ 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0) + '_' + 'g' + str(g)
-                    path_current = subfolders.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma2=' + str(gamma2), 'gamma0=' + str(gamma0)))
-                    os.mkdir(path_current)
-                    correlation = np.zeros((len(t), N//2), dtype = complex)
-                    avg_dens = np.zeros((len(t), N//2), dtype = complex)
-                    print('Primary simulation parameters: p = %.1f, sigma = %.2f, gamma0 = %.2f, gamma2 = %.e' % (p, sigma, gamma0, gamma2))
-                    parallel_map(g1, range(n_batch), task_kwargs=dict(p = p, sigma = sigma, gamma2 = gamma2, gamma0 = gamma0), progress_bar = True)
-                    for file in os.listdir(path_current):
-                        if 'correlation' in file:
-                            correlation += np.load(path_current + os.sep + file) / n_batch
-                        elif 'avg_density' in file:
-                            avg_dens += np.load(path_current + os.sep + file) / n_batch
-                    np.save(final_save_path + os.sep + id_string + '_' + 'g1' + '.npy', np.abs(correlation).real/np.sqrt(avg_dens[0].real * avg_dens.real))
+                id_string = 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_'+ 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0) + '_' + 'g' + str(g)
+                path_current = subfolders.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma2=' + str(gamma2), 'gamma0=' + str(gamma0)))
+                os.mkdir(path_current)
+                correlation = np.zeros((len(t), N//2), dtype = complex)
+                avg_dens = np.zeros((len(t), N//2), dtype = complex)
+                print('Primary simulation parameters: p = %.1f, sigma = %.2f, gamma0 = %.2f, gamma2 = %.e' % (p, sigma, gamma0, gamma2))
+                parallel_map(g1, range(n_batch), task_kwargs=dict(p = p, sigma = sigma, gamma2 = gamma2, gamma0 = gamma0), progress_bar = True)
+                for file in os.listdir(path_current):
+                    if 'correlation' in file:
+                        correlation += np.load(path_current + os.sep + file) / n_batch
+                    elif 'avg_density' in file:
+                        avg_dens += np.load(path_current + os.sep + file) / n_batch
+                np.save(final_save_path + os.sep + id_string + '_' + 'g1' + '.npy', np.abs(correlation).real/np.sqrt(avg_dens[0].real * avg_dens.real))
     return None
 
 call_avg(final_save_remote)
