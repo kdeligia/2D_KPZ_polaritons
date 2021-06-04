@@ -40,9 +40,9 @@ N = 2 ** 7
 dx_tilde = 0.5
 
 N_steps = 1000000
-dt_tilde = 5e-3
+dt_tilde = 1e-2
 every = 500
-i1 = 50000
+i1 = 25000
 i2 = N_steps
 lengthwindow = i2-i1
 t = ext.time(dt_tilde, N_steps, i1, i2, every)
@@ -124,20 +124,20 @@ n_batch = 64
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-sigma_array = np.array([1e-2])
-p_array = np.array([2])
-gamma2_array = np.array([0.5, 0.1, 0.05, 0.01, 0.005])
-gamma0_array = np.array([2, 8, 12, 16, 18])
+sigma_array = np.array([0.01])
+p_array = np.array([2.])
+gamma2_array = np.array([0.4, 0.3, 0.2, 0.1])
+gamma0_array = np.array([5., 6., 7., 8.])
 gr = 0
 g = 0
-ns = 1
+ns = 1.
 
 path_remote = r'/scratch/konstantinos'
 final_save_remote = r'/home6/konstantinos'
 path_local = r'/Users/delis/Desktop'
 final_save_local = r'/Users/delis/Desktop'
 
-subfolders = ext.names_subfolders(False, path_remote, N, sigma_array, p_array, gamma2_array, gamma0_array, g, ns)
+subfolders = ext.names_subfolders(True, path_remote, N, sigma_array, p_array, gamma2_array, gamma0_array, g, ns)
 
 def g1(i_batch, p, sigma, gamma2, gamma0):
     correlation_batch = np.zeros((len(t), N//2), dtype = complex)
@@ -167,7 +167,7 @@ def call_avg(final_save_path):
                 correlation = np.zeros((len(t), N//2), dtype = complex)
                 avg_dens = np.zeros((len(t), N//2), dtype = complex)
                 print('Primary simulation parameters: p = %.1f, sigma = %.2f, gamma0 = %.2f, gamma2 = %.e' % (p, sigma, gamma0, gamma2))
-                parallel_map(g1, range(n_batch), task_kwargs=dict(p = p, sigma = sigma, gamma2 = gamma2, gamma0 = gamma0), progress_bar = True)
+                parallel_map(g1, range(n_batch), task_kwargs=dict(p = p, sigma = sigma, gamma2 = gamma2, gamma0 = gamma0))
                 for file in os.listdir(path_current):
                     if 'correlation' in file:
                         correlation += np.load(path_current + os.sep + file) / n_batch
