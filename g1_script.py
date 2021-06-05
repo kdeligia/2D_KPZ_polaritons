@@ -120,14 +120,14 @@ class model:
 # =============================================================================
 from qutip import *
 parallel_tasks = 256
-n_batch = 64
+n_batch = 128
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
 sigma_array = np.array([0.01])
 p_array = np.array([2.])
-gamma2_array = np.array([0.4, 0.3, 0.2, 0.1])
-gamma0_array = np.array([5., 6., 7., 8.])
+gamma2_array = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
+gamma0_array = np.array([0.1, 0.2, 1. , 2. , 5. , 6. , 7.])
 gr = 0
 g = 0
 ns = 1.
@@ -166,7 +166,7 @@ def call_avg(final_save_path):
                 os.mkdir(path_current)
                 correlation = np.zeros((len(t), N//2), dtype = complex)
                 avg_dens = np.zeros((len(t), N//2), dtype = complex)
-                print('Primary simulation parameters: p = %.1f, sigma = %.2f, gamma0 = %.2f, gamma2 = %.e' % (p, sigma, gamma0, gamma2))
+                print('Primary simulation parameters: p = %.1f, sigma = %.2f, gamma0 = %.2f, gamma2 = %.2f' % (p, sigma, gamma0, gamma2))
                 parallel_map(g1, range(n_batch), task_kwargs=dict(p = p, sigma = sigma, gamma2 = gamma2, gamma0 = gamma0))
                 for file in os.listdir(path_current):
                     if 'correlation' in file:

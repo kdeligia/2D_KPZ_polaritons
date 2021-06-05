@@ -43,9 +43,9 @@ Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx**2)
 N = 2 ** 7
 dx_tilde = 0.5
 
-N_steps = 200000
+N_steps = 400000
 dt_tilde = 1e-2
-every = 400
+every = 500
 i1 = 0
 i2 = N_steps
 lengthwindow = i2-i1
@@ -123,13 +123,13 @@ class model:
 # 
 # =============================================================================
 from qutip import *
-n_batch = 6
+n_batch = 2
 qutip.settings.num_cpus = n_batch
 
 sigma_array = np.array([1e-2])
 p_array = np.array([2])
-gamma2_array = np.array([0.8, 0.5, 0.1, 0.05, 0.01, 0.005])
-gamma0_array = np.array([0.1, 2 , 8, 12, 16, 18])
+gamma2_array = np.array([0.1, 0.1, 0.1])
+gamma0_array = np.array([0.1, 0.2, 2])
 
 gr = 0
 g = 0
@@ -139,26 +139,20 @@ path_remote = r'/scratch/konstantinos'
 path_local = r'/Users/delis/Desktop'
 
 init = path_local + os.sep + 'sigma' + str(sigma_array[0]) + '_' + 'p' + str(p_array[0]) + '_' + 'ns' + str(int(ns)) + '_' + 'g' + str(int(g))
-#os.mkdir(init)
+os.mkdir(init)
 
 def vortices(gamma0, gamma2, p, sigma):
     id_string = 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0)
     os.mkdir(init + os.sep + id_string)
     gpe = model(p, sigma, gamma2, gamma0, g = g, gr = gr, ns = ns)
-    ob, nv, n = gpe.time_evolution(init + os.sep + id_string)
-    pl.plot(ob)
+    nv, n = gpe.time_evolution(init + os.sep + id_string)
     np.savetxt(init + os.sep + id_string + '_' + 'nv' + '.dat', nv)
     np.savetxt(init + os.sep + id_string + '_' + 'dens' + '.dat', n)
     return None
 
 def call_avg():
     parfor(vortices, gamma0_array, gamma2_array, p = p_array[0], sigma = sigma_array[0])
-#call_avg()
-
-#id_string = ''
-#gpe = model(p_array[0], sigma_array[0], gamma2_array[0], gamma0_array[0], g = g, gr = gr, ns = ns)
-#ob, nv, n = gpe.time_evolution(init + os.sep + id_string)
-#pl.plot(ob)
+call_avg()
 
 '''
 from mpl_toolkits import mplot3d
