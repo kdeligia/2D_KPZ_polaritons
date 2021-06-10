@@ -29,7 +29,7 @@ P_tilde = gamma0_tilde * 500
 R_tilde = gammar_tilde / 500
 '''
 
-m_tilde = 1.14e-4
+m_tilde = 5e-5
 m_dim = m_tilde * melectron
 Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx**2)
 
@@ -120,7 +120,7 @@ class model:
 # =============================================================================
 from qutip import *
 parallel_tasks = 256
-n_batch = 128
+n_batch = 64
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
@@ -137,8 +137,7 @@ final_save_remote = r'/home6/konstantinos'
 path_local = r'/Users/delis/Desktop'
 final_save_local = r'/Users/delis/Desktop'
 
-subfolders = ext.names_subfolders(True, path_remote, N, sigma_array, p_array, gamma2_array, gamma0_array, g, ns)
-
+subfolders = ext.names_subfolders(False, path_remote, N, sigma_array, p_array, gamma2_array, gamma0_array, g, ns)
 def g1(i_batch, p, sigma, gamma2, gamma0):
     correlation_batch = np.zeros((len(t), N//2), dtype = complex)
     avg_dens_batch = np.zeros((len(t), N//2), dtype = complex)
@@ -154,18 +153,27 @@ def g1(i_batch, p, sigma, gamma2, gamma0):
     np.save(path_current + os.sep + 'avg_density' + '_' + 'core' + str(i_batch + 1) + '.npy', avg_dens_batch)
     return None
 
+#import matplotlib.pyplot as pl
+#fig, ax = pl.subplots(1,1, figsize=(8,6))
 def call_avg(final_save_path):
     print('--- Secondary simulation parameters: g = %.2f, ns = %.i' % (g, ns))
     for sigma in sigma_array:
         for p in p_array:
-            for gamma2 in gamma2_array:
-                print('--- Kinetic terms: Kc = %.5f, Kd = %.5f' % (Kc, gamma2/2))
-                gamma0 = gamma0_array[np.where(gamma2_array == gamma2)][0]
-                id_string = 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_'+ 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0) + '_' + 'g' + str(g)
+            for gamma0 in gamma0_array:
+                gamma2 = gamma2_array[np.where(gamma0_array == gamma0)][0]
+                '''
+                Im_plus, Im_minus = ext.bogoliubov(np.fft.fftshift(kx), Kc=Kc, Kd=gamma2/2, gamma0=gamma0, p=p, g=g, n0=ns*(p-1))
+                ax.plot(np.fft.fftshift(kx)[N//2:], Im_plus[N//2:], label=r'$\omega_B(k_{min})$=%.5f, $\gamma_2$=%.1f, $\gamma_0$=%.1f' % (Im_plus[N//2+1], gamma2, gamma0))
+                ax.hlines(y=0, xmin=np.fft.fftshift(kx)[N//2], xmax=np.fft.fftshift(kx)[-1])
+                ax.legend(prop=dict(size=12))
+                print(np.fft.fftshift(kx)[N//2+1], Im_plus[N//2+1], gamma2, gamma0)
+                '''
+                id_string = 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_'+ 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0) + '_' + 'gint' + str(g)
                 path_current = subfolders.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma2=' + str(gamma2), 'gamma0=' + str(gamma0)))
                 os.mkdir(path_current)
                 correlation = np.zeros((len(t), N//2), dtype = complex)
                 avg_dens = np.zeros((len(t), N//2), dtype = complex)
+                print('--- Kinetic terms: Kc = %.5f, Kd = %.5f' % (Kc, gamma2/2))
                 print('Primary simulation parameters: p = %.1f, sigma = %.2f, gamma0 = %.2f, gamma2 = %.2f' % (p, sigma, gamma0, gamma2))
                 parallel_map(g1, range(n_batch), task_kwargs=dict(p = p, sigma = sigma, gamma2 = gamma2, gamma0 = gamma0))
                 for file in os.listdir(path_current):
@@ -176,4 +184,4 @@ def call_avg(final_save_path):
                 np.save(final_save_path + os.sep + id_string + '_' + 'g1' + '.npy', np.abs(correlation).real/np.sqrt(avg_dens[0].real * avg_dens.real))
     return None
 
-call_avg(final_save_remote)
+#call_avg(final_save_remote)

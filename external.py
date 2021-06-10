@@ -13,6 +13,20 @@ def confining(array, V_0, l):
     V = (V_0/l) * (np.exp(-(array - len(array)/2) ** 2 / (l**2)) + np.exp(-(array + len(array)/2) ** 2 / (l**2)))
     return V
 
+def bogoliubov(k, Kc, Kd, gamma0, p, g, n0):
+    Gamma = gamma0 * (p - 1)/(2 * p)
+    mu = g * n0
+    Im_plus = np.zeros_like(k)
+    Im_minus = np.zeros_like(k)
+    for i in range(len(k)):
+        if (- Gamma ** 2 + Kc ** 2 * k[i] ** 4 + 2 * Kc * k[i] ** 2 * mu) >= 0:
+            Im_plus[i] = - Kd * k[i] ** 2  - Gamma
+            Im_minus[i] = - Kd * k[i] ** 2  - Gamma
+        else:
+            Im_plus[i] = - Kd * k[i] ** 2 - Gamma + np.sqrt(np.abs(- Gamma ** 2 + Kc ** 2 * k[i] ** 4 + 2 * Kc * k[i] ** 2 * mu))
+            Im_minus[i] = - Kd * k[i] ** 2 - Gamma - np.sqrt(np.abs(- Gamma ** 2 + Kc ** 2 * k[i] ** 4 + 2 * Kc * k[i] ** 2 * mu))
+    return Im_plus, Im_minus
+
 def dimensional_units(**args):
     #L_dim = L_tilde * hatx                                                      # result in μm
     #P_dim = P_tilde * (1/(hatx**2 * hatt))                                      # result in μm^-2 ps^-1
@@ -46,7 +60,7 @@ def time(dt, N_steps, i1, i2, secondarystep):
     return t
 
 def names_subfolders(keyword, path, N, sigma_array, p_array, gamma2_array, gamma0_array, g, ns):
-    init = path + os.sep + 'ns' + str(int(ns)) + '_' + 'g' + str(g)
+    init = path + os.sep + 'N' + str(N) + '_' + 'ns' + str(int(ns))
     if keyword == True:
         os.mkdir(init)
     subfolders = {}
@@ -54,10 +68,10 @@ def names_subfolders(keyword, path, N, sigma_array, p_array, gamma2_array, gamma
         for p in p_array:
             for gamma2 in gamma2_array:
                 for gamma0 in gamma0_array:
-                    subfolders['p=' + str(p), 'sigma=' + str(sigma), 'gamma2=' + str(gamma2), 'gamma0=' + str(gamma0)] = init + os.sep + 'N' + str(N) + '_' + 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_' + 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0) 
+                    subfolders['p=' + str(p), 'sigma=' + str(sigma), 'gamma2=' + str(gamma2), 'gamma0=' + str(gamma0)] = init + os.sep + 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_' + 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0) + '_' + 'gint' + str(g) 
     return subfolders
 
-def vortices(a, theta, x, y):
+def vortex_positions(a, theta, x, y):
     # The integral should be calculated counter clock wise. 
     #   D------I3------C
     #   |              |
@@ -81,27 +95,27 @@ def vortices(a, theta, x, y):
                 y0 = y[row]
                 thetaplus  = theta[np.where(abs(y - y0) <= a)[0][0],  np.where(abs(x - x0) <= a)[0][-2]]
                 thetaminus = theta[np.where(abs(y - y0) <= a)[0][0],  np.where(abs(x - x0) <= a)[0][1]]
-                if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.7:
+                if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.6:
                     thetaplus -= 2 * np.pi * np.sign(thetaplus - thetaminus)
                 I1 = thetaplus - thetaminus
                 thetaplus  = theta[np.where(abs(y - y0) <= a)[0][-2],  np.where(abs(x - x0) <= a)[0][-1]]
                 thetaminus = theta[np.where(abs(y - y0) <= a)[0][1],  np.where(abs(x - x0) <= a)[0][-1]]
-                if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.7:
+                if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.6:
                     thetaplus -= 2 * np.pi * np.sign(thetaplus - thetaminus)
                 I2 = thetaplus - thetaminus
                 thetaplus  = theta[np.where(abs(y - y0) <= a)[0][-1],  np.where(abs(x - x0) <= a)[0][1]]
                 thetaminus = theta[np.where(abs(y - y0) <= a)[0][-1],  np.where(abs(x - x0) <= a)[0][-2]]
-                if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.7:
+                if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.6:
                     thetaplus -= 2 * np.pi * np.sign(thetaplus - thetaminus)
                 I3 = thetaplus - thetaminus
                 thetaplus  = theta[np.where(abs(y - y0) <= a)[0][1],  np.where(abs(x - x0) <= a)[0][0]]
                 thetaminus = theta[np.where(abs(y - y0) <= a)[0][-2],  np.where(abs(x - x0) <= a)[0][0]]
-                if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.7:
+                if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.6:
                     thetaplus -= 2 * np.pi * np.sign(thetaplus - thetaminus)
                 I4 = thetaplus - thetaminus
                 I = (I1 + I2 + I3 + I4) / (2 * np.pi)
                 loops[row ,col] = I 
-                if np.abs(I) > 0.25 and np.abs(I) < 1.:
+                if np.abs(I) > 0.1 and np.abs(I) < 1.:
                     positions[row, col] = np.sign(I)
     for i in range(0, N//2, 2 * int(a/dx) + 1):
         if i!= 0 :
@@ -112,27 +126,27 @@ def vortices(a, theta, x, y):
                     y0 = y[row]
                     thetaplus  = theta[np.where(abs(y - y0) <= a)[0][0],  np.where(abs(x - x0) <= a)[0][-2]]
                     thetaminus = theta[np.where(abs(y - y0) <= a)[0][0],  np.where(abs(x - x0) <= a)[0][1]]
-                    if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.7:
+                    if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.6:
                         thetaplus -= 2 * np.pi * np.sign(thetaplus - thetaminus)
                     I1 = thetaplus - thetaminus
                     thetaplus  = theta[np.where(abs(y - y0) <= a)[0][-2],  np.where(abs(x - x0) <= a)[0][-1]]
                     thetaminus = theta[np.where(abs(y - y0) <= a)[0][1],  np.where(abs(x - x0) <= a)[0][-1]]
-                    if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.7:
+                    if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.6:
                         thetaplus -= 2 * np.pi * np.sign(thetaplus - thetaminus)
                     I2 = thetaplus - thetaminus
                     thetaplus  = theta[np.where(abs(y - y0) <= a)[0][-1],  np.where(abs(x - x0) <= a)[0][1]]
                     thetaminus = theta[np.where(abs(y - y0) <= a)[0][-1],  np.where(abs(x - x0) <= a)[0][-2]]
-                    if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.7:
+                    if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.6:
                         thetaplus -= 2 * np.pi * np.sign(thetaplus - thetaminus)
                     I3 = thetaplus - thetaminus
                     thetaplus  = theta[np.where(abs(y - y0) <= a)[0][1],  np.where(abs(x - x0) <= a)[0][0]]
                     thetaminus = theta[np.where(abs(y - y0) <= a)[0][-2],  np.where(abs(x - x0) <= a)[0][0]]
-                    if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.7:
+                    if abs(thetaplus - thetaminus) >= 2 * np.pi * 0.6:
                         thetaplus -= 2 * np.pi * np.sign(thetaplus - thetaminus)
                     I4 = thetaplus - thetaminus
                     I = (I1 + I2 + I3 + I4) / (2 * np.pi)
                     loops[row, col] = I 
-                    if np.abs(I) > 0.25 and np.abs(I) < 1.:
+                    if np.abs(I) > 0.1 and np.abs(I) < 1.:
                         positions[row, col] = np.sign(I)
     return positions, loops
 
