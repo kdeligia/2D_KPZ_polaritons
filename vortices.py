@@ -43,9 +43,9 @@ Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx**2)
 N = 2 ** 7
 dx_tilde = 0.5
 
-N_steps = 150000
+N_steps = 100000
 dt_tilde = 1e-2
-every = 100
+every = 200
 i1 = 0
 i2 = N_steps
 lengthwindow = i2-i1
@@ -72,7 +72,7 @@ class model:
         self.ns_tilde = self.gammar_tilde / self.R_tilde
         self.P_tilde = p * self.gamma0_tilde * self.ns_tilde
         self.p = self.P_tilde * self. R_tilde / (self.gamma0_tilde * self.gammar_tilde)
-        self.sigma2 = sigma
+        self.sigma = sigma
 
         self.initcond = np.full((N,N), 5)
         rot = np.ones((N, N), dtype = complex)
@@ -80,7 +80,6 @@ class model:
         self.psi_x /= hatpsi
 
         c = self.gamma0_tilde / (2 * self.g_tilde * self.ns_tilde)
-        print(c)
         '''
         Pth = self.gamma0_tilde * self.ns_tilde
         print(self.P_tilde, Pth)
@@ -110,10 +109,11 @@ class model:
         np.random.seed()
         a_vort = 2 * dx_tilde
         vortex_number = np.zeros(len(t))
-        #density = np.zeros(len(t))
+        noise = self.sigma
+        density = np.zeros(len(t))
         for i in range(N_steps):
-            if i == 0:
-                noise = 0
+            #if i == 0:
+                #noise = 0
             self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
             psi_k *= self.exp_k(dt_tilde)
@@ -122,31 +122,33 @@ class model:
             self.psi_x += np.sqrt(dt_tilde) * np.sqrt(noise / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N)))
             if i >= i1 and i <= i2 and i % every == 0:
                 time_index = (i - i1) // every
-                if time_index == 400:
-                    noise = self.sigma2
-                if time_index == 900:
-                    noise = 0
+                #if time_index == 400:
+                    #noise = self.sigma2
+                #if time_index == 900:
+                    #noise = 0
                 vortex_positions, ignore = ext.vortex_positions(a_vort, np.angle(self.psi_x), x, y)
                 #ext.vortex_plots(folder, x, t, time_index, vortex_positions, np.angle(self.psi_x), self.n(self.psi_x))
                 vortex_number[time_index] = len(np.where(vortex_positions == 1)[0]) + len(np.where(vortex_positions == -1)[0])
-                #density[time_index] = np.mean(self.n(self.psi_x))
-        return vortex_number #, density
+                density[time_index] = np.mean(self.n(self.psi_x))
+        return vortex_number, density
 
 # =============================================================================
 # 
 # =============================================================================
 from qutip import *
-n_batch = 4
+n_batch = 2
 qutip.settings.num_cpus = n_batch
 
-p_array = np.array([2])
-gamma2_array = np.array([0.01, 0.02, 0.04, 0.05])
-gamma0_array = np.array([0.2, 0.2, 0.2, 0.2])
-sigma_array = np.array([0.06, 0.07, 0.08, 0.09])
+p_array = np.array([1.6])
+
+gamma2_array = np.array([0.02, 0.02, 0.02, 0.02, 0.02])
+gamma0_array = np.array([0.1, 0.2, 2, 8, 20])
+sigma_array = np.array([0.02, 0.04, 0.05])
+sigma_th = gamma0_array * (p_array + 1) / 2
 
 gr = 0
-g = 0.02
-ns = 10
+g = 0.01
+ns = 20
 xi = hbar / np.sqrt(2 * m_dim * g * ns * (p_array[0] - 1))
 
 path_remote = r'/scratch/konstantinos'
@@ -154,11 +156,13 @@ save_remote = r'/home6/konstantinos'
 path_local = r'/Users/delis/Desktop'
 
 def vortices(gamma0, gamma2, p, sigma):
+    print('Starting for (gamma0, gamma2) = (%.2f, %.2f)' % (gamma0, gamma2))
     gpe = model(p, sigma, gamma2, gamma0, g = g, gr = gr, ns = ns)
     id_string = 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0)
     os.mkdir(init + os.sep + id_string)
-    nv = gpe.time_evolution(init + os.sep + id_string)
-    np.savetxt(init + os.sep + id_string + '_' + 'nv' + '.dat', nv)
+    nvort, dens = gpe.time_evolution(init + os.sep + id_string)
+    np.savetxt(init + os.sep + id_string + '_' + 'nv' + '.dat', nvort)
+    np.savetxt(init + os.sep + id_string + '_' + 'dens' + '.dat', dens)
     '''
     np.savetxt(init + os.sep + id_string + '_' + 'dens' + '.dat', n)
     os.system(
@@ -170,37 +174,33 @@ def vortices(gamma0, gamma2, p, sigma):
     '''
     return None
 
-
 for sigma in sigma_array:
-    init = path_remote + os.sep + 'sigma' + str(sigma) + '_' + 'p' + str(p_array[0]) + '_' + 'ns' + str(ns) + '_' + 'g' + str(g)
+    init = path_local + os.sep + 'sigma' + str(sigma) + '_' + 'p' + str(p_array[0]) + '_' + 'ns' + str(ns) + '_' + 'g' + str(g)
     os.mkdir(init)
     parfor(vortices, gamma0_array, gamma2_array, p = p_array[0], sigma = sigma)
     fig, ax = pl.subplots(1,1, figsize=(8, 6))
     for file in os.listdir(init):
         if 'nv.dat' in file:
             s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
-            ax.plot(t, np.loadtxt(init + os.sep + file), label=r'$\gamma_2$ = %.2f, $\gamma_0$ = %.1f' % (s[0], s[1]))
+            ax.plot(t, np.loadtxt(init + os.sep + file), label=r'$\gamma_2$ = %.e, $\gamma_0$ = %.2f' % (s[0], s[1]))
     ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
     ax.legend(prop=dict(size=12))
     ax.set_xlabel(r'$t$', fontsize=20)
     ax.set_ylabel(r'$n_v$', fontsize=20)
-    ax.set_title(r'$\sigma = %.2f' % sigma, fontsize=20)
+    ax.set_title(r'$\sigma$ = %.2f' % sigma, fontsize=20)
     pl.tight_layout()
-    pl.savefig(save_remote + os.sep + 'quench_sigma' + str(sigma) + '_' + 'vortices.jpg', format='jpg')
+    pl.savefig(save_remote + os.sep + 'sigma' + str(sigma) + '_' + 'vortices.jpg', format='jpg')
     pl.show()
-    '''
     fig, ax = pl.subplots(1,1, figsize=(8, 6))
     for file in os.listdir(init):
         if 'dens.dat' in file:
             s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
-            ax.plot(t, np.loadtxt(init + os.sep + file), label=r'$\gamma_2$ = %.e, $\gamma_0$ = %.1f' % (s[0], s[1]))
+            ax.plot(t, np.loadtxt(init + os.sep + file), label=r'$\gamma_2$ = %.e, $\gamma_0$ = %.2f' % (s[0], s[1]))
     ax.hlines(y=ns * (p_array[0] - 1), xmin=t[0], xmax=t[-1], color='black')
     ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
     ax.legend(prop=dict(size=12))
     ax.set_xlabel(r'$t$', fontsize=20)
     ax.set_ylabel(r'$n$', fontsize=20)
-    ax.set_ylim(0.8, 1.2)
     pl.tight_layout()
-    pl.savefig(save_remote + os.sep + str(sigma) + 'density.jpg', format='jpg')
+    pl.savefig(save_remote + os.sep + 'sigma' + str(sigma) + '_' + 'density.jpg', format='jpg')
     pl.show()
-    '''

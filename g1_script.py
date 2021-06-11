@@ -119,18 +119,18 @@ class model:
 # Parallel tests
 # =============================================================================
 from qutip import *
-parallel_tasks = 256
+parallel_tasks = 128
 n_batch = 64
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
 sigma_array = np.array([0.01])
-p_array = np.array([2.])
+p_array = np.array([1.3, 1.5])
 gamma2_array = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
-gamma0_array = np.array([0.1, 0.2, 1. , 2. , 5. , 6. , 7.])
+gamma0_array = np.array([0.01, 0.2, 1. , 2. , 5. , 6. , 7.])
 gr = 0
 g = 0
-ns = 1.
+ns = 10.
 
 path_remote = r'/scratch/konstantinos'
 final_save_remote = r'/home6/konstantinos'
