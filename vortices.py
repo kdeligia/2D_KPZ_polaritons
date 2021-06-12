@@ -108,7 +108,6 @@ class model:
         np.random.seed()
         a_vort = 2 * dx_tilde
         vortex_number = np.zeros(len(t))
-        noise = self.sigma
         density = np.zeros(len(t))
         for i in range(N_steps):
             #if i == 0:
@@ -118,7 +117,7 @@ class model:
             psi_k *= self.exp_k(dt_tilde)
             self.psi_x = ifft2(psi_k)
             self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
-            self.psi_x += np.sqrt(dt_tilde) * np.sqrt(noise / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N)))
+            self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N)))
             if i >= i1 and i <= i2 and i % every == 0:
                 time_index = (i - i1) // every
                 #if time_index == 400:
@@ -176,14 +175,14 @@ for p in p_array:
     for g in g_array:
         mu = g * ns * (p - 1)
         for sigma in sigma_array:
-            iteration_string = 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'mu' + str(int(mu))
+            iteration_string = 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'mu' + str(np.round(mu, 1))
             path = path_remote + os.sep + iteration_string
             try:
                 os.mkdir(path)
             except FileExistsError:
                 continue
-            print(r'--- Starting for (p, $\sigma$, g) = (%.1f, %.2f, %.2f)' % (p, sigma, g))
-            parfor(vortices, gamma0_array, gamma2_array, p = p, sigma = sigma, g = g)
+            print(r'--- Starting for (p, sigma, g) = (%.1f, %.2f, %.2f)' % (p, sigma, g))
+            #parfor(vortices, gamma0_array, gamma2_array, p = p, sigma = sigma, g = g)
             fig, ax = pl.subplots(1,1, figsize=(8, 6))
             for file in os.listdir(path):
                 if 'nv.dat' in file:
@@ -197,6 +196,7 @@ for p in p_array:
             pl.tight_layout()
             pl.savefig(save_remote + os.sep + iteration_string + '___' + 'vortices.jpg', format='jpg')
             pl.show()
+            pl.close()
             fig, ax = pl.subplots(1,1, figsize=(8, 6))
             for file in os.listdir(path):
                 if 'dens.dat' in file:
@@ -207,7 +207,8 @@ for p in p_array:
             ax.legend(prop=dict(size=12))
             ax.set_xlabel(r'$t$', fontsize=20)
             ax.set_ylabel(r'$n$', fontsize=20)
-            ax.set_title(r'$\sigma$ = %.2f, $p$ = %.1f, $g$ = %.2f, $n_s = %.i' % (sigma, p, g, ns), fontsize=20)
+            ax.set_title(r'$\sigma$ = %.2f, $p$ = %.1f, $g$ = %.2f, $n_s$ = %.i' % (sigma, p, g, ns), fontsize=20)
             pl.tight_layout()
             pl.savefig(save_remote + os.sep + iteration_string + '___' + 'density.jpg', format='jpg')
             pl.show()
+            pl.close()

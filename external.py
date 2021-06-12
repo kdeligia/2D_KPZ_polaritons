@@ -59,17 +59,17 @@ def time(dt, N_steps, i1, i2, secondarystep):
             t[(i-i1)//secondarystep] = i*dt
     return t
 
-def names_subfolders(keyword, path, N, sigma_array, p_array, gamma2_array, gamma0_array, g, ns):
-    init = path + os.sep + 'N' + str(N) + '_' + 'ns' + str(int(ns))
-    if keyword == True:
+def ids(create, init, p_array, sigma_array, gamma0_array, gamma2_array, g_array, ns):
+    if create == True:
         os.mkdir(init)
-    subfolders = {}
+    ids = {}
     for sigma in sigma_array:
         for p in p_array:
             for gamma2 in gamma2_array:
                 for gamma0 in gamma0_array:
-                    subfolders['p=' + str(p), 'sigma=' + str(sigma), 'gamma2=' + str(gamma2), 'gamma0=' + str(gamma0)] = init + os.sep + 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_' + 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0) + '_' + 'gint' + str(g) 
-    return subfolders
+                    for g in g_array:
+                        ids['p=' + str(p), 'sigma=' + str(sigma), 'gamma0=' + str(gamma0), 'gamma2=' + str(gamma2), 'g=' + str(g)] = 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_' + 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2) + '_' + 'g' + str(g) 
+    return ids
 
 def vortex_positions(a, theta, x, y):
     # The integral should be calculated counter clock wise. 
