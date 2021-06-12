@@ -43,7 +43,7 @@ Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx**2)
 N = 2 ** 7
 dx_tilde = 0.5
 
-N_steps = 100000
+N_steps = 50000
 dt_tilde = 1e-2
 every = 200
 i1 = 0
@@ -79,7 +79,6 @@ class model:
         self.psi_x = rot * self.initcond
         self.psi_x /= hatpsi
 
-        c = self.gamma0_tilde / (2 * self.g_tilde * self.ns_tilde)
         '''
         Pth = self.gamma0_tilde * self.ns_tilde
         print(self.P_tilde, Pth)
@@ -136,33 +135,33 @@ class model:
 # 
 # =============================================================================
 from qutip import *
-n_batch = 2
+n_batch = 3
 qutip.settings.num_cpus = n_batch
 
-p_array = np.array([1.6])
-
-gamma2_array = np.array([0.02, 0.02, 0.02, 0.02, 0.02])
-gamma0_array = np.array([0.1, 0.2, 2, 8, 20])
-sigma_array = np.array([0.02, 0.04, 0.05])
-sigma_th = gamma0_array * (p_array + 1) / 2
+p_array = np.array([1.4])
+gamma2_array = np.array([0.2, 0.2, 0.2])
+gamma0_array = np.array([0.15, 0.2, 0.25])
+sigma_array = np.array([0.02, 0.04, 0.06, 0.08, 0.1, 0.2, 0.3])
 
 gr = 0
-g = 0.01
-ns = 20
-xi = hbar / np.sqrt(2 * m_dim * g * ns * (p_array[0] - 1))
+g_array = np.array([0.05, 0.1, 0.2])
+ns = 100
+sigma_th = gamma0_array * (p_array + 1) / 2
+#xi = hbar / np.sqrt(2 * m_dim * g * ns * (p_array[0] - 1))
 
 path_remote = r'/scratch/konstantinos'
 save_remote = r'/home6/konstantinos'
 path_local = r'/Users/delis/Desktop'
 
-def vortices(gamma0, gamma2, p, sigma):
-    print('Starting for (gamma0, gamma2) = (%.2f, %.2f)' % (gamma0, gamma2))
+
+def vortices(gamma0, gamma2, p, sigma, g):
+    print(r'--- Parameters in parallel: ($\gamma_0$, $\gamma_2$) = (%.2f, %.2f)' % (gamma0, gamma2))
     gpe = model(p, sigma, gamma2, gamma0, g = g, gr = gr, ns = ns)
-    id_string = 'gammak' + str(gamma2) + '_' + 'gamma' + str(gamma0)
-    os.mkdir(init + os.sep + id_string)
-    nvort, dens = gpe.time_evolution(init + os.sep + id_string)
-    np.savetxt(init + os.sep + id_string + '_' + 'nv' + '.dat', nvort)
-    np.savetxt(init + os.sep + id_string + '_' + 'dens' + '.dat', dens)
+    parallel_string = 'gamma0' + str(gamma0) + '_' + 'gammak' + str(gamma2)
+    os.mkdir(path + os.sep + parallel_string)
+    nvort, dens = gpe.time_evolution(path + os.sep + parallel_string)
+    np.savetxt(path + os.sep + parallel_string + '_' + 'nv' + '.dat', nvort)
+    np.savetxt(path + os.sep + parallel_string + '_' + 'dens' + '.dat', dens)
     '''
     np.savetxt(init + os.sep + id_string + '_' + 'dens' + '.dat', n)
     os.system(
@@ -174,33 +173,42 @@ def vortices(gamma0, gamma2, p, sigma):
     '''
     return None
 
-for sigma in sigma_array:
-    init = path_local + os.sep + 'sigma' + str(sigma) + '_' + 'p' + str(p_array[0]) + '_' + 'ns' + str(ns) + '_' + 'g' + str(g)
-    os.mkdir(init)
-    parfor(vortices, gamma0_array, gamma2_array, p = p_array[0], sigma = sigma)
-    fig, ax = pl.subplots(1,1, figsize=(8, 6))
-    for file in os.listdir(init):
-        if 'nv.dat' in file:
-            s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
-            ax.plot(t, np.loadtxt(init + os.sep + file), label=r'$\gamma_2$ = %.e, $\gamma_0$ = %.2f' % (s[0], s[1]))
-    ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
-    ax.legend(prop=dict(size=12))
-    ax.set_xlabel(r'$t$', fontsize=20)
-    ax.set_ylabel(r'$n_v$', fontsize=20)
-    ax.set_title(r'$\sigma$ = %.2f' % sigma, fontsize=20)
-    pl.tight_layout()
-    pl.savefig(save_remote + os.sep + 'sigma' + str(sigma) + '_' + 'vortices.jpg', format='jpg')
-    pl.show()
-    fig, ax = pl.subplots(1,1, figsize=(8, 6))
-    for file in os.listdir(init):
-        if 'dens.dat' in file:
-            s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
-            ax.plot(t, np.loadtxt(init + os.sep + file), label=r'$\gamma_2$ = %.e, $\gamma_0$ = %.2f' % (s[0], s[1]))
-    ax.hlines(y=ns * (p_array[0] - 1), xmin=t[0], xmax=t[-1], color='black')
-    ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
-    ax.legend(prop=dict(size=12))
-    ax.set_xlabel(r'$t$', fontsize=20)
-    ax.set_ylabel(r'$n$', fontsize=20)
-    pl.tight_layout()
-    pl.savefig(save_remote + os.sep + 'sigma' + str(sigma) + '_' + 'density.jpg', format='jpg')
-    pl.show()
+for p in p_array:
+    for g in g_array:
+        mu = g * ns * (p - 1)
+        for sigma in sigma_array:
+            iteration_string = 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'mu' + str(mu)
+            path = path_remote + os.sep + iteration_string
+            try:
+                os.mkdir(path)
+            except FileExistsError:
+                continue
+            print(r'--- Starting for (p, $\sigma$, g) = (%.1f, %.2f, %.2f)' % (p, sigma, g))
+            parfor(vortices, gamma0_array, gamma2_array, p = p, sigma = sigma, g = g)
+            fig, ax = pl.subplots(1,1, figsize=(8, 6))
+            for file in os.listdir(path):
+                if 'nv.dat' in file:
+                    s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
+                    ax.plot(t, np.loadtxt(path + os.sep + file), label=r'$\gamma_2$ = %.e, $\gamma_0$ = %.2f' % (s[0], s[1]))
+            ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
+            ax.legend(prop=dict(size=12))
+            ax.set_xlabel(r'$t$', fontsize=20)
+            ax.set_ylabel(r'$n_v$', fontsize=20)
+            ax.set_title(r'$\sigma$ = %.2f, $p$ = %.1f, $g$ = %.2f, $n_s$ = %.i' % (sigma, p, g, ns), fontsize=20)
+            pl.tight_layout()
+            pl.savefig(save_remote + os.sep + iteration_string + '___' + 'vortices.jpg', format='jpg')
+            pl.show()
+            fig, ax = pl.subplots(1,1, figsize=(8, 6))
+            for file in os.listdir(path):
+                if 'dens.dat' in file:
+                    s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
+                    ax.plot(t, np.loadtxt(path + os.sep + file), label=r'$\gamma_2$ = %.e, $\gamma_0$ = %.2f' % (s[0], s[1]))
+            ax.hlines(y=ns * (p_array[0] - 1), xmin=t[0], xmax=t[-1], color='black')
+            ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
+            ax.legend(prop=dict(size=12))
+            ax.set_xlabel(r'$t$', fontsize=20)
+            ax.set_ylabel(r'$n$', fontsize=20)
+            ax.set_title(r'$\sigma$ = %.2f, $p$ = %.1f, $g$ = %.2f, $n_s = %.i' % (sigma, p, g, ns), fontsize=20)
+            pl.tight_layout()
+            pl.savefig(save_remote + os.sep + iteration_string + '___' + 'density.jpg', format='jpg')
+            pl.show()
