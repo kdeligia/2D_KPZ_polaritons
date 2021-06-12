@@ -68,7 +68,7 @@ def ids(create, init, p_array, sigma_array, gamma0_array, gamma2_array, g_array,
             for gamma2 in gamma2_array:
                 for gamma0 in gamma0_array:
                     for g in g_array:
-                        ids['p=' + str(p), 'sigma=' + str(sigma), 'gamma0=' + str(gamma0), 'gamma2=' + str(gamma2), 'g=' + str(g)] = 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_' + 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2) + '_' + 'g' + str(g) 
+                        ids['p=' + str(p), 'sigma=' + str(sigma), 'gamma0=' + str(gamma0), 'gamma2=' + str(gamma2), 'g=' + str(g)] = 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_' + 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2) + '_' + 'g' + str(g)
     return ids
 
 def vortex_positions(a, theta, x, y):

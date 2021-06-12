@@ -156,8 +156,8 @@ def call_avg(loc):
                 ax.legend(prop=dict(size=12))
                 print(np.fft.fftshift(kx)[N//2+1], Im_plus[N//2+1], gamma2, gamma0)
                 '''
-                id_string = ids.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma2=' + str(gamma2), 'gamma0=' + str(gamma0)))
-                save_folder = init + os.sep + ids.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma2=' + str(gamma2), 'gamma0=' + str(gamma0)))
+                id_string = ids.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma0=' + str(gamma0), 'gamma2=' + str(gamma2), 'g=' + str(g)))
+                save_folder = init + os.sep + id_string
                 os.mkdir(save_folder)
                 correlation = np.zeros((len(t), N//2), dtype = complex)
                 avg_dens = np.zeros((len(t), N//2), dtype = complex)
