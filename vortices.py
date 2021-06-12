@@ -141,7 +141,7 @@ qutip.settings.num_cpus = n_batch
 p_array = np.array([1.4])
 gamma2_array = np.array([0.2, 0.2, 0.2])
 gamma0_array = np.array([0.15, 0.2, 0.25])
-sigma_array = np.array([0.02, 0.04, 0.06, 0.08, 0.1, 0.2, 0.3])
+sigma_array = np.array([0.06, 0.08, 0.18, 0.24, 0.3])
 
 gr = 0
 g_array = np.array([0.05, 0.1, 0.2])
@@ -153,12 +153,11 @@ path_remote = r'/scratch/konstantinos'
 save_remote = r'/home6/konstantinos'
 path_local = r'/Users/delis/Desktop'
 
-
 def vortices(gamma0, gamma2, p, sigma, g):
-    print(r'--- Parameters in parallel: ($\gamma_0$, $\gamma_2$) = (%.2f, %.2f)' % (gamma0, gamma2))
+    print(r'--- Parameters in parallel: (gamma0, gamma2) = (%.2f, %.2f)' % (gamma0, gamma2))
     gpe = model(p, sigma, gamma2, gamma0, g = g, gr = gr, ns = ns)
-    parallel_string = 'gamma0' + str(gamma0) + '_' + 'gammak' + str(gamma2)
-    os.mkdir(path + os.sep + parallel_string)
+    parallel_string = 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2)
+    # os.mkdir(path + os.sep + parallel_string)
     nvort, dens = gpe.time_evolution(path + os.sep + parallel_string)
     np.savetxt(path + os.sep + parallel_string + '_' + 'nv' + '.dat', nvort)
     np.savetxt(path + os.sep + parallel_string + '_' + 'dens' + '.dat', dens)
@@ -177,7 +176,7 @@ for p in p_array:
     for g in g_array:
         mu = g * ns * (p - 1)
         for sigma in sigma_array:
-            iteration_string = 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'mu' + str(mu)
+            iteration_string = 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'mu' + str(int(mu))
             path = path_remote + os.sep + iteration_string
             try:
                 os.mkdir(path)
@@ -189,7 +188,7 @@ for p in p_array:
             for file in os.listdir(path):
                 if 'nv.dat' in file:
                     s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
-                    ax.plot(t, np.loadtxt(path + os.sep + file), label=r'$\gamma_2$ = %.e, $\gamma_0$ = %.2f' % (s[0], s[1]))
+                    ax.plot(t, np.loadtxt(path + os.sep + file), label=r'$\gamma_0$ = %.2f, $\gamma_2$ = %.2f' % (s[0], s[1]))
             ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
             ax.legend(prop=dict(size=12))
             ax.set_xlabel(r'$t$', fontsize=20)
@@ -202,7 +201,7 @@ for p in p_array:
             for file in os.listdir(path):
                 if 'dens.dat' in file:
                     s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
-                    ax.plot(t, np.loadtxt(path + os.sep + file), label=r'$\gamma_2$ = %.e, $\gamma_0$ = %.2f' % (s[0], s[1]))
+                    ax.plot(t, np.loadtxt(path + os.sep + file), label=r'$\gamma_0$ = %.2f, $\gamma_2$ = %.2f' % (s[0], s[1]))
             ax.hlines(y=ns * (p_array[0] - 1), xmin=t[0], xmax=t[-1], color='black')
             ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
             ax.legend(prop=dict(size=12))
