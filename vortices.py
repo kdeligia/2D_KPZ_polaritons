@@ -134,81 +134,142 @@ class model:
 # 
 # =============================================================================
 from qutip import *
-n_batch = 3
+n_batch = 6
 qutip.settings.num_cpus = n_batch
 
-p_array = np.array([1.4])
-gamma2_array = np.array([0.2, 0.2, 0.2])
-gamma0_array = np.array([0.15, 0.2, 0.25])
-sigma_array = np.array([0.06, 0.08, 0.18, 0.24, 0.3])
+p_array = np.array([1.8])
+gamma2_array = np.array([0.1, 0.2, 0.4, 0.6, 0.8, 1])
+gamma0_array = np.array([0.14])
+sigma_array = gamma0_array[0] * (p_array + 1) / 2
 
 gr = 0
-g_array = np.array([0.05, 0.1, 0.2])
-ns = 100
+g_array = np.array([0, 0.05, 0.1, 0.5, 2, 6])
+ns = 50
 sigma_th = gamma0_array * (p_array + 1) / 2
-#xi = hbar / np.sqrt(2 * m_dim * g * ns * (p_array[0] - 1))
+xi = hbar / np.sqrt(2 * m_dim * g_array * ns * (p_array[0] - 1))
 
 path_remote = r'/scratch/konstantinos'
 save_remote = r'/home6/konstantinos'
 path_local = r'/Users/delis/Desktop'
 
-def vortices(gamma0, gamma2, p, sigma, g):
-    print(r'--- Parameters in parallel: (gamma0, gamma2) = (%.2f, %.2f)' % (gamma0, gamma2))
+def vortices(gamma0, gamma2, p, g):
+    sigma = sigma_array[np.where(gamma0_array == gamma0)]
+    print(r'--- Parameters in parallel: (gamma0, gamma2, sigma) = (%.2f, %.2f, %.2f)' % (gamma0, gamma2, sigma))
     gpe = model(p, sigma, gamma2, gamma0, g = g, gr = gr, ns = ns)
     parallel_string = 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2)
-    # os.mkdir(path + os.sep + parallel_string)
+    os.mkdir(path + os.sep + parallel_string)
+    nvort, dens = gpe.time_evolution(path + os.sep + parallel_string)
+    #np.savetxt(path + os.sep + parallel_string + '_' + 'nv' + '.dat', nvort)
+    #np.savetxt(path + os.sep + parallel_string + '_' + 'dens' + '.dat', dens)'
+    '''
+    os.system(
+        'ffmpeg -framerate 10 -i ' + 
+        path + os.sep + parallel_string + os.sep + 
+        'fig%d.jpg ' + 
+        path_local + os.sep + 
+        parallel_string + '.mp4')
+    '''
+    return None
+
+def vortices_test(gamma2, g, gamma0, p):
+    sigma = sigma_array[np.where(p_array == p)]
+    print(r'--- Parameters in parallel: (gamma0, gamma2, sigma) = (%.2f, %.2f, %.2f)' % (gamma0, gamma2, sigma))
+    gpe = model(p, sigma, gamma2, gamma0, g = g, gr = gr, ns = ns)
+    parallel_string = 'gammak' + str(gamma2)
+    os.mkdir(path + os.sep + parallel_string)
     nvort, dens = gpe.time_evolution(path + os.sep + parallel_string)
     np.savetxt(path + os.sep + parallel_string + '_' + 'nv' + '.dat', nvort)
     np.savetxt(path + os.sep + parallel_string + '_' + 'dens' + '.dat', dens)
     '''
-    np.savetxt(init + os.sep + id_string + '_' + 'dens' + '.dat', n)
     os.system(
         'ffmpeg -framerate 10 -i ' + 
-        init + os.sep + id_string + os.sep + 
-        'fig%d.jpg -vcodec mpeg4 -y ' + 
-        save_remote + os.sep + 
-        id_string + '.mp4')
+        path + os.sep + parallel_string + os.sep + 
+        'fig%d.jpg ' + 
+        path_local + os.sep + 
+        parallel_string + '.mp4')
     '''
     return None
 
+'''
+for p in p_array:
+    for g in g_array:
+        iteration_string = 'test_' + 'p' + str(p) + '_' + 'g' + str(g)
+        path = path_local + os.sep + iteration_string
+        try:
+            os.mkdir(path)
+        except FileExistsError:
+            continue
+        parallel_map(vortices_test, gamma2_array, task_kwargs=dict(g = g, gamma0 = gamma0_array[0], p = p))
+        fig, ax = pl.subplots(1,1, figsize=(8, 6))
+        for file in os.listdir(path):
+            if 'nv.dat' in file:
+                s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
+                ax.plot(t, np.loadtxt(path + os.sep + file), label=r'$\gamma_2$ = %.1f' % s[0])
+        ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
+        ax.legend(prop=dict(size=12))
+        ax.set_xlabel(r'$t$', fontsize=20)
+        ax.set_ylabel(r'$n_v$', fontsize=20)
+        ax.set_title(r'$g$ = %.2f' % g, fontsize=20)
+        pl.tight_layout()
+        pl.savefig(path_local + os.sep + iteration_string + '___' + 'vortices.jpg', format='jpg')
+        pl.show()
+        pl.close()
+        fig, ax = pl.subplots(1,1, figsize=(8, 6))
+        for file in os.listdir(path):
+            if 'dens.dat' in file:
+                s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
+                ax.plot(t, np.loadtxt(path + os.sep + file), label=r'$\gamma_2$ = %.2f' % s[0])
+        ax.hlines(y=ns * (p_array[0] - 1), xmin=t[0], xmax=t[-1], color='black')
+        ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
+        ax.legend(prop=dict(size=12))
+        ax.set_xlabel(r'$t$', fontsize=20)
+        ax.set_ylabel(r'$n$', fontsize=20)
+        ax.set_title(r'$g$ = %.2f' % g, fontsize=20)
+        pl.tight_layout()
+        pl.savefig(path_local + os.sep + iteration_string + '___' + 'density.jpg', format='jpg')
+        pl.show()
+        pl.close()
+'''
+
+'''
 for p in p_array:
     for g in g_array:
         mu = g * ns * (p - 1)
-        for sigma in sigma_array:
-            iteration_string = 'sigma' + str(sigma) + '_' + 'p' + str(p) + '_' + 'mu' + str(np.round(mu, 1))
-            path = path_remote + os.sep + iteration_string
-            try:
-                os.mkdir(path)
-            except FileExistsError:
-                continue
-            print(r'--- Starting for (p, sigma, g) = (%.1f, %.2f, %.2f)' % (p, sigma, g))
-            #parfor(vortices, gamma0_array, gamma2_array, p = p, sigma = sigma, g = g)
-            fig, ax = pl.subplots(1,1, figsize=(8, 6))
-            for file in os.listdir(path):
-                if 'nv.dat' in file:
-                    s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
-                    ax.plot(t, np.loadtxt(path + os.sep + file), label=r'$\gamma_0$ = %.2f, $\gamma_2$ = %.2f' % (s[0], s[1]))
-            ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
-            ax.legend(prop=dict(size=12))
-            ax.set_xlabel(r'$t$', fontsize=20)
-            ax.set_ylabel(r'$n_v$', fontsize=20)
-            ax.set_title(r'$\sigma$ = %.2f, $p$ = %.1f, $g$ = %.2f, $n_s$ = %.i' % (sigma, p, g, ns), fontsize=20)
-            pl.tight_layout()
-            pl.savefig(save_remote + os.sep + iteration_string + '___' + 'vortices.jpg', format='jpg')
-            pl.show()
-            pl.close()
-            fig, ax = pl.subplots(1,1, figsize=(8, 6))
-            for file in os.listdir(path):
-                if 'dens.dat' in file:
-                    s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
-                    ax.plot(t, np.loadtxt(path + os.sep + file), label=r'$\gamma_0$ = %.2f, $\gamma_2$ = %.2f' % (s[0], s[1]))
-            ax.hlines(y=ns * (p_array[0] - 1), xmin=t[0], xmax=t[-1], color='black')
-            ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
-            ax.legend(prop=dict(size=12))
-            ax.set_xlabel(r'$t$', fontsize=20)
-            ax.set_ylabel(r'$n$', fontsize=20)
-            ax.set_title(r'$\sigma$ = %.2f, $p$ = %.1f, $g$ = %.2f, $n_s$ = %.i' % (sigma, p, g, ns), fontsize=20)
-            pl.tight_layout()
-            pl.savefig(save_remote + os.sep + iteration_string + '___' + 'density.jpg', format='jpg')
-            pl.show()
-            pl.close()
+        iteration_string = 'p' + str(p) + '_' + 'mu' + str(np.round(mu, 1))
+        path = path_local + os.sep + iteration_string
+        try:
+            os.mkdir(path)
+        except FileExistsError:
+            continue
+        print(r'--- Starting for (p, g) = (%.1f, %.2f)' % (p, g))
+        #parfor(vortices, gamma0_array, gamma2_array, p = p, g = g)
+        fig, ax = pl.subplots(1,1, figsize=(8, 6))
+        for file in os.listdir(path):
+            if 'nv.dat' in file:
+                s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
+                ax.plot(t, np.loadtxt(path + os.sep + file), label=r'$\gamma_0$ = %.2f, $\gamma_2$ = %.2f' % (s[0], s[1]))
+        ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
+        ax.legend(prop=dict(size=12))
+        ax.set_xlabel(r'$t$', fontsize=20)
+        ax.set_ylabel(r'$n_v$', fontsize=20)
+        ax.set_title(r'$p$ = %.1f, $g$ = %.2f, $n_s$ = %.i' % (p, g, ns), fontsize=20)
+        pl.tight_layout()
+        pl.savefig(path_local + os.sep + iteration_string + '___' + 'vortices.jpg', format='jpg')
+        pl.show()
+        pl.close()
+        fig, ax = pl.subplots(1,1, figsize=(8, 6))
+        for file in os.listdir(path):
+            if 'dens.dat' in file:
+                s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
+                ax.plot(t, np.loadtxt(path + os.sep + file), label=r'$\gamma_0$ = %.2f, $\gamma_2$ = %.2f' % (s[0], s[1]))
+        ax.hlines(y=ns * (p_array[0] - 1), xmin=t[0], xmax=t[-1], color='black')
+        ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
+        ax.legend(prop=dict(size=12))
+        ax.set_xlabel(r'$t$', fontsize=20)
+        ax.set_ylabel(r'$n$', fontsize=20)
+        ax.set_title(r'$p$ = %.1f, $g$ = %.2f, $n_s$ = %.i' % ( p, g, ns), fontsize=20)
+        pl.tight_layout()
+        pl.savefig(path_local + os.sep + iteration_string + '___' + 'density.jpg', format='jpg')
+        pl.show()
+        pl.close()
+'''

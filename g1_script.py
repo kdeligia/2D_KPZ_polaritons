@@ -41,6 +41,19 @@ t = ext.time(dt_tilde, N_steps, i1, i2, every)
 
 x, y = ext.space_momentum(N, dx_tilde)
 isotropic_indices = ext.get_indices(x)
+#np.savetxt('/Users/delis/Desktop/t_batch1.dat', t)
+
+'''
+h = np.zeros((N, N))
+for rad in range(N//2):
+    mysum = 0
+    indices = isotropic_indices.get('r = ' + str(rad))
+    for i in range(len(indices)):
+        h[indices[i][0], indices[i][1]] = rad
+        mysum += h[indices[i][0], indices[i][1]]/len(indices)
+    print(mysum)
+print(h)
+'''
 
 kx = (2 * np.pi) / dx_tilde * np.fft.fftfreq(N, d = 1)
 ky = (2 * np.pi) / dx_tilde * np.fft.fftfreq(N, d = 1)
@@ -111,18 +124,18 @@ class model:
 # Parallel tests
 # =============================================================================
 from qutip import *
-parallel_tasks = 256
+parallel_tasks = 128
 n_batch = 128
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-p_array = np.array([1.4, 1.8])
-gamma2_array = np.array([0.2, 0.2, 0.2])
-gamma0_array = np.array([0.15, 0.2, 0.25])
-sigma_array = np.array([0.18, 0.24, 0.3])
+p_array = np.array([1.8])
+gamma2_array = np.array([0.05, 0.1, 0.2, 0.4, 0.6, 0.8])
+gamma0_array = np.array([0.2])
+sigma_array = gamma0_array * (p_array + 1) / 2
 gr = 0
-g_array = np.array([0.01, 0.05, 0.1, 0.2])
-ns = 100.
+g_array = np.array([0, 0.1, 0.5, 2])
+ns = 50.
 
 def g1(i_batch, p, sigma, gamma0, gamma2, g, path):
     correlation_batch = np.zeros((len(t), N//2), dtype = complex)
@@ -140,15 +153,15 @@ def g1(i_batch, p, sigma, gamma0, gamma2, g, path):
 #fig, ax = pl.subplots(1,1, figsize=(8,6))
 
 init = r'/scratch/konstantinos' + os.sep + 'N' + str(N) + '_' + 'ns' + str(int(ns))
+os.mkdir(init)
 ids = ext.ids(False, init, p_array, sigma_array, gamma0_array, gamma2_array, g_array, ns)
 
 def call_avg(loc):
     for p in p_array:
         for g in g_array:
-            for gamma0 in gamma0_array:
+            for gamma2 in gamma2_array:
                 print('--- Secondary simulation parameters: p = %.1f, g = %.2f, ns = %.i' % (p, g, ns))
-                gamma2 = gamma2_array[np.where(gamma0_array == gamma0)][0]
-                sigma = sigma_array[np.where(gamma0_array == gamma0)][0]
+                sigma = sigma_array[0]
                 '''
                 Im_plus, Im_minus = ext.bogoliubov(np.fft.fftshift(kx), Kc=Kc, Kd=gamma2/2, gamma0=gamma0, p=p, g=g, n0=ns*(p-1))
                 ax.plot(np.fft.fftshift(kx)[N//2:], Im_plus[N//2:], label=r'$\omega_B(k_{min})$=%.5f, $\gamma_2$=%.1f, $\gamma_0$=%.1f' % (Im_plus[N//2+1], gamma2, gamma0))
@@ -156,14 +169,17 @@ def call_avg(loc):
                 ax.legend(prop=dict(size=12))
                 print(np.fft.fftshift(kx)[N//2+1], Im_plus[N//2+1], gamma2, gamma0)
                 '''
-                id_string = ids.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma0=' + str(gamma0), 'gamma2=' + str(gamma2), 'g=' + str(g)))
+                id_string = ids.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma0=' + str(gamma0_array[0]), 'gamma2=' + str(gamma2), 'g=' + str(g)))
                 save_folder = init + os.sep + id_string
-                os.mkdir(save_folder)
+                try:
+                    os.mkdir(save_folder)
+                except FileExistsError:
+                    continue
                 correlation = np.zeros((len(t), N//2), dtype = complex)
                 avg_dens = np.zeros((len(t), N//2), dtype = complex)
                 print('--- Kinetic terms: Kc = %.5f, Kd = %.5f' % (Kc, gamma2/2))
-                print('--- Primary simulation parameters: sigma = %.2f, gamma0 = %.2f, gamma2 = %.2f' % (sigma, gamma0, gamma2))
-                parallel_map(g1, range(n_batch), task_kwargs=dict(p = p, sigma = sigma, gamma0 = gamma0, gamma2 = gamma2, g = g, save_folder = save_folder))
+                print('--- Primary simulation parameters: sigma = %.2f, gamma0 = %.2f, gamma2 = %.2f' % (sigma, gamma0_array[0], gamma2))
+                parallel_map(g1, range(n_batch), task_kwargs=dict(p = p, sigma = sigma, gamma0 = gamma0_array[0], gamma2 = gamma2, g = g, path = save_folder))
                 for file in os.listdir(save_folder):
                     if 'correlation' in file:
                         correlation += np.load(save_folder + os.sep + file) / n_batch
@@ -172,5 +188,5 @@ def call_avg(loc):
                 np.save(loc + os.sep + id_string + '__' + 'g1' + '.npy', np.abs(correlation).real/np.sqrt(avg_dens[0].real * avg_dens.real))
         return None
 
-final_save_remote = r'/home6/konstantinos'
-call_avg(final_save_remote)
+#final_save_remote = r'/home6/konstantinos'
+#call_avg(final_save_remote)
