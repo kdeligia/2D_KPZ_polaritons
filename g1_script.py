@@ -28,12 +28,12 @@ Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx**2)
 # =============================================================================
 # 
 # =============================================================================
-N = 2 ** 7
+N = 2 ** 6
 dx_tilde = 0.5
 
-N_steps = 1000000
+N_steps = 10000000
 dt_tilde = 1e-2
-every = 500
+every = 10000
 i1 = 50000
 i2 = N_steps
 lengthwindow = i2-i1
@@ -41,7 +41,7 @@ t = ext.time(dt_tilde, N_steps, i1, i2, every)
 
 x, y = ext.space_momentum(N, dx_tilde)
 isotropic_indices = ext.get_indices(x)
-#np.savetxt('/Users/delis/Desktop/t_batch1.dat', t)
+np.savetxt('/home6/konstantinos/t_test.dat', t)
 
 '''
 h = np.zeros((N, N))
@@ -124,17 +124,19 @@ class model:
 # Parallel tests
 # =============================================================================
 from qutip import *
-parallel_tasks = 128
-n_batch = 128
+parallel_tasks = 64
+n_batch = 64
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
 p_array = np.array([1.8])
-gamma2_array = np.array([0.05, 0.1, 0.2, 0.4, 0.6, 0.8])
+#gamma2_array = np.array([0.05, 0.1, 0.2, 0.4, 0.6, 0.8])
+gamma2_array = np.array([0.05])
 gamma0_array = np.array([0.2])
 sigma_array = gamma0_array * (p_array + 1) / 2
 gr = 0
-g_array = np.array([0, 0.1, 0.5, 2])
+#g_array = np.array([0, 0.1, 0.5, 2])
+g_array = np.array([0])
 ns = 50.
 
 def g1(i_batch, p, sigma, gamma0, gamma2, g, path):
@@ -153,6 +155,7 @@ def g1(i_batch, p, sigma, gamma0, gamma2, g, path):
 #fig, ax = pl.subplots(1,1, figsize=(8,6))
 
 init = r'/scratch/konstantinos' + os.sep + 'N' + str(N) + '_' + 'ns' + str(int(ns))
+#init = r'/Users/delis/Desktop' + os.sep + 'N' + str(N) + '_' + 'ns' + str(int(ns))
 os.mkdir(init)
 ids = ext.ids(False, init, p_array, sigma_array, gamma0_array, gamma2_array, g_array, ns)
 
@@ -185,8 +188,9 @@ def call_avg(loc):
                         correlation += np.load(save_folder + os.sep + file) / n_batch
                     elif 'avg_density' in file:
                         avg_dens += np.load(save_folder + os.sep + file) / n_batch
-                np.save(loc + os.sep + id_string + '__' + 'g1' + '.npy', np.abs(correlation).real/np.sqrt(avg_dens[0].real * avg_dens.real))
+                np.save(loc + os.sep + id_string + '__' + 'TEST' + '.npy', np.abs(correlation).real/np.sqrt(avg_dens[0].real * avg_dens.real))
         return None
 
-#final_save_remote = r'/home6/konstantinos'
-#call_avg(final_save_remote)
+final_save_remote = r'/home6/konstantinos'
+#final_save_remote = r'/Users/delis/Desktop'
+call_avg(final_save_remote)

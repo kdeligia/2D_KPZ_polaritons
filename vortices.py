@@ -125,7 +125,7 @@ class model:
                 #if time_index == 900:
                     #noise = 0
                 vortex_positions, ignore = ext.vortex_positions(a_vort, np.angle(self.psi_x), x, y)
-                #ext.vortex_plots(folder, x, t, time_index, vortex_positions, np.angle(self.psi_x), self.n(self.psi_x))
+                ext.vortex_plots(folder, x, t, time_index, vortex_positions, np.angle(self.psi_x), self.n(self.psi_x))
                 vortex_number[time_index] = len(np.where(vortex_positions == 1)[0]) + len(np.where(vortex_positions == -1)[0])
                 density[time_index] = np.mean(self.n(self.psi_x))
         return vortex_number, density
@@ -138,12 +138,12 @@ n_batch = 6
 qutip.settings.num_cpus = n_batch
 
 p_array = np.array([1.8])
-gamma2_array = np.array([0.1, 0.2, 0.4, 0.6, 0.8, 1])
-gamma0_array = np.array([0.14])
+gamma2_array = np.array([0.05, 0.1, 0.2, 0.4, 0.6, 0.8])
+gamma0_array = np.array([0.2])
 sigma_array = gamma0_array[0] * (p_array + 1) / 2
 
 gr = 0
-g_array = np.array([0, 0.05, 0.1, 0.5, 2, 6])
+g_array = np.array([0, 0.1, 0.5, 2])
 ns = 50
 sigma_th = gamma0_array * (p_array + 1) / 2
 xi = hbar / np.sqrt(2 * m_dim * g_array * ns * (p_array[0] - 1))
@@ -161,14 +161,12 @@ def vortices(gamma0, gamma2, p, g):
     nvort, dens = gpe.time_evolution(path + os.sep + parallel_string)
     #np.savetxt(path + os.sep + parallel_string + '_' + 'nv' + '.dat', nvort)
     #np.savetxt(path + os.sep + parallel_string + '_' + 'dens' + '.dat', dens)'
-    '''
     os.system(
         'ffmpeg -framerate 10 -i ' + 
         path + os.sep + parallel_string + os.sep + 
         'fig%d.jpg ' + 
         path_local + os.sep + 
         parallel_string + '.mp4')
-    '''
     return None
 
 def vortices_test(gamma2, g, gamma0, p):
@@ -190,7 +188,7 @@ def vortices_test(gamma2, g, gamma0, p):
     '''
     return None
 
-'''
+
 for p in p_array:
     for g in g_array:
         iteration_string = 'test_' + 'p' + str(p) + '_' + 'g' + str(g)
@@ -200,6 +198,7 @@ for p in p_array:
         except FileExistsError:
             continue
         parallel_map(vortices_test, gamma2_array, task_kwargs=dict(g = g, gamma0 = gamma0_array[0], p = p))
+        '''
         fig, ax = pl.subplots(1,1, figsize=(8, 6))
         for file in os.listdir(path):
             if 'nv.dat' in file:
@@ -229,7 +228,8 @@ for p in p_array:
         pl.savefig(path_local + os.sep + iteration_string + '___' + 'density.jpg', format='jpg')
         pl.show()
         pl.close()
-'''
+        '''
+
 
 '''
 for p in p_array:
