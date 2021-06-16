@@ -31,17 +31,17 @@ Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx**2)
 N = 2 ** 7
 dx_tilde = 0.5
 
-N_steps = 2500000
-dt_tilde = 4e-2
-every = 2500
-i1 = 12500
+N_steps = 2000000
+dt_tilde = 5e-2
+every = 10000
+i1 = 10000
 i2 = N_steps
 lengthwindow = i2-i1
 t = ext.time(dt_tilde, N_steps, i1, i2, every)
 
 x, y = ext.space_momentum(N, dx_tilde)
 isotropic_indices = ext.get_indices(x)
-#np.savetxt('/home6/konstantinos/t_test.dat', t)
+np.savetxt('/home6/konstantinos/t_test.dat', t)
 
 '''
 h = np.zeros((N, N))
@@ -103,7 +103,8 @@ class model:
     def time_evolution(self):
         np.random.seed()
         center_indices = isotropic_indices.get('r = ' + str(0))
-        psi_correlation = np.zeros((len(t), N//2), dtype = complex)
+        psi_correlation_x = np.zeros((len(t), N//2), dtype = complex)
+        psi_correlation_t = np.zeros(len(t), dtype = complex)
         n_avg = np.zeros((len(t), N//2), dtype = complex)
         for i in range(N_steps):
             self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
@@ -112,13 +113,16 @@ class model:
             self.psi_x = ifft2(psi_k)
             self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
             self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N)))
-            if i >= i1 and i <= i2 and i%every==0:
+            if i >= i1 and i <= i2 and i % every == 0:
                 time_array_index = (i-i1)//every
                 if i == i1:
                     psi_x0t0 = self.psi_x[center_indices[0][0], center_indices[0][1]]
-                psi_correlation[time_array_index] =  ext.isotropic_avg('psi correlation', self.psi_x, psi_x0t0, **isotropic_indices)
+                #psi_correlation[time_array_index] = ext.isotropic_avg('psi correlation', self.psi_x, psi_x0t0, **isotropic_indices)
+                psi_x0t = self.psi_x[center_indices[0][0], center_indices[0][1]]
+                psi_correlation_x[time_array_index] = ext.isotropic_avg('psi correlation', self.psi_x, psi_x0t, **isotropic_indices)
+                psi_correlation_t[time_array_index] = np.conjugate(psi_x0t0) * psi_x0t
                 n_avg[time_array_index] = ext.isotropic_avg('density average', self.n(self.psi_x), None, **isotropic_indices)
-        return psi_correlation, n_avg
+        return psi_correlation_x, psi_correlation_t, n_avg
 
 # =============================================================================
 # Parallel tests
@@ -129,66 +133,71 @@ n_batch = 128
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
+'''
 p_array = np.array([1.8, 1.4])
 gamma2_array = np.array([0.05, 0.1, 0.2, 0.4, 0.6, 0.8])
 gamma0_array = np.array([0.2])
 sigma_array = np.array([0.28, 0.24])
-gr = 0
 g_array = np.array([0, 0.5, 2])
+'''
+
+p_array = np.array([1.8])
+gamma2_array = np.array([0.05])
+gamma0_array = np.array([0.2])
+sigma_array = np.array([0.28])
+g_array = np.array([0])
+gr = 0
 ns = 50.
 
 def g1(i_batch, p, sigma, gamma0, gamma2, g, path):
-    correlation_batch = np.zeros((len(t), N//2), dtype = complex)
+    correlation_x_batch = np.zeros((len(t), N//2), dtype = complex)
+    correlation_t_batch = np.zeros(len(t), dtype = complex)
     avg_dens_batch = np.zeros((len(t), N//2), dtype = complex)
     for i_n in range(n_internal):
         gpe = model(p, sigma, gamma0, gamma2, g, gr = gr, ns = ns)
-        correlation_run, avg_dens_run = gpe.time_evolution()
-        correlation_batch += correlation_run / n_internal
+        correlation_x_run, correlation_t_run, avg_dens_run = gpe.time_evolution()
+        correlation_x_batch += correlation_x_run / n_internal
+        correlation_t_batch += correlation_t_run / n_internal
         avg_dens_batch += avg_dens_run / n_internal
-    np.save(path + os.sep + 'correlation' + '_' +'core' + str(i_batch + 1) + '.npy', correlation_batch)
+    np.save(path + os.sep + 'space correlation' + '_' +'core' + str(i_batch + 1) + '.npy', correlation_x_batch)
+    np.save(path + os.sep + 'time correlation' + '_' +'core' + str(i_batch + 1) + '.npy', correlation_t_batch)
     np.save(path + os.sep + 'avg_density' + '_' + 'core' + str(i_batch + 1) + '.npy', avg_dens_batch)
     return None
 
-#import matplotlib.pyplot as pl
-#fig, ax = pl.subplots(1,1, figsize=(8,6))
-
-init = r'/scratch/konstantinos' + os.sep + 'N' + str(N) + '_' + 'ns' + str(int(ns))
-#init = r'/Users/delis/Desktop' + os.sep + 'N' + str(N) + '_' + 'ns' + str(int(ns))
+init = r'/scratch/konstantinos' + os.sep + 'N' + str(N) + '_' + 'ns' + str(int(ns)) + 'TEST'
 os.mkdir(init)
 ids = ext.ids(False, init, p_array, sigma_array, gamma0_array, gamma2_array, g_array, ns)
-
 def call_avg(loc):
     for p in p_array:
+        sigma = sigma_array[np.where(p_array == p)][0]
         for g in g_array:
             for gamma2 in gamma2_array:
                 print('--- Secondary simulation parameters: p = %.1f, g = %.2f, ns = %.i' % (p, g, ns))
-                sigma = sigma_array[np.where(p_array == p)]
-                '''
-                Im_plus, Im_minus = ext.bogoliubov(np.fft.fftshift(kx), Kc=Kc, Kd=gamma2/2, gamma0=gamma0, p=p, g=g, n0=ns*(p-1))
-                ax.plot(np.fft.fftshift(kx)[N//2:], Im_plus[N//2:], label=r'$\omega_B(k_{min})$=%.5f, $\gamma_2$=%.1f, $\gamma_0$=%.1f' % (Im_plus[N//2+1], gamma2, gamma0))
-                ax.hlines(y=0, xmin=np.fft.fftshift(kx)[N//2], xmax=np.fft.fftshift(kx)[-1])
-                ax.legend(prop=dict(size=12))
-                print(np.fft.fftshift(kx)[N//2+1], Im_plus[N//2+1], gamma2, gamma0)
-                '''
                 id_string = ids.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma0=' + str(gamma0_array[0]), 'gamma2=' + str(gamma2), 'g=' + str(g)))
                 save_folder = init + os.sep + id_string
                 try:
                     os.mkdir(save_folder)
                 except FileExistsError:
                     continue
-                correlation = np.zeros((len(t), N//2), dtype = complex)
-                avg_dens = np.zeros((len(t), N//2), dtype = complex)
+                correlation_x = np.zeros((len(t), N//2), dtype = complex)
+                correlation_t = np.zeros(len(t), dtype = complex)
+                avg_n = np.zeros((len(t), N//2), dtype = complex)
                 print('--- Kinetic terms: Kc = %.5f, Kd = %.5f' % (Kc, gamma2/2))
                 print('--- Primary simulation parameters: sigma = %.2f, gamma0 = %.2f, gamma2 = %.2f' % (sigma, gamma0_array[0], gamma2))
                 parallel_map(g1, range(n_batch), task_kwargs=dict(p = p, sigma = sigma, gamma0 = gamma0_array[0], gamma2 = gamma2, g = g, path = save_folder))
                 for file in os.listdir(save_folder):
-                    if 'correlation' in file:
-                        correlation += np.load(save_folder + os.sep + file) / n_batch
+                    if 'space correlation' in file:
+                        correlation_x += np.load(save_folder + os.sep + file) / n_batch
+                    if 'time correlation' in file:
+                        correlation_t += np.load(save_folder + os.sep + file) / n_batch
                     elif 'avg_density' in file:
-                        avg_dens += np.load(save_folder + os.sep + file) / n_batch
-                np.save(loc + os.sep + id_string + '__' + 'TEST' + '.npy', np.abs(correlation).real/np.sqrt(avg_dens[0].real * avg_dens.real))
+                        avg_n += np.load(save_folder + os.sep + file) / n_batch
+                #np.save(loc + os.sep + id_string + '__' + 'TEST' + '.npy', np.abs(correlation).real / np.sqrt(avg_dens[0, 0].real * avg_dens.real))
+                for i in range(len(t)):
+                    avg_n[i] *= avg_n[i, 0]
+                np.save(loc + os.sep + id_string + '__' + 'TEST_SPATIAL_EVOL' + '.npy', np.abs(correlation_x).real / np.sqrt(avg_n.real))
+                np.save(loc + os.sep + id_string + '__' + 'TEST_TEMP' + '.npy', np.abs(correlation_t).real / np.sqrt(avg_n[:, 0]))
         return None
 
 final_save_remote = r'/home6/konstantinos'
-#final_save_remote = r'/Users/delis/Desktop'
 call_avg(final_save_remote)
