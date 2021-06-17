@@ -23,7 +23,7 @@ melectron = 0.510998950 * 1e12 / c**2 # μeV/(μm^2/ps^2)
 
 m_tilde = 5e-5
 m_dim = m_tilde * melectron
-Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx**2)
+Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx ** 2)
 
 # =============================================================================
 # 
@@ -31,17 +31,16 @@ Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx**2)
 N = 2 ** 7
 dx_tilde = 0.5
 
-N_steps = 2000000
-dt_tilde = 5e-2
-every = 10000
-i1 = 10000
+N_steps = 2500000
+dt_tilde = 4e-2
+every = 2500
+i1 = 12500
 i2 = N_steps
 lengthwindow = i2-i1
 t = ext.time(dt_tilde, N_steps, i1, i2, every)
 
 x, y = ext.space_momentum(N, dx_tilde)
 isotropic_indices = ext.get_indices(x)
-np.savetxt('/home6/konstantinos/t_test.dat', t)
 
 '''
 h = np.zeros((N, N))
@@ -133,14 +132,17 @@ n_batch = 128
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-'''
-p_array = np.array([1.8, 1.4])
+p_array = np.array([1.8])
 gamma2_array = np.array([0.05, 0.1, 0.2, 0.4, 0.6, 0.8])
 gamma0_array = np.array([0.2])
-sigma_array = np.array([0.28, 0.24])
-g_array = np.array([0, 0.5, 2])
-'''
+sigma_array = np.array([0.28])
+g_array = np.array([0.5, 2, 6])
+gr = 0
+ns = 50.
 
+#xi = hbar / np.sqrt(2 * m_dim * g_array * ns * (p_array[0] - 1))
+
+'''
 p_array = np.array([1.8])
 gamma2_array = np.array([0.05])
 gamma0_array = np.array([0.2])
@@ -148,6 +150,7 @@ sigma_array = np.array([0.28])
 g_array = np.array([0])
 gr = 0
 ns = 50.
+'''
 
 def g1(i_batch, p, sigma, gamma0, gamma2, g, path):
     correlation_x_batch = np.zeros((len(t), N//2), dtype = complex)
@@ -164,8 +167,9 @@ def g1(i_batch, p, sigma, gamma0, gamma2, g, path):
     np.save(path + os.sep + 'avg_density' + '_' + 'core' + str(i_batch + 1) + '.npy', avg_dens_batch)
     return None
 
-init = r'/scratch/konstantinos' + os.sep + 'N' + str(N) + '_' + 'ns' + str(int(ns)) + 'TEST'
-os.mkdir(init)
+init = r'/scratch/konstantinos' + os.sep + 'N' + str(N) + '_' + 'ns' + str(int(ns))
+if os.path.isdir(init) == False:
+    os.mkdir(init)
 ids = ext.ids(False, init, p_array, sigma_array, gamma0_array, gamma2_array, g_array, ns)
 def call_avg(loc):
     for p in p_array:
@@ -192,11 +196,11 @@ def call_avg(loc):
                         correlation_t += np.load(save_folder + os.sep + file) / n_batch
                     elif 'avg_density' in file:
                         avg_n += np.load(save_folder + os.sep + file) / n_batch
-                #np.save(loc + os.sep + id_string + '__' + 'TEST' + '.npy', np.abs(correlation).real / np.sqrt(avg_dens[0, 0].real * avg_dens.real))
+                #np.save(loc + os.sep + id_string + '__' + 'g1' + '.npy', np.abs(correlation).real / np.sqrt(avg_dens[0, 0].real * avg_dens.real))
                 for i in range(len(t)):
                     avg_n[i] *= avg_n[i, 0]
-                np.save(loc + os.sep + id_string + '__' + 'TEST_SPATIAL_EVOL' + '.npy', np.abs(correlation_x).real / np.sqrt(avg_n.real))
-                np.save(loc + os.sep + id_string + '__' + 'TEST_TEMP' + '.npy', np.abs(correlation_t).real / np.sqrt(avg_n[:, 0]))
+                np.save(loc + os.sep + id_string + '__' + 'SPATIAL_EVOL' + '.npy', np.abs(correlation_x).real / np.sqrt(avg_n.real))
+                np.save(loc + os.sep + id_string + '__' + 'TEMP' + '.npy', np.abs(correlation_t).real / np.sqrt(avg_n[:, 0].real))
         return None
 
 final_save_remote = r'/home6/konstantinos'
