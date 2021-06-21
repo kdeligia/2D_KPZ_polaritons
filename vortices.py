@@ -9,6 +9,7 @@ Created on Wed May 19 13:53:23 2021
 c = 3e2 #μm/ps
 hbar = 6.582119569 * 1e2 # μeV ps
 
+from scipy.ndimage import gaussian_filter
 import os
 import numpy as np
 import external as ext
@@ -46,7 +47,7 @@ dx_tilde = 0.5
 N_steps = 2500000
 dt_tilde = 4e-2
 every = 2500
-i1 = 12500
+i1 = 0
 i2 = N_steps
 lengthwindow = i2-i1
 t = ext.time(dt_tilde, N_steps, i1, i2, every)
@@ -109,21 +110,15 @@ class model:
         vortex_number = np.zeros(len(t))
         density = np.zeros(len(t))
         for i in range(N_steps):
-            if i == 0:
-                noise = 0
             self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
             psi_k *= self.exp_k(dt_tilde)
             self.psi_x = ifft2(psi_k)
             self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
-            self.psi_x += np.sqrt(dt_tilde) * np.sqrt(noise / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N)))
+            self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N)))
             if i >= i1 and i <= i2 and i % every == 0:
-                print(i)
                 time_index = (i - i1) // every
-                if time_index == 300:
-                    noise = self.sigma
-                if time_index == 600:
-                    noise = 0
+                print(time_index)
                 vortex_positions, ignore = ext.vortex_positions(a_vort, np.angle(self.psi_x), x, y)
                 ext.vortex_plots(folder, x, t, time_index, vortex_positions, np.angle(self.psi_x), self.n(self.psi_x))
                 vortex_number[time_index] = len(np.where(vortex_positions == 1)[0]) + len(np.where(vortex_positions == -1)[0])
@@ -152,24 +147,7 @@ path_remote = r'/scratch/konstantinos'
 save_remote = r'/home6/konstantinos'
 path_local = r'/Users/delis/Desktop'
 
-def vortices(gamma0, gamma2, p, g):
-    sigma = sigma_array[np.where(gamma0_array == gamma0)]
-    print(r'--- Parameters in parallel: (gamma0, gamma2, sigma) = (%.2f, %.2f, %.2f)' % (gamma0, gamma2, sigma))
-    gpe = model(p, sigma, gamma2, gamma0, g = g, gr = gr, ns = ns)
-    parallel_string = 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2)
-    os.mkdir(path + os.sep + parallel_string)
-    nvort, dens = gpe.time_evolution(path + os.sep + parallel_string)
-    np.savetxt(path + os.sep + parallel_string + '_' + 'nv' + '.dat', nvort)
-    #np.savetxt(path + os.sep + parallel_string + '_' + 'dens' + '.dat', dens)
-    os.system(
-        'ffmpeg -framerate 10 -i ' + 
-        path + os.sep + parallel_string + os.sep + 
-        'fig%d.jpg ' + 
-        path_local + os.sep + 
-        parallel_string + '.mp4')
-    return None
-
-def vortices_test(gamma2, g, gamma0, p):
+def vortices(gamma2, g, gamma0, p):
     sigma = sigma_array[np.where(p_array == p)]
     print(r'--- Parameters in parallel: (gamma0, gamma2, sigma) = (%.2f, %.2f, %.2f)' % (gamma0, gamma2, sigma))
     gpe = model(p, sigma, gamma2, gamma0, g = g, gr = gr, ns = ns)
@@ -194,12 +172,12 @@ for p in p_array:
             os.mkdir(path)
         except FileExistsError:
             continue
-        parallel_map(vortices_test, gamma2_array, task_kwargs=dict(g = g, gamma0 = gamma0_array[0], p = p))
+        parallel_map(vortices, gamma2_array, task_kwargs=dict(g = g, gamma0 = gamma0_array[0], p = p))
         fig, ax = pl.subplots(1,1, figsize=(8, 6))
         for file in os.listdir(path):
             if 'nv.dat' in file:
                 s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
-                ax.plot(t, np.loadtxt(path + os.sep + file), label=r'$\gamma_2$ = %.1f' % s[0])
+                ax.plot(t, np.loadtxt(path + os.sep + file), label=r'$\gamma_2$ = %.2f' % s[0])
         ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
         ax.legend(prop=dict(size=12))
         ax.set_xlabel(r'$t$', fontsize=20)

@@ -21,10 +21,6 @@ hatrho = 1/hatx**2 # μm^-2
 hatepsilon = hbar/hatt # μeV
 melectron = 0.510998950 * 1e12 / c**2 # μeV/(μm^2/ps^2)
 
-m_tilde = 5e-5
-m_dim = m_tilde * melectron
-Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx ** 2)
-
 # =============================================================================
 # 
 # =============================================================================
@@ -58,12 +54,13 @@ kx = (2 * np.pi) / dx_tilde * np.fft.fftfreq(N, d = 1)
 ky = (2 * np.pi) / dx_tilde * np.fft.fftfreq(N, d = 1)
 
 class model:
-    def __init__(self, p, sigma, gamma0, gamma2, g, gr, ns):
+    def __init__(self, p, sigma, gamma0, gamma2, g, gr, ns, m):
         self.KX, self.KY = np.meshgrid(kx, ky, sparse=True)
         self.gamma2_tilde = gamma2  * hatt / hatx **2
         self.gamma0_tilde = gamma0 * hatt
         self.gammar_tilde = 0.1 * self.gamma0_tilde
         
+        self.Kc = hbar ** 2 / (2 * m * melectron * hatepsilon * hatx ** 2)
         self.Kd = self.gamma2_tilde / 2
         self.g_tilde = g * hatrho / hatepsilon
         self.gr_tilde = gr * hatrho / hatepsilon
@@ -94,7 +91,7 @@ class model:
         return np.exp(-1j * dt * (self.uc_tilde + 1j * self.rd_tilde))
 
     def exp_k(self, dt):
-        return np.exp(-1j * dt * (self.KX ** 2 + self.KY ** 2) * (Kc - 1j * self.Kd))
+        return np.exp(-1j * dt * (self.KX ** 2 + self.KY ** 2) * (self.Kc - 1j * self.Kd))
 
 # =============================================================================
 # Time evolution
@@ -127,37 +124,32 @@ class model:
 # Parallel tests
 # =============================================================================
 from qutip import *
-parallel_tasks = 128
+parallel_tasks = 256
 n_batch = 128
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
 p_array = np.array([1.8])
-gamma2_array = np.array([0.05, 0.1, 0.2, 0.4, 0.6, 0.8])
+gamma2_array = np.array([0.05, 0.1, 0.2])
 gamma0_array = np.array([0.2])
 sigma_array = np.array([0.28])
-g_array = np.array([0.5, 2, 6])
+g_array = np.array([0, 0.2])
+m_array = np.array([0.00008, 0.0001])
 gr = 0
 ns = 50.
 
-#xi = hbar / np.sqrt(2 * m_dim * g_array * ns * (p_array[0] - 1))
-
-'''
-p_array = np.array([1.8])
-gamma2_array = np.array([0.05])
-gamma0_array = np.array([0.2])
-sigma_array = np.array([0.28])
-g_array = np.array([0])
-gr = 0
-ns = 50.
-'''
+print('------- Kinetic term (real) ------- : %.5f' % (hbar ** 2 / (2 * m_array[0] * melectron * hatepsilon * hatx ** 2)))
+init = r'/scratch/konstantinos' + os.sep + 'N' + str(N) + '_' + 'ns' + str(int(ns)) + '_' + 'm' + str(m_array[0])
+if os.path.isdir(init) == False:
+    os.mkdir(init)
+ids = ext.ids(p_array, sigma_array, gamma0_array, gamma2_array, g_array)
 
 def g1(i_batch, p, sigma, gamma0, gamma2, g, path):
     correlation_x_batch = np.zeros((len(t), N//2), dtype = complex)
     correlation_t_batch = np.zeros(len(t), dtype = complex)
     avg_dens_batch = np.zeros((len(t), N//2), dtype = complex)
     for i_n in range(n_internal):
-        gpe = model(p, sigma, gamma0, gamma2, g, gr = gr, ns = ns)
+        gpe = model(p, sigma, gamma0, gamma2, g, gr = gr, ns = ns, m = m_array[0])
         correlation_x_run, correlation_t_run, avg_dens_run = gpe.time_evolution()
         correlation_x_batch += correlation_x_run / n_internal
         correlation_t_batch += correlation_t_run / n_internal
@@ -167,10 +159,6 @@ def g1(i_batch, p, sigma, gamma0, gamma2, g, path):
     np.save(path + os.sep + 'avg_density' + '_' + 'core' + str(i_batch + 1) + '.npy', avg_dens_batch)
     return None
 
-init = r'/scratch/konstantinos' + os.sep + 'N' + str(N) + '_' + 'ns' + str(int(ns))
-if os.path.isdir(init) == False:
-    os.mkdir(init)
-ids = ext.ids(False, init, p_array, sigma_array, gamma0_array, gamma2_array, g_array, ns)
 def call_avg(loc):
     for p in p_array:
         sigma = sigma_array[np.where(p_array == p)][0]
@@ -186,7 +174,7 @@ def call_avg(loc):
                 correlation_x = np.zeros((len(t), N//2), dtype = complex)
                 correlation_t = np.zeros(len(t), dtype = complex)
                 avg_n = np.zeros((len(t), N//2), dtype = complex)
-                print('--- Kinetic terms: Kc = %.5f, Kd = %.5f' % (Kc, gamma2/2))
+                print('--- Kd = %.5f' % (gamma2/2))
                 print('--- Primary simulation parameters: sigma = %.2f, gamma0 = %.2f, gamma2 = %.2f' % (sigma, gamma0_array[0], gamma2))
                 parallel_map(g1, range(n_batch), task_kwargs=dict(p = p, sigma = sigma, gamma0 = gamma0_array[0], gamma2 = gamma2, g = g, path = save_folder))
                 for file in os.listdir(save_folder):

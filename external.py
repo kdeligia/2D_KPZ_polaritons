@@ -59,9 +59,7 @@ def time(dt, N_steps, i1, i2, secondarystep):
             t[(i-i1)//secondarystep] = i*dt
     return t
 
-def ids(create, init, p_array, sigma_array, gamma0_array, gamma2_array, g_array, ns):
-    if create == True:
-        os.mkdir(init)
+def ids(p_array, sigma_array, gamma0_array, gamma2_array, g_array):
     ids = {}
     for sigma in sigma_array:
         for p in p_array:
