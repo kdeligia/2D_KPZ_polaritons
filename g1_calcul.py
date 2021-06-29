@@ -172,6 +172,8 @@ def g1(i_batch, p, sigma, gamma0, gamma2, g, path):
         psipsi_t_batch += psipsi_t / n_internal
         sqrt_nn_t_batch += sqrt_nn_t / n_internal
         n_avg_batch += n_avg / n_internal
+        if (i_n + 1) % 2 == 0:
+            print('Core %.i finished realisation %.i \n' % (i_batch, i_n + 1))
     np.save(path + os.sep + 'psipsi_evol' + '_' +'core' + str(i_batch + 1) + '.npy', psipsi_evol_batch)
     np.save(path + os.sep + 'sqrt_nn_evol' + '_' +'core' + str(i_batch + 1) + '.npy', sqrt_nn_evol_batch)
     np.save(path + os.sep + 'psipsi_t' + '_' + 'core' + str(i_batch + 1) + '.npy', psipsi_t_batch)
