@@ -40,11 +40,6 @@ def dimensional_units(**args):
     return None
 
 def space_momentum(N, dx_tilde):
-    '''
-    dkx_tilde = 2 * np.pi / (N * dx_tilde)
-    kx0 = - np.pi / dx_tilde
-    kx = kx0 + dkx_tilde * np.arange(N)
-    '''
     x_0 = - N * dx_tilde / 2
     x = x_0 + dx_tilde * np.arange(N)
     y = x

@@ -27,14 +27,15 @@ melectron = 0.510998950 * 1e12 / c**2 # μeV/(μm^2/ps^2)
 N = 2 ** 7
 dx_tilde = 0.5
 
-sampling_begin = 10000
-sampling_step = 1000
+sampling_begin = 100000
+sampling_step = 100
 N_steps = 1000000 + sampling_begin + sampling_step
 dt_tilde = 1e-2
 
 sampling_end = N_steps
 sampling_window = sampling_end - sampling_begin
 t = ext.time(dt_tilde, N_steps, sampling_begin, sampling_end, sampling_step)
+np.savetxt('/home6/konstantinos/t_gy.dat', t)
 
 x, y = ext.space_momentum(N, dx_tilde)
 isotropic_indices = ext.get_indices(x)
@@ -100,14 +101,13 @@ class model:
     def time_evolution(self):
         np.random.seed()
         center_indices = isotropic_indices.get('r = ' + str(0))
+        psipsi_full = np.zeros((len(t), N//2), dtype = complex)
+        '''
         psipsi_evol = np.zeros((len(t), N//2), dtype = complex)
         sqrt_nn_evol = np.zeros((len(t), N//2), dtype = complex)
-        '''
-        psipsi_full = np.zeros((len(t), N//2), dtype = complex)
-        nn_full = np.zeros((len(t), N//2), dtype = complex)
-        '''
         psipsi_t = np.zeros(len(t), dtype = complex)
         sqrt_nn_t = np.zeros(len(t), dtype = complex)
+        '''
         n_avg = np.zeros((len(t), N//2), dtype = complex)
         for i in range(N_steps):
             self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
@@ -120,6 +120,7 @@ class model:
                 time_array_index = (i - sampling_begin) // sampling_step
                 if i == sampling_begin:
                     psi_x0t0 = self.psi_x[center_indices[0][0], center_indices[0][1]]
+                    '''
                     n_x0t0 = psi_x0t0 * np.conjugate(psi_x0t0)
                 psi_x0t = self.psi_x[center_indices[0][0], center_indices[0][1]]
                 n_x0t = psi_x0t * np.conjugate(psi_x0t)
@@ -129,10 +130,9 @@ class model:
                 sqrt_nn_t[time_array_index] = np.sqrt(n_x0t0 * n_x0t)
                 '''
                 psipsi_full[time_array_index] = ext.isotropic_avg('correlation', self.psi_x, np.conjugate(psi_x0t0), **isotropic_indices)
-                nn_full[time_array_index] = ext.isotropic_avg('correlation', self.n(self.psi_x) ** (1/2), n_x0t0 ** (1/2), **isotropic_indices)
-                '''
                 n_avg[time_array_index] = ext.isotropic_avg('density average', self.n(self.psi_x), None, **isotropic_indices)
-        return psipsi_evol, sqrt_nn_evol, psipsi_t, sqrt_nn_t, n_avg
+        #return psipsi_evol, sqrt_nn_evol, psipsi_t, sqrt_nn_t, n_avg
+        return psipsi_full, n_avg
 
 # =============================================================================
 # Parallel tests
@@ -145,8 +145,8 @@ qutip.settings.num_cpus = n_batch
 
 p_array = np.array([2])
 gamma2_array = np.array([0.1])
-gamma0_array = np.array([8])
-sigma_array = np.array([0.01])
+gamma0_array = np.array([10])
+sigma_array = np.array([0.02])
 g_array = np.array([0])
 m_array = np.array([1e-4])
 gr = 0
@@ -159,25 +159,35 @@ if os.path.isdir(init) == False:
 ids = ext.ids(p_array, sigma_array, gamma0_array, gamma2_array, g_array)
 
 def g1(i_batch, p, sigma, gamma0, gamma2, g, path):
+    psipsi_full_batch = np.zeros((len(t), N//2), dtype = complex)
+    '''
     psipsi_evol_batch = np.zeros((len(t), N//2), dtype = complex)
     sqrt_nn_evol_batch = np.zeros((len(t), N//2), dtype = complex)
     psipsi_t_batch = np.zeros(len(t), dtype = complex)
     sqrt_nn_t_batch = np.zeros(len(t), dtype = complex)
+    '''
     n_avg_batch = np.zeros((len(t), N//2), dtype = complex)
     for i_n in range(n_internal):
         gpe = model(p, sigma, gamma0, gamma2, g, gr = gr, ns = ns, m = m_array[0])
+        psipsi_full, n_avg = gpe.time_evolution()
+        psipsi_full_batch += psipsi_full / n_internal
+        '''
         psipsi_evol, sqrt_nn_evol, psipsi_t, sqrt_nn_t, n_avg = gpe.time_evolution()
         psipsi_evol_batch += psipsi_evol / n_internal
         sqrt_nn_evol_batch += sqrt_nn_evol / n_internal
         psipsi_t_batch += psipsi_t / n_internal
         sqrt_nn_t_batch += sqrt_nn_t / n_internal
+        '''
         n_avg_batch += n_avg / n_internal
         if (i_n + 1) % 2 == 0:
             print('Core %.i finished realisation %.i \n' % (i_batch, i_n + 1))
+    '''
     np.save(path + os.sep + 'psipsi_evol' + '_' +'core' + str(i_batch + 1) + '.npy', psipsi_evol_batch)
     np.save(path + os.sep + 'sqrt_nn_evol' + '_' +'core' + str(i_batch + 1) + '.npy', sqrt_nn_evol_batch)
     np.save(path + os.sep + 'psipsi_t' + '_' + 'core' + str(i_batch + 1) + '.npy', psipsi_t_batch)
     np.save(path + os.sep + 'sqrt_nn_t' + '_' + 'core' + str(i_batch + 1) + '.npy', sqrt_nn_t_batch)
+    '''
+    np.save(path + os.sep + 'psipsi_full' + '_' + 'core' + str(i_batch + 1) + '.npy', psipsi_full_batch)
     np.save(path + os.sep + 'n_avg' + '_' + 'core' + str(i_batch + 1) + '.npy', n_avg_batch)
     return None
 
@@ -193,14 +203,18 @@ def call_avg(loc):
                     os.mkdir(save_folder)
                 except FileExistsError:
                     continue
+                psipsi_full = np.zeros((len(t), N//2), dtype = complex)
+                '''
                 psipsi_evol = np.zeros((len(t), N//2), dtype = complex)
                 sqrt_nn_evol = np.zeros((len(t), N//2), dtype = complex)
                 psipsi_t = np.zeros(len(t), dtype = complex)
                 sqrt_nn_t = np.zeros(len(t), dtype = complex)
+                '''
                 n_avg = np.zeros((len(t), N//2), dtype = complex)
                 print('--- Primary simulation parameters: sigma = %.2f, gamma0 = %.2f, gamma2 = %.2f' % (sigma, gamma0_array[0], gamma2))
                 parallel_map(g1, range(n_batch), task_kwargs=dict(p = p, sigma = sigma, gamma0 = gamma0_array[0], gamma2 = gamma2, g = g, path = save_folder))
                 for file in os.listdir(save_folder):
+                    '''
                     if 'psipsi_evol' in file:
                         psipsi_evol += np.load(save_folder + os.sep + file) / n_batch
                     elif 'sqrt_nn_evol' in file:
@@ -209,13 +223,19 @@ def call_avg(loc):
                         psipsi_t += np.load(save_folder + os.sep + file) / n_batch
                     elif 'sqrt_nn_t' in file:
                         sqrt_nn_t += np.load(save_folder + os.sep + file) / n_batch 
+                    '''
+                    if 'psipsi_full' in file:
+                        psipsi_full += np.load(save_folder + os.sep + file) / n_batch
                     elif 'n_avg' in file:
                         n_avg += np.load(save_folder + os.sep + file) / n_batch
+                '''
                 nn = np.multiply(n_avg, n_avg[:, 0][:, np.newaxis])
                 np.save(loc + os.sep + id_string + '__' + 'g1_SPATIAL_EVOL' + '.npy', (np.abs(psipsi_evol) / np.sqrt(nn)).real)
                 np.save(loc + os.sep + id_string + '__' + 'g1_TEMP' + '.npy', (np.abs(psipsi_t) / np.sqrt(nn[:, 0])).real)
                 np.save(loc + os.sep + id_string + '__' + 'g2_SPATIAL_EVOL' + '.npy', (np.abs(sqrt_nn_evol) / np.sqrt(nn)).real)
                 np.save(loc + os.sep + id_string + '__' + 'g2_TEMP' + '.npy', (np.abs(sqrt_nn_t) / np.sqrt(nn[:, 0])).real)
+                '''
+                np.save(loc + os.sep + id_string + '__' + 'full_g1' + '.npy', np.abs(psipsi_full) / np.sqrt(n_avg[0, 0] * n_avg))
         return None
 
 final_save_remote = r'/home6/konstantinos'

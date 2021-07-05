@@ -34,7 +34,7 @@ hatrho = 1/hatx**2 # μm^-2
 hatepsilon = hbar/hatt # μeV
 melectron = 0.510998950 * 1e12 / c**2 # μeV/(μm^2/ps^2)
 
-m_tilde = 5e-5
+m_tilde = 1e-4
 m_dim = m_tilde * melectron
 Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx**2)
 
@@ -44,13 +44,14 @@ Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx**2)
 N = 2 ** 7
 dx_tilde = 0.5
 
-N_steps = 2500000
-dt_tilde = 4e-2
-every = 2500
-i1 = 0
-i2 = N_steps
-lengthwindow = i2-i1
-t = ext.time(dt_tilde, N_steps, i1, i2, every)
+sampling_begin = 10000
+sampling_step = 1000
+N_steps = 1000000 + sampling_begin + sampling_step
+dt_tilde = 1e-2
+
+sampling_end = N_steps
+sampling_window = sampling_end - sampling_begin
+t = ext.time(dt_tilde, N_steps, sampling_begin, sampling_end, sampling_step)
 
 x, y = ext.space_momentum(N, dx_tilde)
 isotropic_indices = ext.get_indices(x)
@@ -116,8 +117,8 @@ class model:
             self.psi_x = ifft2(psi_k)
             self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
             self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N)))
-            if i >= i1 and i <= i2 and i % every == 0:
-                time_index = (i - i1) // every
+            if i >= sampling_begin and i <= sampling_end and i % sampling_step == 0:
+                time_index = (i - sampling_begin) // sampling_step
                 print(time_index)
                 vortex_positions, ignore = ext.vortex_positions(a_vort, np.angle(self.psi_x), x, y)
                 ext.vortex_plots(folder, x, t, time_index, vortex_positions, np.angle(self.psi_x), self.n(self.psi_x))
@@ -132,22 +133,20 @@ from qutip import *
 n_batch = 1
 qutip.settings.num_cpus = n_batch
 
-p_array = np.array([1.8])
-gamma2_array = np.array([0.05])
-gamma0_array = np.array([0.2])
-sigma_array = np.array([0.28])
+p_array = np.array([2.])
+gamma2_array = np.array([0.1])
+gamma0_array = np.array([10.])
+sigma_array = np.array([0.02])
 
 gr = 0
 g_array = np.array([0])
-ns = 50.
-#sigma_th = gamma0_array * (p_array + 1) / 2
-#xi = hbar / np.sqrt(2 * m_dim * g_array * ns * (p_array[0] - 1))
+ns = 1.
 
 path_remote = r'/scratch/konstantinos'
 save_remote = r'/home6/konstantinos'
 path_local = r'/Users/delis/Desktop'
 
-def vortices(gamma2, g, gamma0, p):
+def vortices(i_batch, gamma0, gamma2, p, g):
     sigma = sigma_array[np.where(p_array == p)]
     print(r'--- Parameters in parallel: (gamma0, gamma2, sigma) = (%.2f, %.2f, %.2f)' % (gamma0, gamma2, sigma))
     gpe = model(p, sigma, gamma2, gamma0, g = g, gr = gr, ns = ns)
@@ -168,11 +167,9 @@ for p in p_array:
     for g in g_array:
         iteration_string = 'test' + '_' + 'p' + str(p) + '_' + 'g' + str(g)
         path = path_local + os.sep + iteration_string
-        try:
-            os.mkdir(path)
-        except FileExistsError:
-            continue
-        parallel_map(vortices, gamma2_array, task_kwargs=dict(g = g, gamma0 = gamma0_array[0], p = p))
+        os.mkdir(path)
+        parallel_map(vortices, range(n_batch), task_kwargs=dict(gamma0 = gamma0_array[0], gamma2 = gamma2_array[0], p = p, g = g))
+        '''
         fig, ax = pl.subplots(1,1, figsize=(8, 6))
         for file in os.listdir(path):
             if 'nv.dat' in file:
@@ -202,3 +199,4 @@ for p in p_array:
         pl.savefig(path_local + os.sep + iteration_string + '___' + 'density.jpg', format='jpg')
         pl.show()
         pl.close()
+        '''
