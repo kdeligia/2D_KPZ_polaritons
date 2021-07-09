@@ -18,22 +18,10 @@ from scipy.fftpack import fft2, ifft2
 
 hatt = 1 # ps
 hatx = 1 # μm
-hatpsi = 1/hatx # μm^-1
-hatrho = 1/hatx**2 # μm^-2
-hatepsilon = hbar/hatt # μeV
-melectron = 0.510998950 * 1e12 / c**2 # μeV/(μm^2/ps^2)
-
-'''
-m_tilde = 6.2e-5
-gamma0_tilde = 0.22
-gammar_tilde = gamma0_tilde * 0.1
-P_tilde = gamma0_tilde * 500
-R_tilde = gammar_tilde / 500
-'''
-
-m_tilde = 3.8e-5 * 3
-m_dim = m_tilde * melectron
-Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx**2)
+hatpsi = 1 / hatx # μm^-1
+hatrho = 1 / hatx ** 2 # μm^-2
+hatepsilon = hbar / hatt # μeV
+melectron = 0.510998950 * 1e12 / c ** 2 # μeV/(μm^2/ps^2)
 
 # =============================================================================
 # 
@@ -41,12 +29,13 @@ Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx**2)
 N = 2 ** 7
 dx_tilde = 0.5
 
-N_steps = int(6e6)
+sampling_begin = 1000000
+sampling_step = 1000
+N_steps = 10000000 + sampling_begin + sampling_step
 dt_tilde = 1e-3
-every = 500
-i1 = 0
-i2 = N_steps
-t = ext.time(dt_tilde, N_steps, i1, i2, every)
+sampling_end = N_steps
+sampling_window = sampling_end - sampling_begin
+t = ext.time(dt_tilde, N_steps, sampling_begin, sampling_end, sampling_step)
 
 x, y = ext.space_momentum(N, dx_tilde)
 isotropic_indices = ext.get_indices(x)
@@ -55,12 +44,13 @@ kx = (2 * np.pi) / dx_tilde * np.fft.fftfreq(N, d = 1)
 ky = (2 * np.pi) / dx_tilde * np.fft.fftfreq(N, d = 1)
 
 class model:
-    def __init__(self, p, sigma, gamma2, gamma0, g, gr, ns):
+    def __init__(self, p, sigma, gamma0, gamma2, g, gr, ns, m):
         self.KX, self.KY = np.meshgrid(kx, ky, sparse=True)
-        self.gamma2_tilde = gamma2  * hatt / hatx **2
+        self.gamma2_tilde = gamma2  * hatt / hatx ** 2
         self.gamma0_tilde = gamma0 * hatt
         self.gammar_tilde = 0.1 * self.gamma0_tilde
         
+        self.Kc = hbar ** 2 / (2 * m * melectron * hatepsilon * hatx ** 2)
         self.Kd = self.gamma2_tilde / 2
         self.g_tilde = g * hatrho / hatepsilon
         self.gr_tilde = gr * hatrho / hatepsilon
@@ -100,7 +90,7 @@ class model:
         return np.exp(-1j * dt * (self.uc_tilde + 1j * self.rd_tilde))
 
     def exp_k(self, dt):
-        return np.exp(-1j * dt * (self.KX ** 2 + self.KY ** 2) * (Kc - 1j * self.Kd))
+        return np.exp(-1j * dt * (self.KX ** 2 + self.KY ** 2) * (self.Kc - 1j * self.Kd))
 
 # =============================================================================
 # Time evolution
@@ -113,6 +103,12 @@ class model:
         wound_sampling = np.zeros((4, len(t)))
         unwound_sampling = np.zeros((4, len(t)))
         for i in range(N_steps):
+            self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
+            psi_k = fft2(self.psi_x)
+            psi_k *= self.exp_k(dt_tilde)
+            self.psi_x = ifft2(psi_k)
+            self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
+            self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N)))
             if i == 0:
                 theta_wound_old = np.angle([self.psi_x[np.where(abs(y - yc) <= a_unw)[0][0], np.where(abs(x - xc) <= a_unw)[0][0]], 
                                            self.psi_x[np.where(abs(y - yc) <= a_unw)[0][0], np.where(abs(x - xc) <= a_unw)[0][-1]],
@@ -121,12 +117,6 @@ class model:
                 theta_wound_new = theta_wound_old
                 theta_unwound_old = theta_wound_old
                 theta_unwound_new = theta_wound_old
-                self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
-                psi_k = fft2(self.psi_x)
-                psi_k *= self.exp_k(dt_tilde)
-                self.psi_x = ifft2(psi_k)
-                self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
-                self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N)))
             else:
                 theta_wound_new = np.angle([self.psi_x[np.where(abs(y - yc) <= a_unw)[0][0], np.where(abs(x - xc) <= a_unw)[0][0]], 
                                            self.psi_x[np.where(abs(y - yc) <= a_unw)[0][0], np.where(abs(x - xc) <= a_unw)[0][-1]],
@@ -135,17 +125,10 @@ class model:
                 theta_unwound_new = ext.unwinding(theta_wound_new, theta_wound_old, theta_unwound_old, 0.99)
                 theta_wound_old = theta_wound_new
                 theta_unwound_old = theta_unwound_new
-                self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
-                psi_k = fft2(self.psi_x)
-                psi_k *= self.exp_k(dt_tilde)
-                self.psi_x = ifft2(psi_k)
-                self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
-                self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N)))
-            if i >= i1 and i <= i2 and i % every == 0:
-                time_index = (i-i1)//every
+            if i >= sampling_begin and i <= sampling_end and i % sampling_step == 0:
+                time_index = (i - sampling_begin) // sampling_step
                 unwound_sampling[:, time_index] = theta_unwound_new
                 wound_sampling[:, time_index] = theta_wound_new
-            if i % 10000 == 0:
                 print(i)
         return unwound_sampling
 
@@ -153,44 +136,48 @@ class model:
 # 
 # =============================================================================
 from qutip import *
-parallel_tasks = 2
-n_batch = 2
+parallel_tasks = 1024
+n_batch = 128
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
-sigma_array = np.array([1e-2])
 p_array = np.array([2])
-gamma2_array = np.array([1e-10])
-gamma0_array = np.array([20])
+gamma2_array = np.array([0.1])
+gamma0_array = np.array([10])
+sigma_array = np.array([0.02])
+g_array = np.array([0])
+m_array = np.array([1e-4])
 gr = 0
-g = 0
-ns = 1
+ns = 1.
 
 '''
-g_dim = 6.82
-sigma_th = gamma0_array * (p_array + 1) / 4
-xi = hbar / (np.sqrt(2 * m_dim * g_dim * ns * (p_array - 1) * hatrho))
-print(sigma_th)
+print('------- Kinetic term (real) ------- : %.5f' % (hbar ** 2 / (2 * m_array[0] * melectron * hatepsilon * hatx ** 2)))
+init = r'/scratch/konstantinos' + os.sep + 'N' + str(N) + '_' + 'ns' + str(int(ns)) + '_' + 'm' + str(m_array[0])
+if os.path.isdir(init) == False:
+    os.mkdir(init)
+ids = ext.ids(p_array, sigma_array, gamma0_array, gamma2_array, g_array)
 '''
 
-path_remote = r'/scratch/konstantinos'
-final_save_remote = r'/home6/konstantinos'
-path_local = r'/Users/delis/Desktop'
-final_save_local = r'/Users/delis/Desktop'
+import matplotlib.pyplot as pl
+gpe = model(p_array[0], sigma_array[0], gamma0_array[0], gamma2_array[0], g_array[0], gr = gr, ns = ns, m = m_array[0])
+theta = gpe.time_evolution()
+pl.plot(t, theta[0])
+pl.plot(t, theta[1])
+pl.plot(t, theta[2])
+pl.plot(t, theta[3])
+pl.savefig('/home6/konstantinos/test.jpg', format='jpg')
+pl.show()
 
-subfolders = ext.names_subfolders(True, path_local, N, sigma_array, p_array, gamma2_array, gamma0_array, g, ns)
-
-def phase(i_batch, p, sigma, gamma2, gamma0, g, gr, ns):
+def phase(i_batch, p, sigma, gamma0, gamma2, g, path):
     theta_batch = []
-    path_current = subfolders.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma2=' + str(gamma2), 'gamma0=' + str(gamma0)))
     for i_n in range(n_internal):
-        gpe = model(p, sigma, gamma2, gamma0, g, gr, ns)
+        gpe = model(p, sigma, gamma0, gamma2, g, gr = gr, ns = ns, m = m_array[0])
         theta = gpe.time_evolution()
         theta_batch.append(theta)
-        np.savetxt(path_current + os.sep + 'trajectories' + '_' + 'core' + str(i_batch + 1) + '_' + str(i_n + 1) + '.dat', theta)
-        if i_n % 2 == 1:
-            print('Core %.i finished realisation number %.i' % (i_batch, i_n + 1))
-    np.savetxt(path_current + os.sep + 'theta' + '_' +'core' + str(i_batch + 1) + '.dat', np.concatenate(theta_batch, axis = 0))
+        np.savetxt(path + os.sep + 'trajectories' + '_' + 'core' + str(i_batch + 1) + '_' + str(i_n + 1) + '.dat', theta)
+        if (i_n + 1) % 2 == 0:
+            print('Core %.i finished realisation %.i \n' % (i_batch, i_n + 1))
+    np.savetxt(path + os.sep + 'theta' + '_' +'core' + str(i_batch + 1) + '.dat', np.concatenate(theta_batch, axis = 0))
     return None
 
 def call_avg(final_save_path):
@@ -233,4 +220,4 @@ def call_avg(final_save_path):
                     '''
         return None
 
-call_avg(final_save_local)
+#call_avg(final_save_local)

@@ -6,7 +6,7 @@ Created on Tue Nov 10 15:09:50 2020
 @author: delis
 """
 
-c = 3e2 #μm/ps
+c = 3e2 #μm / ps
 hbar = 6.582119569 * 1e2 # μeV ps
 
 import os
@@ -14,11 +14,11 @@ import numpy as np
 import external as ext
 from scipy.fftpack import fft2, ifft2
 
-hatt = 1 # ps
-hatx = 1 # μm
-hatpsi = 1/hatx # μm^-1
-hatrho = 1/hatx**2 # μm^-2
-hatepsilon = hbar/hatt # μeV
+hatt = 32 # ps
+hatx = 32 ** (1/2) # μm
+hatpsi = 1 / hatx # μm^-1
+hatrho = 1 / hatx ** 2 # μm^-2
+hatepsilon = hbar / hatt # μeV
 melectron = 0.510998950 * 1e12 / c**2 # μeV/(μm^2/ps^2)
 
 # =============================================================================
@@ -35,7 +35,7 @@ dt_tilde = 1e-2
 sampling_end = N_steps
 sampling_window = sampling_end - sampling_begin
 t = ext.time(dt_tilde, N_steps, sampling_begin, sampling_end, sampling_step)
-np.savetxt('/home6/konstantinos/t_gy.dat', t)
+#np.savetxt('/home6/konstantinos/t_gy.dat', t)
 
 x, y = ext.space_momentum(N, dx_tilde)
 isotropic_indices = ext.get_indices(x)
@@ -77,7 +77,10 @@ class model:
         rot = np.ones((N, N), dtype = complex)
         self.psi_x = rot * self.initcond
         self.psi_x /= hatpsi
-
+        
+        print('gamma0, gamma0 tilde', gamma0, self.gamma0_tilde)
+        print('gamma2, gamma2 tilde', gamma2, self.gamma2_tilde)
+        print('ns, ns tilde', self.ns_tilde / hatx ** 2, self.ns_tilde)
 # =============================================================================
 # Definition of the split steps
 # =============================================================================
@@ -117,7 +120,7 @@ class model:
             self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
             self.psi_x += np.sqrt(dt_tilde) * np.sqrt(self.sigma / dx_tilde ** 2) * (np.random.normal(0, 1, (N,N)) + 1j * np.random.normal(0, 1, (N,N)))
             if i >= sampling_begin and i <= sampling_end and i % sampling_step == 0:
-                time_array_index = (i - sampling_begin) // sampling_step
+                time_index = (i - sampling_begin) // sampling_step
                 if i == sampling_begin:
                     psi_x0t0 = self.psi_x[center_indices[0][0], center_indices[0][1]]
                     '''
@@ -129,8 +132,8 @@ class model:
                 psipsi_t[time_array_index] = np.conjugate(psi_x0t0) * psi_x0t
                 sqrt_nn_t[time_array_index] = np.sqrt(n_x0t0 * n_x0t)
                 '''
-                psipsi_full[time_array_index] = ext.isotropic_avg('correlation', self.psi_x, np.conjugate(psi_x0t0), **isotropic_indices)
-                n_avg[time_array_index] = ext.isotropic_avg('density average', self.n(self.psi_x), None, **isotropic_indices)
+                psipsi_full[time_index] = ext.isotropic_avg('correlation', self.psi_x, np.conjugate(psi_x0t0), **isotropic_indices)
+                n_avg[time_index] = ext.isotropic_avg('density average', self.n(self.psi_x), None, **isotropic_indices)
         #return psipsi_evol, sqrt_nn_evol, psipsi_t, sqrt_nn_t, n_avg
         return psipsi_full, n_avg
 
@@ -145,18 +148,22 @@ qutip.settings.num_cpus = n_batch
 
 p_array = np.array([2])
 gamma2_array = np.array([0.1])
-gamma0_array = np.array([10])
+gamma0_array = np.array([0.3125])
 sigma_array = np.array([0.02])
 g_array = np.array([0])
 m_array = np.array([1e-4])
 gr = 0
 ns = 1.
 
+'''
 print('------- Kinetic term (real) ------- : %.5f' % (hbar ** 2 / (2 * m_array[0] * melectron * hatepsilon * hatx ** 2)))
 init = r'/scratch/konstantinos' + os.sep + 'N' + str(N) + '_' + 'ns' + str(int(ns)) + '_' + 'm' + str(m_array[0])
 if os.path.isdir(init) == False:
     os.mkdir(init)
 ids = ext.ids(p_array, sigma_array, gamma0_array, gamma2_array, g_array)
+'''
+
+gpe = model(p_array[0], sigma_array[0], gamma0_array[0], gamma2_array[0], g_array[0], gr = gr, ns = ns, m = m_array[0])
 
 def g1(i_batch, p, sigma, gamma0, gamma2, g, path):
     psipsi_full_batch = np.zeros((len(t), N//2), dtype = complex)
@@ -238,5 +245,5 @@ def call_avg(loc):
                 np.save(loc + os.sep + id_string + '__' + 'full_g1' + '.npy', np.abs(psipsi_full) / np.sqrt(n_avg[0, 0] * n_avg))
         return None
 
-final_save_remote = r'/home6/konstantinos'
-call_avg(final_save_remote)
+#final_save_remote = r'/home6/konstantinos'
+#call_avg(final_save_remote)
