@@ -177,7 +177,7 @@ def call_avg(final_save_path):
                 except FileExistsError:
                     continue
                 trajectories = []
-                print('Starting phase simulations: sigma = %.2f, p = %.1f, gamma2 = %.e' % (sigma, p, gamma2))
+                print('--- Primary simulation parameters: sigma = %.2f, gamma0 = %.2f, gamma2 = %.2f' % (sigma, gamma0_array[0], gamma2))
                 parallel_map(phase, range(n_batch), task_kwargs=dict(p = p, sigma = sigma, gamma0 = gamma0_array[0], gamma2 = gamma2, g = g, path = save_folder))
                 for file in os.listdir(save_folder):
                     if 'trajectories' in file:
