@@ -15,7 +15,7 @@ import external as ext
 from scipy.fftpack import fft2, ifft2
 
 hatt = 32 # ps
-hatx = 32 ** (1/2) # μm
+hatx = 4 * np.sqrt(2) # μm
 hatpsi = 1 / hatx # μm^-1
 hatrho = 1 / hatx ** 2 # μm^-2
 hatepsilon = hbar / hatt # μeV
@@ -78,9 +78,9 @@ class model:
         self.psi_x = rot * self.initcond
         self.psi_x /= hatpsi
         
-        print('gamma0, gamma0 tilde', gamma0, self.gamma0_tilde)
-        print('gamma2, gamma2 tilde', gamma2, self.gamma2_tilde)
-        print('ns, ns tilde', self.ns_tilde / hatx ** 2, self.ns_tilde)
+        #print('gamma0, gamma0 tilde', gamma0, self.gamma0_tilde)
+        #print('gamma2, gamma2 tilde', gamma2, self.gamma2_tilde)
+        #print('ns, ns tilde', self.ns_tilde / hatx ** 2, self.ns_tilde)
 # =============================================================================
 # Definition of the split steps
 # =============================================================================
@@ -155,15 +155,16 @@ m_array = np.array([1e-4])
 gr = 0
 ns = 1.
 
-'''
-print('------- Kinetic term (real) ------- : %.5f' % (hbar ** 2 / (2 * m_array[0] * melectron * hatepsilon * hatx ** 2)))
+print(ns*hatrho)
+print('--- System size in μm: %.1f' % (N * dx_tilde * hatx))
+print('--- Kinetic energy in μeV: %.2f' % (hbar ** 2 / (2 * m_array[0] * melectron * (dx_tilde * hatx) ** 2)))
+print('--- Losses in μeV: %.2f' % (hbar * gamma0_array[0]))
+print('--- Kinetic term (real) dimless --- : %.5f' % (hbar ** 2 / (2 * m_array[0] * melectron * hatepsilon * hatx ** 2)))
+
 init = r'/scratch/konstantinos' + os.sep + 'N' + str(N) + '_' + 'ns' + str(int(ns)) + '_' + 'm' + str(m_array[0])
 if os.path.isdir(init) == False:
     os.mkdir(init)
 ids = ext.ids(p_array, sigma_array, gamma0_array, gamma2_array, g_array)
-'''
-
-gpe = model(p_array[0], sigma_array[0], gamma0_array[0], gamma2_array[0], g_array[0], gr = gr, ns = ns, m = m_array[0])
 
 def g1(i_batch, p, sigma, gamma0, gamma2, g, path):
     psipsi_full_batch = np.zeros((len(t), N//2), dtype = complex)
@@ -203,7 +204,7 @@ def call_avg(loc):
         sigma = sigma_array[np.where(p_array == p)][0]
         for g in g_array:
             for gamma2 in gamma2_array:
-                print('--- Secondary simulation parameters: p = %.1f, g = %.2f, ns = %.i' % (p, g, ns))
+                print('- Secondary simulation parameters: p = %.1f, g = %.2f, ns = %.i' % (p, g, ns))
                 id_string = ids.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma0=' + str(gamma0_array[0]), 'gamma2=' + str(gamma2), 'g=' + str(g)))
                 save_folder = init + os.sep + id_string
                 try:
@@ -218,7 +219,7 @@ def call_avg(loc):
                 sqrt_nn_t = np.zeros(len(t), dtype = complex)
                 '''
                 n_avg = np.zeros((len(t), N//2), dtype = complex)
-                print('--- Primary simulation parameters: sigma = %.2f, gamma0 = %.2f, gamma2 = %.2f' % (sigma, gamma0_array[0], gamma2))
+                print('- Primary simulation parameters: sigma = %.2f, gamma0 = %.2f, gamma2 = %.2f' % (sigma, gamma0_array[0], gamma2))
                 parallel_map(g1, range(n_batch), task_kwargs=dict(p = p, sigma = sigma, gamma0 = gamma0_array[0], gamma2 = gamma2, g = g, path = save_folder))
                 for file in os.listdir(save_folder):
                     '''

@@ -13,8 +13,6 @@ import os
 import numpy as np
 import external as ext
 from scipy.fftpack import fft2, ifft2
-#import pyfftw
-#pyfftw.interfaces.cache.enable()
 
 hatt = 1 # ps
 hatx = 1 # μm
@@ -26,7 +24,7 @@ melectron = 0.510998950 * 1e12 / c ** 2 # μeV/(μm^2/ps^2)
 # =============================================================================
 # 
 # =============================================================================
-N = 2 ** 7
+N = 2 ** 6
 dx_tilde = 0.5
 
 sampling_begin = 1000000
@@ -172,10 +170,8 @@ def call_avg(final_save_path):
                 print('--- Secondary simulation parameters: p = %.1f, g = %.2f, ns = %.i' % (p, g, ns))
                 id_string = ids.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma0=' + str(gamma0_array[0]), 'gamma2=' + str(gamma2), 'g=' + str(g)))
                 save_folder = init + os.sep + id_string
-                try:
+                if os.path.isdir(save_folder) == False:
                     os.mkdir(save_folder)
-                except FileExistsError:
-                    continue
                 trajectories = []
                 print('--- Primary simulation parameters: sigma = %.2f, gamma0 = %.2f, gamma2 = %.2f' % (sigma, gamma0_array[0], gamma2))
                 parallel_map(phase, range(n_batch), task_kwargs=dict(p = p, sigma = sigma, gamma0 = gamma0_array[0], gamma2 = gamma2, g = g, path = save_folder))
