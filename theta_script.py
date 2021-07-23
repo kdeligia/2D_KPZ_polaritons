@@ -134,7 +134,7 @@ class model:
 # =============================================================================
 from qutip import *
 parallel_tasks = 1024
-n_batch = 128
+n_batch = 64
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
