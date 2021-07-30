@@ -38,10 +38,9 @@ melectron = 0.510998950 * 1e12 / c ** 2 # μeV/(μm^2/ps^2)
 N = 2 ** 7
 dx_tilde = 0.5
 
-#sampling_begin = 1000000
-sampling_begin = 10000
-sampling_step = 1000
-N_steps = 100000 + sampling_begin + sampling_step
+sampling_begin = 0
+sampling_step = 10
+N_steps = 200000 + sampling_begin + sampling_step
 #N_steps = 10000000 + sampling_begin + sampling_step
 dt_tilde = 1e-3
 sampling_end = N_steps
@@ -56,7 +55,7 @@ ky = (2 * np.pi) / dx_tilde * np.fft.fftfreq(N, d = 1)
 
 class model:
     def __init__(self, p, sigma, gamma0, gamma2, g, gr, ns, m):
-        self.KX, self.KY = np.meshgrid(kx, ky, sparse=True)
+        self.KX, self.KY = np.meshgrid(kx, ky, sparse = True)
         self.gamma2_tilde = gamma2  * hatt / hatx ** 2
         self.gamma0_tilde = gamma0 * hatt
         self.gammar_tilde = 0.1 * self.gamma0_tilde
@@ -103,7 +102,7 @@ class model:
         vortex_number = np.zeros(len(t))
         density = np.zeros(len(t))
         for i in range(N_steps):
-            if i <= 5 * sampling_begin or i >= 7 * sampling_begin:
+            if i <= 100000 or i >= 150000:
                 self.sigma = 0
             self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
@@ -138,6 +137,7 @@ ns = 1.
 
 print('------- Kinetic term (real) ------- : %.5f' % (hbar ** 2 / (2 * m_array[0] * melectron * hatepsilon * hatx ** 2)))
 path_local = r'/scratch/konstantinos'
+save_local = r'/home6/konstantinos'
 init = path_local + os.sep + 'N' + str(N) + '_' + 'ns' + str(int(ns)) + '_' + 'm' + str(m_array[0])
 if os.path.isdir(init) == False:
     os.mkdir(init)
@@ -152,13 +152,13 @@ def vortices(p, gamma0, gamma2, g):
         os.mkdir(save_folder)
     gpe = model(p, sigma, gamma0, gamma2, g, gr = gr, ns = ns, m = m_array[0])
     nvort, dens = gpe.time_evolution(save_folder)
-    np.savetxt(save_folder + '_' + 'nv' + '.dat', nvort)
-    np.savetxt(save_folder + '_' + 'dens' + '.dat', dens)
+    np.savetxt(save_local + '_' + 'nv' + '.dat', nvort)
+    np.savetxt(save_local + '_' + 'dens' + '.dat', dens)
     os.system(
         'ffmpeg -framerate 10 -i ' + 
         save_folder + os.sep + 
         'fig%d.jpg ' + 
-        path_local + os.sep + 
+        save_local + os.sep + 
         id_string + '.mp4')
     return None
 
@@ -171,35 +171,3 @@ def parallel(p):
     return None
 
 parallel(p_array)
-
-'''
-        fig, ax = pl.subplots(1,1, figsize=(8, 6))
-        for file in os.listdir(path):
-            if 'nv.dat' in file:
-                s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
-                ax.plot(t, np.loadtxt(path + os.sep + file), label=r'$\gamma_2$ = %.2f' % s[0])
-        ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
-        ax.legend(prop=dict(size=12))
-        ax.set_xlabel(r'$t$', fontsize=20)
-        ax.set_ylabel(r'$n_v$', fontsize=20)
-        ax.set_title(r'$g$ = %.2f' % g, fontsize=20)
-        pl.tight_layout()
-        pl.savefig(path_local + os.sep + iteration_string + '___' + 'vortices.jpg', format='jpg')
-        pl.show()
-        pl.close()
-        fig, ax = pl.subplots(1,1, figsize=(8, 6))
-        for file in os.listdir(path):
-            if 'dens.dat' in file:
-                s = [float(s) for s in re.findall(r'-?\d+\.?\d*', file)]
-                ax.plot(t, np.loadtxt(path + os.sep + file), label=r'$\gamma_2$ = %.2f' % s[0])
-        ax.hlines(y=ns * (p_array[0] - 1), xmin=t[0], xmax=t[-1], color='black')
-        ax.tick_params(axis='both', which='both', direction='in', labelsize=16, pad=12, length=12)
-        ax.legend(prop=dict(size=12))
-        ax.set_xlabel(r'$t$', fontsize=20)
-        ax.set_ylabel(r'$n$', fontsize=20)
-        ax.set_title(r'$g$ = %.2f' % g, fontsize=20)
-        pl.tight_layout()
-        pl.savefig(path_local + os.sep + iteration_string + '___' + 'density.jpg', format='jpg')
-        pl.show()
-        pl.close()
-        '''
