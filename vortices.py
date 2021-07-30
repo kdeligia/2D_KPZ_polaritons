@@ -39,9 +39,8 @@ N = 2 ** 7
 dx_tilde = 0.5
 
 sampling_begin = 0
-sampling_step = 10
-N_steps = 200000 + sampling_begin + sampling_step
-#N_steps = 10000000 + sampling_begin + sampling_step
+sampling_step = 5000
+N_steps = 10000000 + sampling_begin + sampling_step
 dt_tilde = 1e-3
 sampling_end = N_steps
 sampling_window = sampling_end - sampling_begin
@@ -102,8 +101,6 @@ class model:
         vortex_number = np.zeros(len(t))
         density = np.zeros(len(t))
         for i in range(N_steps):
-            if i <= 100000 or i >= 150000:
-                self.sigma = 0
             self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
             psi_k *= self.exp_k(dt_tilde)
@@ -117,6 +114,8 @@ class model:
                 ext.vortex_plots(folder, x, t, time_index, vortex_positions, np.angle(self.psi_x), self.n(self.psi_x))
                 vortex_number[time_index] = len(np.where(vortex_positions == 1)[0]) + len(np.where(vortex_positions == -1)[0])
                 density[time_index] = np.mean(self.n(self.psi_x))
+                if t[time_index] < 5000 or t[time_index] > 7000:
+                    self.sigma = 0
         return vortex_number, density
 
 # =============================================================================
@@ -138,6 +137,7 @@ ns = 1.
 print('------- Kinetic term (real) ------- : %.5f' % (hbar ** 2 / (2 * m_array[0] * melectron * hatepsilon * hatx ** 2)))
 path_local = r'/scratch/konstantinos'
 save_local = r'/home6/konstantinos'
+
 init = path_local + os.sep + 'N' + str(N) + '_' + 'ns' + str(int(ns)) + '_' + 'm' + str(m_array[0])
 if os.path.isdir(init) == False:
     os.mkdir(init)
@@ -152,8 +152,8 @@ def vortices(p, gamma0, gamma2, g):
         os.mkdir(save_folder)
     gpe = model(p, sigma, gamma0, gamma2, g, gr = gr, ns = ns, m = m_array[0])
     nvort, dens = gpe.time_evolution(save_folder)
-    np.savetxt(save_local + '_' + 'nv' + '.dat', nvort)
-    np.savetxt(save_local + '_' + 'dens' + '.dat', dens)
+    np.savetxt(save_local + os.sep + id_string + '_' + 'nv' + '.dat', nvort)
+    np.savetxt(save_local + os.sep + id_string + '_' + 'dens' + '.dat', dens)
     os.system(
         'ffmpeg -framerate 10 -i ' + 
         save_folder + os.sep + 
