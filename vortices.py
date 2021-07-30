@@ -14,9 +14,9 @@ import os
 import numpy as np
 import external as ext
 from scipy.fftpack import fft2, ifft2
-import matplotlib.pyplot as pl
-import re
+
 '''
+import matplotlib.pyplot as pl
 from matplotlib import rc
 from matplotlib.texmanager import TexManager
 import re
@@ -24,19 +24,13 @@ pl.rc('font', family='sans-serif')
 pl.rc('text', usetex=True)
 pl.close('all')
 '''
-#import pyfftw
-#pyfftw.interfaces.cache.enable()
 
 hatt = 1 # ps
 hatx = 1 # μm
-hatpsi = 1/hatx # μm^-1
-hatrho = 1/hatx**2 # μm^-2
-hatepsilon = hbar/hatt # μeV
-melectron = 0.510998950 * 1e12 / c**2 # μeV/(μm^2/ps^2)
-
-m_tilde = 1e-4
-m_dim = m_tilde * melectron
-Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx**2)
+hatpsi = 1 / hatx # μm^-1
+hatrho = 1 / hatx ** 2 # μm^-2
+hatepsilon = hbar / hatt # μeV
+melectron = 0.510998950 * 1e12 / c ** 2 # μeV/(μm^2/ps^2)
 
 # =============================================================================
 # 
@@ -44,27 +38,30 @@ Kc = hbar ** 2 / (2 * m_dim * hatepsilon * hatx**2)
 N = 2 ** 7
 dx_tilde = 0.5
 
+#sampling_begin = 1000000
 sampling_begin = 10000
 sampling_step = 1000
-N_steps = 1000000 + sampling_begin + sampling_step
-dt_tilde = 1e-2
-
+N_steps = 100000 + sampling_begin + sampling_step
+#N_steps = 10000000 + sampling_begin + sampling_step
+dt_tilde = 1e-3
 sampling_end = N_steps
 sampling_window = sampling_end - sampling_begin
 t = ext.time(dt_tilde, N_steps, sampling_begin, sampling_end, sampling_step)
 
 x, y = ext.space_momentum(N, dx_tilde)
 isotropic_indices = ext.get_indices(x)
+
 kx = (2 * np.pi) / dx_tilde * np.fft.fftfreq(N, d = 1)
 ky = (2 * np.pi) / dx_tilde * np.fft.fftfreq(N, d = 1)
 
 class model:
-    def __init__(self, p, sigma, gamma2, gamma0, g, gr, ns):
+    def __init__(self, p, sigma, gamma0, gamma2, g, gr, ns, m):
         self.KX, self.KY = np.meshgrid(kx, ky, sparse=True)
-        self.gamma2_tilde = gamma2  * hatt / hatx **2
+        self.gamma2_tilde = gamma2  * hatt / hatx ** 2
         self.gamma0_tilde = gamma0 * hatt
         self.gammar_tilde = 0.1 * self.gamma0_tilde
         
+        self.Kc = hbar ** 2 / (2 * m * melectron * hatepsilon * hatx ** 2)
         self.Kd = self.gamma2_tilde / 2
         self.g_tilde = g * hatrho / hatepsilon
         self.gr_tilde = gr * hatrho / hatepsilon
@@ -79,11 +76,6 @@ class model:
         rot = np.ones((N, N), dtype = complex)
         self.psi_x = rot * self.initcond
         self.psi_x /= hatpsi
-
-        '''
-        Pth = self.gamma0_tilde * self.ns_tilde
-        print(self.P_tilde, Pth)
-        '''
 
 # =============================================================================
 # Definition of the split steps
@@ -100,7 +92,7 @@ class model:
         return np.exp(-1j * dt * (self.uc_tilde + 1j * self.rd_tilde))
 
     def exp_k(self, dt):
-        return np.exp(-1j * dt * (self.KX ** 2 + self.KY ** 2) * (Kc - 1j * self.Kd))
+        return np.exp(-1j * dt * (self.KX ** 2 + self.KY ** 2) * (self.Kc - 1j * self.Kd))
 
 # =============================================================================
 # Time evolution
@@ -111,6 +103,8 @@ class model:
         vortex_number = np.zeros(len(t))
         density = np.zeros(len(t))
         for i in range(N_steps):
+            if i <= 5 * sampling_begin or i >= 7 * sampling_begin:
+                self.sigma = 0
             self.psi_x *= self.exp_x(0.5 * dt_tilde, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
             psi_k *= self.exp_k(dt_tilde)
@@ -133,43 +127,52 @@ from qutip import *
 n_batch = 1
 qutip.settings.num_cpus = n_batch
 
-p_array = np.array([2.])
+p_array = np.array([2])
 gamma2_array = np.array([0.1])
-gamma0_array = np.array([10.])
+gamma0_array = np.array([10])
 sigma_array = np.array([0.02])
-
-gr = 0
 g_array = np.array([0])
+m_array = np.array([1e-4])
+gr = 0
 ns = 1.
 
-path_remote = r'/scratch/konstantinos'
-save_remote = r'/home6/konstantinos'
-path_local = r'/Users/delis/Desktop'
+print('------- Kinetic term (real) ------- : %.5f' % (hbar ** 2 / (2 * m_array[0] * melectron * hatepsilon * hatx ** 2)))
+path_local = r'/scratch/konstantinos'
+init = path_local + os.sep + 'N' + str(N) + '_' + 'ns' + str(int(ns)) + '_' + 'm' + str(m_array[0])
+if os.path.isdir(init) == False:
+    os.mkdir(init)
+ids = ext.ids(p_array, sigma_array, gamma0_array, gamma2_array, g_array)
 
-def vortices(i_batch, gamma0, gamma2, p, g):
-    sigma = sigma_array[np.where(p_array == p)]
-    print(r'--- Parameters in parallel: (gamma0, gamma2, sigma) = (%.2f, %.2f, %.2f)' % (gamma0, gamma2, sigma))
-    gpe = model(p, sigma, gamma2, gamma0, g = g, gr = gr, ns = ns)
-    parallel_string = 'gammak' + str(gamma2)
-    os.mkdir(path + os.sep + parallel_string)
-    nvort, dens = gpe.time_evolution(path + os.sep + parallel_string)
-    np.savetxt(path + os.sep + parallel_string + '_' + 'nv' + '.dat', nvort)
-    np.savetxt(path + os.sep + parallel_string + '_' + 'dens' + '.dat', dens)
+def vortices(p, gamma0, gamma2, g):
+    sigma = sigma_array[np.where(p_array == p)[0][0]]
+    print('--- Secondary simulation parameters: p = %.1f, sigma = %.2f, g = %.1f, ns = %.i' % (p, sigma, g, ns))
+    id_string = ids.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma0=' + str(gamma0), 'gamma2=' + str(gamma2), 'g=' + str(g)))
+    save_folder = init + os.sep + id_string
+    if os.path.isdir(save_folder) == False:
+        os.mkdir(save_folder)
+    gpe = model(p, sigma, gamma0, gamma2, g, gr = gr, ns = ns, m = m_array[0])
+    nvort, dens = gpe.time_evolution(save_folder)
+    np.savetxt(save_folder + '_' + 'nv' + '.dat', nvort)
+    np.savetxt(save_folder + '_' + 'dens' + '.dat', dens)
     os.system(
         'ffmpeg -framerate 10 -i ' + 
-        path + os.sep + parallel_string + os.sep + 
+        save_folder + os.sep + 
         'fig%d.jpg ' + 
         path_local + os.sep + 
-        parallel_string + '.mp4')
+        id_string + '.mp4')
     return None
 
-for p in p_array:
-    for g in g_array:
-        iteration_string = 'test' + '_' + 'p' + str(p) + '_' + 'g' + str(g)
-        path = path_local + os.sep + iteration_string
-        os.mkdir(path)
-        parallel_map(vortices, range(n_batch), task_kwargs=dict(gamma0 = gamma0_array[0], gamma2 = gamma2_array[0], p = p, g = g))
-        '''
+def parallel(p):
+    g = g_array[0]
+    for gamma2 in gamma2_array:
+        gamma0 = gamma0_array[np.where(gamma2_array == gamma2)[0][0]]
+        print('--- Primary simulation parameters: gamma0 = %.f, gamma2 = %.2f' % (gamma0, gamma2))
+        parallel_map(vortices, p, task_kwargs=dict(gamma0 = gamma0, gamma2 = gamma2, g = g))
+    return None
+
+parallel(p_array)
+
+'''
         fig, ax = pl.subplots(1,1, figsize=(8, 6))
         for file in os.listdir(path):
             if 'nv.dat' in file:
