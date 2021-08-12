@@ -39,29 +39,29 @@ def dimensional_units(**args):
     #return L_dim, P_dim, R_dim, gamma0_dim, gammar_dim, gamma2_dim, ns_dim, n0_dim, nr_dim
     return None
 
-def space_momentum(N, dx_tilde):
+def space_grid(N, dx_tilde):
     x_0 = - N * dx_tilde / 2
     x = x_0 + dx_tilde * np.arange(N)
     y = x
     return x, y
 
-def time(dt, N_steps, i1, i2, secondarystep):
-    lengthindex = i2-i1
-    length = int(lengthindex / secondarystep)
+def time(dt, N_steps, i1, step):
+    i2 = N_steps
+    length = int((i2 - i1) / step)
     t = np.zeros(length)
     for i in range(N_steps):
-        if i>=i1 and i<=i2 and i%secondarystep==0:
-            t[(i-i1)//secondarystep] = i*dt
+        if i >= i1 and i <= i2 and i % step == 0:
+            t[(i - i1) // step] = i * dt
     return t
 
-def ids(p_array, sigma_array, gamma0_array, gamma2_array, g_array):
+def ids(N, p_array, sigma_array, gamma0_array, gamma2_array, g_array):
     ids = {}
     for sigma in sigma_array:
         for p in p_array:
             for gamma2 in gamma2_array:
                 for gamma0 in gamma0_array:
                     for g in g_array:
-                        ids['p=' + str(p), 'sigma=' + str(sigma), 'gamma0=' + str(gamma0), 'gamma2=' + str(gamma2), 'g=' + str(g)] = 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_' + 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2) + '_' + 'g' + str(g)
+                        ids['p=' + str(p), 'sigma=' + str(sigma), 'gamma0=' + str(gamma0), 'gamma2=' + str(gamma2), 'g=' + str(g)] = 'N' + str(N) + '_' + 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_' + 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2) + '_' + 'g' + str(g)
     return ids
 
 def vortex_positions(a, theta, x, y):
