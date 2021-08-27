@@ -12,8 +12,8 @@ import numpy as np
 import external as ext
 import model_script
 
-parallel_tasks = 1024
-n_batch = 64
+parallel_tasks = 1536
+n_batch = 128
 n_internal = parallel_tasks//n_batch
 qutip.settings.num_cpus = n_batch
 
@@ -25,7 +25,7 @@ g_array = np.array([0])
 m_array = np.array([1e-4])
 gr = 0
 ns = 1.
-N = 2 ** 6
+N = 2 ** 7
 
 path = r'/scratch/konstantinos'
 final_save_path = r'/home6/konstantinos'
@@ -35,14 +35,15 @@ if os.path.isdir(init) == False:
     os.mkdir(init)
 ids = ext.ids(N, p_array, sigma_array, gamma0_array, gamma2_array, g_array)
 
-N_input = 10000000
+N_input = 8000000
 dt = 0.001
-i_start = 1000000
+i_start = 0
 di = 1000
-#N_i = N_input + i_start + di
-#t = ext.time(dt, N_i, i_start, di)
-#np.savetxt('/Users/delis/Desktop/t.dat', t)
+N_i = N_input + i_start + di
+t = ext.time(dt, N_i, i_start, di)
+np.savetxt(final_save_path + 't.dat', t)
 
+print(t, len(t))
 def theta_data(i_batch, p, sigma, gamma0, gamma2, g, mypath):
     for i_n in range(n_internal):
         gpe = model_script.gpe(p, sigma, gamma0, gamma2, g, gr = gr, ns = ns, m = m_array[0], N = N, dx = 0.5)
