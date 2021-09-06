@@ -15,7 +15,7 @@ hbar = 6.582119569 * 1e2 # μeV ps
 melectron = 0.510998950 * 1e12 / c ** 2 # μeV/(μm^2/ps^2)
 
 hatt = 32 # ps
-hatx = 4 * np.sqrt(2) # μm
+hatx = 4 * np.sqrt(2)
 hatpsi = 1 / hatx # μm^-1
 hatrho = 1 / hatx ** 2 # μm^-2
 hatepsilon = hbar / hatt # μeV
@@ -24,7 +24,7 @@ class gpe:
     def __init__(self, p, sigma, gamma0, gamma2, g, gr, ns, m, N, dx):
         self.N = N
         self.dx = dx
-        
+
         self.kx = (2 * np.pi) / self.dx * np.fft.fftfreq(N, d = 1)
         self.ky = (2 * np.pi) / self.dx * np.fft.fftfreq(N, d = 1)
         self.KX, self.KY = np.meshgrid(self.kx, self.ky, sparse = True)
@@ -32,20 +32,21 @@ class gpe:
         self.gamma2_tilde = gamma2  * hatt / hatx ** 2
         self.gamma0_tilde = gamma0 * hatt
         self.gammar_tilde = 0.1 * self.gamma0_tilde
-        
+
         self.Kc = hbar ** 2 / (2 * m * melectron * hatepsilon * hatx ** 2)
         self.Kd = self.gamma2_tilde / 2
         self.g_tilde = g * hatrho / hatepsilon
         self.gr_tilde = gr * hatrho / hatepsilon
-        
+
         self.R_tilde = self.gammar_tilde / ns
         self.ns_tilde = self.gammar_tilde / self.R_tilde
         self.P_tilde = p * self.gamma0_tilde * self.ns_tilde
         self.p = self.P_tilde * self. R_tilde / (self.gamma0_tilde * self.gammar_tilde)
         self.sigma = sigma
-
-        self.psi_x = np.full((self.N, self.N), 5)
+        
+        self.psi_x = 5 * (np.ones((self.N, self.N)) + 1j * np.ones((self.N, self.N)))
         self.psi_x /= hatpsi
+
 # =============================================================================
 # Definition of the split steps
 # =============================================================================
@@ -75,7 +76,6 @@ class gpe:
         vortex_number = np.zeros(len(t))
         density = np.zeros(len(t))
         for i in range(N_i):
-            self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
             psi_k *= self.exp_k(dt)
             self.psi_x = ifft2(psi_k)
@@ -100,7 +100,6 @@ class gpe:
         a_unw = (self.N // 4) * self.dx
         xc = x[self.N // 2]
         yc = y[self.N // 2]
-        #wound_sampling = np.zeros((4, int((N_input + di) / di)))
         unwound_sampling = np.zeros((4, int((N_input + di) / di)))
         for i in range(N_i):
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
@@ -128,7 +127,6 @@ class gpe:
             if i >= i_start and i <= N_i and i % di == 0:
                 time_index = (i - i_start) // di
                 unwound_sampling[:, time_index] = theta_unwound_new
-                #wound_sampling[:, time_index] = theta_wound_new
         return unwound_sampling
     
     def time_evolution_psi(self, dt, N_input, i_start, di):

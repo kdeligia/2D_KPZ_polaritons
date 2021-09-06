@@ -41,14 +41,13 @@ i_start = 0
 di = 500
 N_i = N_input + i_start + di
 t = ext.time(dt, N_i, i_start, di)
-np.savetxt(final_save_path + 't_theta_64.dat', t)
+np.savetxt(final_save_path + os.sep + 't_theta_64.dat', t)
 
 def theta_data(i_batch, p, sigma, gamma0, gamma2, g, mypath):
     for i_n in range(n_internal):
         gpe = model_script.gpe(p, sigma, gamma0, gamma2, g, gr = gr, ns = ns, m = m_array[0], N = N, dx = 0.5)
         theta_unwound = gpe.time_evolution_theta(dt = dt, N_input = N_input, i_start = i_start, di = di)
         np.savetxt(mypath + os.sep + 'trajectories_unwound' + '_' + 'core' + str(i_batch + 1) + '_' + str(i_n + 1) + '.dat', theta_unwound)
-        #np.savetxt(mypath + os.sep + 'trajectories_wound' + '_' + 'core' + str(i_batch + 1) + '_' + str(i_n + 1) + '.dat', theta_wound)
         if (i_n + 1) % 2 == 0:
             print('Core %.i finished realisation %.i \n' % (i_batch, i_n + 1))
     return None
@@ -62,19 +61,16 @@ def call_avg(final_save_path):
                 print('--- Simulation parameters: p = %.1f, sigma = %.2f, g = %.2f, ns = %.i' % (p, sigma, g, ns))
                 id_string = ids.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma0=' + str(gamma0), 'gamma2=' + str(gamma2), 'g=' + str(g)))
                 save_folder = init + os.sep + id_string
+                print(save_folder)
                 if os.path.isdir(save_folder) == False:
                     os.mkdir(save_folder)
                 unwound_trajectories = []
-                #wound_trajectories = []
-                print('--- Loss rates: gamma0 = %.1f, gamma2 = %.1f' % (gamma0, gamma2))
+                print('--- Loss rates: gamma0 = %.4f, gamma2 = %.1f' % (gamma0, gamma2))
                 parallel_map(theta_data, range(n_batch), task_kwargs=dict(p = p, sigma = sigma, gamma0 = gamma0, gamma2 = gamma2, g = g, mypath = save_folder))
                 for file in os.listdir(save_folder):
                     if 'trajectories_unwound' in file:
                         unwound_trajectories.append(np.loadtxt(save_folder + os.sep + file))
-                    #if 'trajectories_wound' in file:
-                        #wound_trajectories.append(np.loadtxt(save_folder + os.sep + file))
                 np.savetxt(final_save_path + os.sep + id_string + '_' + 'unwound_trajectories' + '.dat', np.concatenate(unwound_trajectories, axis = 0))
-                #np.savetxt(final_save_path + os.sep + id_string + '_' + 'wound_trajectories' + '.dat', np.concatenate(wound_trajectories, axis = 0))
         return None
 
 call_avg(final_save_path)
