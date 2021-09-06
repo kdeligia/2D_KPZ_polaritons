@@ -195,13 +195,8 @@ def isotropic_avg(keyword, matrix, central_element, **args):
                 avg[rad] += matrix[indices[i][0], indices[i][1]] / len(indices)
     return avg
 
-def unwinding(theta_wound_new, theta_wound_old, theta_unwound_old, cutoff):
-    length = len(theta_wound_new)
-    theta_unwound_new = np.zeros(length)
-    for i in range(length):
-        deltatheta = theta_wound_new [i]- theta_wound_old[i]
-        if abs(deltatheta) > cutoff * 2 * np.pi:
-            theta_unwound_new[i] = theta_unwound_old[i] + deltatheta - np.sign(deltatheta) * 2 * np.pi
-        else:
-            theta_unwound_new[i] = theta_unwound_old[i] + deltatheta
-    return theta_unwound_new
+def unwinding(deltatheta, cutoff):
+    for i in range(len(deltatheta)):
+        if abs(deltatheta[i]) > cutoff * 2 * np.pi:
+            deltatheta[i] -= np.sign(deltatheta[i]) * 2 * np.pi
+    return deltatheta

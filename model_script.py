@@ -14,8 +14,8 @@ c = 3e2 #μm/ps
 hbar = 6.582119569 * 1e2 # μeV ps
 melectron = 0.510998950 * 1e12 / c ** 2 # μeV/(μm^2/ps^2)
 
-hatt = 1 # ps
-hatx = 1 # μm
+hatt = 32 # ps
+hatx = 4 * np.sqrt(2) # μm
 hatpsi = 1 / hatx # μm^-1
 hatrho = 1 / hatx ** 2 # μm^-2
 hatepsilon = hbar / hatt # μeV
@@ -44,9 +44,7 @@ class gpe:
         self.p = self.P_tilde * self. R_tilde / (self.gamma0_tilde * self.gammar_tilde)
         self.sigma = sigma
 
-        self.initcond = np.full((self.N, self.N), 5)
-        rot = np.ones((self.N, self.N), dtype = complex)
-        self.psi_x = rot * self.initcond
+        self.psi_x = np.full((self.N, self.N), 5)
         self.psi_x /= hatpsi
 # =============================================================================
 # Definition of the split steps
@@ -98,13 +96,11 @@ class gpe:
     def time_evolution_theta(self, dt, N_input, i_start, di):
         np.random.seed()
         N_i = N_input + i_start + di
-        #t = ext.time(dt, N_i, i_start, di)
-        #print(t)
         x, y = ext.space_grid(self.N, self.dx)
         a_unw = (self.N // 4) * self.dx
         xc = x[self.N // 2]
         yc = y[self.N // 2]
-        wound_sampling = np.zeros((4, int((N_input + di) / di)))
+        #wound_sampling = np.zeros((4, int((N_input + di) / di)))
         unwound_sampling = np.zeros((4, int((N_input + di) / di)))
         for i in range(N_i):
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
@@ -126,19 +122,18 @@ class gpe:
                                            self.psi_x[np.where(abs(y - yc) <= a_unw)[0][0], np.where(abs(x - xc) <= a_unw)[0][-1]],
                                            self.psi_x[np.where(abs(y - yc) <= a_unw)[0][-1], np.where(abs(x - xc) <= a_unw)[0][-1]],
                                            self.psi_x[np.where(abs(y - yc) <= a_unw)[0][-1], np.where(abs(x - xc) <= a_unw)[0][0]]])
-                theta_unwound_new = ext.unwinding(theta_wound_new, theta_wound_old, theta_unwound_old, 0.99)
+                theta_unwound_new = theta_unwound_old + ext.unwinding(theta_wound_new - theta_wound_old,  0.99)
                 theta_wound_old = theta_wound_new
                 theta_unwound_old = theta_unwound_new
             if i >= i_start and i <= N_i and i % di == 0:
                 time_index = (i - i_start) // di
                 unwound_sampling[:, time_index] = theta_unwound_new
-                wound_sampling[:, time_index] = theta_wound_new
+                #wound_sampling[:, time_index] = theta_wound_new
         return unwound_sampling
-
+    
     def time_evolution_psi(self, dt, N_input, i_start, di):
         np.random.seed()
         N_i = N_input + i_start + di
-        #print(t)
         x, y = ext.space_grid(self.N, self.dx)
         isotropic_indices = ext.get_indices(x)
         center_indices = isotropic_indices.get('r = ' + str(0))
