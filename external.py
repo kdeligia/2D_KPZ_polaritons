@@ -27,17 +27,18 @@ def bogoliubov(k, Kc, Kd, gamma0, p, g, n0):
             Im_minus[i] = - Kd * k[i] ** 2 - Gamma - np.sqrt(np.abs(- Gamma ** 2 + Kc ** 2 * k[i] ** 4 + 2 * Kc * k[i] ** 2 * mu))
     return Im_plus, Im_minus
 
+'''
 def dimensional_units(**args):
-    #L_dim = L_tilde * hatx                                                      # result in μm
-    #P_dim = P_tilde * (1/(hatx**2 * hatt))                                      # result in μm^-2 ps^-1
-    #R_dim = R_tilde * (hatx**2/hatt)                                            # result in μm^2 ps^-1
-    #gamma0_dim = gamma0_tilde * (1/hatt)                                        # result in ps^-1
-    #gammar_dim = gammar_tilde * (1/hatt)                                        # result in ps^-1
-    #ns_dim = ns_tilde * hatrho                                                  # result in μm^-2
-    #n0_dim = n0_tilde * hatrho                                                  # result in μm^-2
-    #nr_dim = nres_tilde * hatrho                                                # result in μm^-2
-    #return L_dim, P_dim, R_dim, gamma0_dim, gammar_dim, gamma2_dim, ns_dim, n0_dim, nr_dim
-    return None
+    L_dim = L_tilde * hatx                                # result in μm
+    P_dim = P_tilde * (1 / (hatx ** 2 * hatt))            # result in μm^-2 ps^-1
+    R_dim = R_tilde * (hatx ** 2 / hatt)                  # result in μm^2 ps^-1
+    gamma0_dim = gamma0_tilde * (1 / hatt)                # result in ps^-1
+    gammar_dim = gammar_tilde * (1 / hatt)                # result in ps^-1
+    ns_dim = ns_tilde * hatrho                            # result in μm^-2
+    n0_dim = n0_tilde * hatrho                            # result in μm^-2
+    nr_dim = nres_tilde * hatrho                          # result in μm^-2
+    return L_dim, P_dim, R_dim, gamma0_dim, gammar_dim, gamma2_dim, ns_dim, n0_dim, nr_dim
+'''
 
 def space_grid(N, dx_tilde):
     x_0 = - N * dx_tilde / 2
@@ -45,24 +46,13 @@ def space_grid(N, dx_tilde):
     y = x
     return x, y
 
-def time(dt, N_steps, i1, step):
-    i2 = N_steps
-    length = int((i2 - i1) / step)
+def time(dt, N_input, i_start, di):
+    length = int((N_input + di) / di)
     t = np.zeros(length)
-    for i in range(N_steps):
-        if i >= i1 and i <= i2 and i % step == 0:
-            t[(i - i1) // step] = i * dt
+    for i in range(N_input + i_start + di):
+        if i >= i_start and i <= N_input + i_start + di and i % di == 0:
+            t[(i - i_start) // di] = i * dt
     return t
-
-def ids(N, p_array, sigma_array, gamma0_array, gamma2_array, g_array):
-    ids = {}
-    for sigma in sigma_array:
-        for p in p_array:
-            for gamma2 in gamma2_array:
-                for gamma0 in gamma0_array:
-                    for g in g_array:
-                        ids['p=' + str(p), 'sigma=' + str(sigma), 'gamma0=' + str(gamma0), 'gamma2=' + str(gamma2), 'g=' + str(g)] = 'N' + str(N) + '_' + 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_' + 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2) + '_' + 'g' + str(g)
-    return ids
 
 def vortex_positions(a, theta, x, y):
     # The integral should be calculated counter clock wise. 

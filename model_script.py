@@ -21,32 +21,31 @@ hatrho = 1 / hatx ** 2 # μm^-2
 hatepsilon = hbar / hatt # μeV
 
 class gpe:
-    def __init__(self, p, sigma, gamma0, gamma2, g, gr, ns, m, N, dx):
-        self.N = N
-        self.dx = dx
-
-        self.kx = (2 * np.pi) / self.dx * np.fft.fftfreq(N, d = 1)
-        self.ky = (2 * np.pi) / self.dx * np.fft.fftfreq(N, d = 1)
+    def __init__(self, **args):
+        self.N = args.get('N')
+        self.dx = args.get('dx')
+        
+        self.kx = (2 * np.pi) / self.dx * np.fft.fftfreq(self.N, d = 1)
+        self.ky = (2 * np.pi) / self.dx * np.fft.fftfreq(self.N, d = 1)
         self.KX, self.KY = np.meshgrid(self.kx, self.ky, sparse = True)
-
-        self.gamma2_tilde = gamma2  * hatt / hatx ** 2
-        self.gamma0_tilde = gamma0 * hatt
+        
+        self.gamma2_tilde = args.get('gamma2')  * hatt / hatx ** 2
+        self.gamma0_tilde = args.get('gamma0') * hatt
         self.gammar_tilde = 0.1 * self.gamma0_tilde
 
-        self.Kc = hbar ** 2 / (2 * m * melectron * hatepsilon * hatx ** 2)
+        self.Kc = hbar ** 2 / (2 * args.get('m') * melectron * hatepsilon * hatx ** 2)
         self.Kd = self.gamma2_tilde / 2
-        self.g_tilde = g * hatrho / hatepsilon
-        self.gr_tilde = gr * hatrho / hatepsilon
+        self.g_tilde = args.get('g') * hatrho / hatepsilon
+        self.gr_tilde = args.get('gr') * hatrho / hatepsilon
 
-        self.R_tilde = self.gammar_tilde / ns
+        self.R_tilde = self.gammar_tilde / args.get('ns')
         self.ns_tilde = self.gammar_tilde / self.R_tilde
-        self.P_tilde = p * self.gamma0_tilde * self.ns_tilde
+        self.P_tilde = args.get('p') * self.gamma0_tilde * self.ns_tilde
         self.p = self.P_tilde * self. R_tilde / (self.gamma0_tilde * self.gammar_tilde)
-        self.sigma = sigma
-        
+        self.sigma = args.get('sigma')
+
         self.psi_x = 5 * (np.ones((self.N, self.N)) + 1j * np.ones((self.N, self.N)))
         self.psi_x /= hatpsi
-
 # =============================================================================
 # Definition of the split steps
 # =============================================================================
@@ -67,19 +66,25 @@ class gpe:
 # =============================================================================
 # Time evolution
 # =============================================================================
-    def time_evolution_vortices(self, folder, dt, N_input, i_start, di):
+    def time_evolution_vortices(self, folder, **time_dict):
         np.random.seed()
+        N_input = time_dict.get('N_input')
+        i_start = time_dict.get('i_start')
+        di = time_dict.get('di')
+        dt = time_dict.get('dt')
+        t = ext.time(dt, N_input, i_start, di)
         N_i = N_input + i_start + di
-        t = ext.time(dt, N_i, i_start, di)
+        
         x, y = ext.space_grid(self.N, self.dx)
         a_vort = 2 * self.dx
-        vortex_number = np.zeros(len(t))
-        density = np.zeros(len(t))
+        vortex_number = np.zeros(int((N_input + di) / di))
+        density = np.zeros(int((N_input + di) / di))
         for i in range(N_i):
+            self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
             psi_k *= self.exp_k(dt)
             self.psi_x = ifft2(psi_k)
-            self.psi_x *= self.exp_x(0.5, self.n(self.psi_x))
+            self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             self.psi_x += np.sqrt(dt) * np.sqrt(self.sigma / self.dx ** 2) * (np.random.normal(0, 1, (self.N, self.N)) + 1j * np.random.normal(0, 1, (self.N, self.N)))
             if i >= i_start and i <= N_i and i % di == 0:
                 time_index = (i - i_start) // di
@@ -93,9 +98,14 @@ class gpe:
                     self.sigma = 0.02
         return vortex_number, density
     
-    def time_evolution_theta(self, dt, N_input, i_start, di):
+    def time_evolution_theta(self, **time_dict):
         np.random.seed()
+        N_input = time_dict.get('N_input')
+        i_start = time_dict.get('i_start')
+        di = time_dict.get('di')
+        dt = time_dict.get('dt')
         N_i = N_input + i_start + di
+
         x, y = ext.space_grid(self.N, self.dx)
         a_unw = (self.N // 4) * self.dx
         xc = x[self.N // 2]
@@ -128,9 +138,14 @@ class gpe:
                 time_index = (i - i_start) // di
                 unwound_sampling[:, time_index] = theta_unwound_new
         return unwound_sampling
-    
-    def time_evolution_psi(self, dt, N_input, i_start, di):
+
+    def time_evolution_psi(self, **time_dict):
         np.random.seed()
+        N_input = time_dict.get('N_input')
+        i_start = time_dict.get('i_start')
+        di = time_dict.get('di')
+        dt = time_dict.get('dt')
+
         N_i = N_input + i_start + di
         x, y = ext.space_grid(self.N, self.dx)
         isotropic_indices = ext.get_indices(x)

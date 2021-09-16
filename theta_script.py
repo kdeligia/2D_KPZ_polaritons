@@ -11,66 +11,79 @@ import os
 import numpy as np
 import external as ext
 import model_script
-
-parallel_tasks = 1536
-n_batch = 128
-n_internal = parallel_tasks//n_batch
-qutip.settings.num_cpus = n_batch
-
-p_array = np.array([2])
-gamma2_array = np.array([0.1])
-gamma0_array = np.array([0.3125])
-sigma_array = np.array([0.02])
-g_array = np.array([0])
-m_array = np.array([1e-4])
-gr = 0
-ns = 1.
-N = 2 ** 6
+import itertools
 
 path = r'/scratch/konstantinos'
 final_save_path = r'/home6/konstantinos'
 
-init = path + os.sep + 'THETA_SIMULATIONS' + '_' + 'N' + str(N) + '_' + 'ns' + str(int(ns)) + '_' + 'm' + str(m_array[0])
-if os.path.isdir(init) == False:
-    os.mkdir(init)
-ids = ext.ids(N, p_array, sigma_array, gamma0_array, gamma2_array, g_array)
+parallel_tasks = 512
+cores = 128
+per_core = parallel_tasks // cores
+qutip.settings.num_cpus = cores
+iteration = 0
 
-N_input = 6000000
-dt = 0.001
-i_start = 0
-di = 500
-N_i = N_input + i_start + di
-t = ext.time(dt, N_i, i_start, di)
-np.savetxt(final_save_path + os.sep + 't_theta_64.dat', t)
+params_init = {}
+params_init['N'] = [2 ** 7]
+params_init['dx'] = [0.5]
+params_init['p'] = [2]
+params_init['sigma'] = [0.02]
+params_init['gamma0'] = [0.3125]
+params_init['gamma2'] = [0.1]
+params_init['g'] = [0]
+params_init['gr'] = [0]
+params_init['ns'] = [1]
+params_init['m'] = [1e-4]
 
-def theta_data(i_batch, p, sigma, gamma0, gamma2, g, mypath):
-    for i_n in range(n_internal):
-        gpe = model_script.gpe(p, sigma, gamma0, gamma2, g, gr = gr, ns = ns, m = m_array[0], N = N, dx = 0.5)
-        theta_unwound = gpe.time_evolution_theta(dt = dt, N_input = N_input, i_start = i_start, di = di)
-        np.savetxt(mypath + os.sep + 'trajectories_unwound' + '_' + 'core' + str(i_batch + 1) + '_' + str(i_n + 1) + '.dat', theta_unwound)
+time_dict = {}
+time_dict['dt'] = 0.001
+time_dict['i_start'] = 0
+time_dict['di'] = 500
+time_dict['N_input'] = 6000000
+t = ext.time(time_dict.get('dt'), time_dict.get('N_input'), time_dict.get('i_start'), time_dict.get('di'))
+np.savetxt(final_save_path + os.sep + 't_theta_128.dat', t)
+
+def theta_data(i_batch, **args):
+    mypath = args.get('save_folder')
+    for i_n in range(per_core):
+        gpe = model_script.gpe(**args)
+        theta_unwound = gpe.time_evolution_theta(**time_dict)
+        np.savetxt(mypath + os.sep + 'trajectories_unwound' + '_' + 'core' + str(i_batch + 1) + '_' + str(iteration * per_core + i_n + 1) + '.dat', theta_unwound)
         if (i_n + 1) % 2 == 0:
             print('Core %.i finished realisation %.i \n' % (i_batch, i_n + 1))
     return None
 
-def call_avg(final_save_path):
-    for p in p_array:
-        sigma = sigma_array[np.where(p_array == p)[0][0]]
-        for g in g_array:
-            for gamma2 in gamma2_array:
-                gamma0 = gamma0_array[np.where(gamma2_array == gamma2)[0][0]]
-                print('--- Simulation parameters: p = %.1f, sigma = %.2f, g = %.2f, ns = %.i' % (p, sigma, g, ns))
-                id_string = ids.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma0=' + str(gamma0), 'gamma2=' + str(gamma2), 'g=' + str(g)))
-                save_folder = init + os.sep + id_string
-                print(save_folder)
-                if os.path.isdir(save_folder) == False:
-                    os.mkdir(save_folder)
-                unwound_trajectories = []
-                print('--- Loss rates: gamma0 = %.4f, gamma2 = %.1f' % (gamma0, gamma2))
-                parallel_map(theta_data, range(n_batch), task_kwargs=dict(p = p, sigma = sigma, gamma0 = gamma0, gamma2 = gamma2, g = g, mypath = save_folder))
-                for file in os.listdir(save_folder):
-                    if 'trajectories_unwound' in file:
-                        unwound_trajectories.append(np.loadtxt(save_folder + os.sep + file))
-                np.savetxt(final_save_path + os.sep + id_string + '_' + 'unwound_trajectories' + '.dat', np.concatenate(unwound_trajectories, axis = 0))
+def call_avg(final_save_path, **args):
+    keys = args.keys()
+    values = (args[key] for key in keys)
+    params = [dict(zip(keys, combination)) for combination in itertools.product(*values)]
+    for parameters in params:
+        N = parameters.get('N')
+        dx = parameters.get('dx')
+        p = parameters.get('p')
+        sigma = parameters.get('sigma')
+        gamma0 = parameters.get('gamma0')
+        gamma2 = parameters.get('gamma2')
+        g = parameters.get('g')
+        gr = parameters.get('gr')
+        ns = parameters.get('ns')
+        m = parameters.get('m')
+        print('--- Grid: N = %.i, dx = %.1f' % (N, dx))
+        print('--- Main: p = %.1f, sigma = %.2f, g = %.2f, gr = %.2f, ns = %.i, m = %.4f' % (p, sigma, g, gr, ns, m))
+        print('--- Loss rates: gamma0 = %.4f, gamma2 = %.1f' % (gamma0, gamma2))
+        id_string = 'N' + str(N) + '_' + 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_' + 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2) + '_' + 'g' + str(g)
+        init = path + os.sep + 'THETA_SIMULATIONS' + '_' + 'N' + str(N) + '_' + 'ns' + str(int(ns)) + '_' + 'm' + str(m)
+        save_folder = init + os.sep + id_string
+        if os.path.isdir(init) == False:
+            os.mkdir(init)
+        if os.path.isdir(save_folder) == False:
+            os.mkdir(save_folder)
+        unwound_trajectories = []
+        parameters['save_folder'] = save_folder
+        parallel_map(theta_data, range(cores), task_kwargs = parameters, progress_bar=True)
+        for file in os.listdir(save_folder):
+            if 'trajectories_unwound' in file:
+                unwound_trajectories.append(np.loadtxt(save_folder + os.sep + file))
+        np.savetxt(final_save_path + os.sep + id_string + '_' + 'trajectories' + '.dat', np.concatenate(unwound_trajectories, axis = 0))
         return None
 
-call_avg(final_save_path)
+call_avg(final_save_path, **params_init)
