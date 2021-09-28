@@ -13,9 +13,9 @@ import external as ext
 import model_script
 import itertools
 
-#initial_path = r'/home6/konstantinos' + os.sep + 'g1_SIMULATIONS'
-#if os.path.isdir(initial_path) == False:
-#    os.mkdir(initial_path)
+initial_path = r'/scratch/konstantinos' + os.sep + 'g1_SIMULATIONS'
+if os.path.isdir(initial_path) == False:
+    os.mkdir(initial_path)
 
 parallel_tasks = 1000
 cores = 40
@@ -45,8 +45,11 @@ np.savetxt(r'/home6/konstantinos' + os.sep + 't_g1.dat', t)
 
 def g1_data(i_batch, **args):
     mypath = args.get('save_folder')
-    psipsi_full_batch = np.zeros((int(time_dict.get('N_input') / time_dict.get('di')) + 1, params_init.get('N')//2), dtype = complex)
-    n_avg_batch = np.zeros((int(time_dict.get('N_input') / time_dict.get('di')) + 1, params_init.get('N')//2), dtype = complex)
+    N_input = time_dict.get('N_input')
+    N = args.get('N')
+    di = time_dict.get('di')
+    psipsi_full_batch = np.zeros((N_input // di + 1, N//2), dtype = complex)
+    n_avg_batch = np.zeros((N_input // di + 1, N//2), dtype = complex)
     for i_n in range(per_core):
         gpe = model_script.gpe(**args)
         psipsi_full, n_avg = gpe.time_evolution_psi(**time_dict)
@@ -95,4 +98,4 @@ def call_avg(final_save_path, **args):
         np.save(final_save_path + os.sep + name + '_' + 'full_g1' + '.npy', np.real(np.abs(psipsi_full) / np.sqrt(n_avg[0, 0] * n_avg)))
         return None
 
-#call_avg(r'/home6/konstantinos')
+call_avg(r'/home6/konstantinos', **params_init)
