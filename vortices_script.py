@@ -10,55 +10,112 @@ from qutip import *
 import os
 import numpy as np
 import external as ext
-import model_class
+import model_script
+import itertools
 
-n_batch = 1
-qutip.settings.num_cpus = n_batch
-
-p_array = np.array([2])
-gamma2_array = np.array([0.1])
-gamma0_array = np.array([10])
-sigma_array = np.array([0.02])
-g_array = np.array([0])
-m_array = np.array([1e-4])
-gr = 0
-ns = 1.
-N = 2 ** 7
-
-path = r'/Users/delis/Desktop'
 final_save_path = r'/Users/delis/Desktop'
-init = path + os.sep + 'VORTICES_SIMULATIONS' + '_' + 'N' + str(N) + '_' + 'ns' + str(int(ns)) + '_' + 'm' + str(m_array[0])
-if os.path.isdir(init) == False:
-    os.mkdir(init)
-ids = ext.ids(N, p_array, sigma_array, gamma0_array, gamma2_array, g_array)
+initial_path = r'/Users/delis/Desktop' + os.sep + 'TEST_SIMULATIONS'
+if os.path.isdir(initial_path) == False:
+    os.mkdir(initial_path)
 
-def vortices(p, gamma0, gamma2, g):
-    sigma = sigma_array[np.where(p_array == p)[0][0]]
-    print('--- Currently running: p = %.1f, sigma = %.2f' % (p, sigma))
-    id_string = ids.get(('p=' + str(p), 'sigma=' + str(sigma), 'gamma0=' + str(gamma0), 'gamma2=' + str(gamma2), 'g=' + str(g)))
-    save_folder = init + os.sep + id_string
-    if os.path.isdir(save_folder) == False:
-        os.mkdir(save_folder)
-    gpe = model_class.gpe(p, sigma, gamma0, gamma2, g, gr = gr, ns = ns, m = m_array[0], N = N, dx = 0.5)
-    nvort, dens = gpe.time_evolution_vortices(save_folder, dt = 0.001, N_input = 4000, i_start = 0, di = 2000)
-    np.savetxt(final_save_path + os.sep + id_string + '_' + 'nv' + '.dat', nvort)
-    np.savetxt(final_save_path + os.sep + id_string + '_' + 'dens' + '.dat', dens)
-    '''
+params_init = {}
+params_init['N'] = [2 ** 6]
+params_init['dx'] = [0.5]
+params_init['p'] = [1.6, 1.8, 2]
+params_init['sigma'] = [7.5]
+params_init['gamma0'] = [0.3125]
+params_init['gamma2'] = [0.7, 0.8]
+params_init['g'] = [0]
+params_init['gr'] = [0]
+params_init['ns'] = [20]
+params_init['m'] = [1e-4]
+
+time_dict = {}
+time_dict['dt'] = 0.005
+time_dict['i_start'] = 0
+time_dict['di'] = 100
+time_dict['N_input'] = 250000
+t = ext.time(time_dict.get('dt'), time_dict.get('N_input'), time_dict.get('i_start'), time_dict.get('di'))
+
+keys = params_init.keys()
+values = (params_init[key] for key in keys)
+params = [dict(zip(keys, combination)) for combination in itertools.product(*values)]
+for i in range(len(params)):
+    params[i]['number'] = i + 1
+qutip.settings.num_cpus = len(params)
+
+'''
+import matplotlib.pyplot as pl
+for mydict in params:
+    k, plus, minus = ext.bogoliubov(**mydict)
+    k_phys = np.fft.fftshift(k)
+    fig, ax = pl.subplots()
+    ax.plot(k_phys, plus)
+    ax.plot(k_phys, minus)
+    fig.show()
+'''
+
+def evolution(i_dict, home):
+    for i in range(len(params)):
+
+        if params[i]['number'] == i_dict + 1:
+            current_dict = params[i]
+            break
+    N = current_dict.get('N')
+    p = current_dict.get('p')
+    sigma = current_dict.get('sigma')
+    gamma0 = current_dict.get('gamma0')
+    gamma2 = current_dict.get('gamma2')
+    g = current_dict.get('g')
+    ns = current_dict.get('ns')
+    m = current_dict.get('m')
+
+    name = 'N' + str(N) + '_' + 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_' + 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2) + '_' + 'g' + str(g) + '_' + 'ns' + str(ns) + '_' + 'm' + str(m) 
+    misc_folder = initial_path + os.sep + name
+    if os.path.isdir(misc_folder) == False:
+        os.mkdir(misc_folder)
+    current_dict['simul_id'] = name
+    current_dict['misc_folder'] = misc_folder
+
+    gpe = model_script.gpe(**current_dict)
+    density = gpe.time_evolution_vortices(misc_folder, **time_dict)
+    #np.savetxt(initial_path + os.sep + name + '__' + 'nvortices' + '.dat', vortex_number)
+    np.savetxt(initial_path + os.sep + name + '__' + 'density' + '.dat', density)
+
     os.system(
         'ffmpeg -framerate 10 -i ' + 
-        save_folder + os.sep + 
+        misc_folder + os.sep + 
         'fig%d.jpg ' + 
-        save_local + os.sep + 
-        id_string + '.mp4')
-    '''
+        final_save_path + os.sep + 
+        name + '__' + 'movie' + '.mp4')
     return None
 
-def parallel(p):
-    g = g_array[0]
-    for gamma2 in gamma2_array:
-        gamma0 = gamma0_array[np.where(gamma2_array == gamma2)[0][0]]
-        print('--- Simulation parameters: gamma0 = %.f, gamma2 = %.2f, g = %.1f, ns = %.i' % (gamma0, gamma2, g, ns))
-        parallel_map(vortices, p, task_kwargs=dict(gamma0 = gamma0, gamma2 = gamma2, g = g))
-    return None
+#parallel_map(evolution, range(len(params)), task_kwargs = dict(home = r'/Users/delis/Desktop'))
+#evolution(0, r'/Users/delis/Desktop')
 
-parallel(p_array)
+#import matplotlib.pyplot as pl
+
+'''
+n01 = np.loadtxt('/Users/delis/Desktop/TEST_SIMULATIONS/N64_p2_sigma0.75_gamma0.3125_gammak0.1_g0_ns20_m0.0001__density.dat')
+n025 = np.loadtxt('/Users/delis/Desktop/TEST_SIMULATIONS/N64_p2_sigma0.75_gamma0.3125_gammak0.25_g0_ns20_m0.0001__density.dat')
+n05 = np.loadtxt('/Users/delis/Desktop/TEST_SIMULATIONS/N64_p2_sigma0.75_gamma0.3125_gammak0.5_g0_ns20_m0.0001__density.dat')
+n08 = np.loadtxt('/Users/delis/Desktop/TEST_SIMULATIONS/N64_p2_sigma0.75_gamma0.3125_gammak0.8_g0_ns20_m0.0001__density.dat')
+
+fig, ax = pl.subplots()
+ax.plot(t, n01)
+ax.plot(t, n025)
+ax.plot(t, n05)
+ax.plot(t, n08)
+fig.show()
+'''
+
+'''
+n06 = np.loadtxt('/Users/delis/Desktop/TEST_SIMULATIONS/N64_p2_sigma7.5_gamma0.3125_gammak0.6_g0_ns20_m0.0001__density.dat')
+n07 = np.loadtxt('/Users/delis/Desktop/TEST_SIMULATIONS/N64_p2_sigma7.5_gamma0.3125_gammak0.7_g0_ns20_m0.0001__density.dat')
+
+fig, ax = pl.subplots()
+ax.plot(t, n06, label=r'gammak=0.6')
+ax.plot(t, n07, label=r'gammak=0.7')
+pl.legend()
+fig.show()
+'''
