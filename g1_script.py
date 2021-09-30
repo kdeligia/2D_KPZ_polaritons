@@ -18,10 +18,11 @@ if os.path.isdir(initial_path) == False:
     os.mkdir(initial_path)
 
 parallel_tasks = 1000
-cores = 40
-per_core = parallel_tasks // cores
-qutip.settings.num_cpus = cores
-iteration = 0
+number_of_cores = 40
+jobs_per_core = parallel_tasks // number_of_cores
+qutip.settings.num_cpus = number_of_cores
+iteration = 1
+number_of_files = number_of_cores * iteration
 
 params_init = {}
 params_init['N'] = [2 ** 6]
@@ -39,26 +40,24 @@ time_dict = {}
 time_dict['dt'] = 0.005
 time_dict['i_start'] = 20000
 time_dict['di'] = 250
-time_dict['N_input'] = 1000000
+time_dict['N_input'] = 40000
 t = ext.time(time_dict.get('dt'), time_dict.get('N_input'), time_dict.get('i_start'), time_dict.get('di'))
-np.savetxt(r'/home6/konstantinos' + os.sep + 't_g1.dat', t)
+#np.savetxt(r'/home6/konstantinos' + os.sep + 't_g1.dat', t)
 
 def g1_data(i_batch, **args):
-    mypath = args.get('save_folder')
+    mypath = args.get('misc_folder')
     N_input = time_dict.get('N_input')
-    N = args.get('N')
+    N = args.get('N')[0]
     di = time_dict.get('di')
-    psipsi_full_batch = np.zeros((N_input // di + 1, N//2), dtype = complex)
-    n_avg_batch = np.zeros((N_input // di + 1, N//2), dtype = complex)
-    for i_n in range(per_core):
+    psipsi_full_batch = np.zeros((N_input//di + 1, N//2), dtype = complex)
+    n_avg_batch = np.zeros((N_input//di + 1, N//2), dtype = complex)
+    for job in range(jobs_per_core):
         gpe = model_script.gpe(**args)
         psipsi_full, n_avg = gpe.time_evolution_psi(**time_dict)
-        psipsi_full_batch += psipsi_full / per_core
-        n_avg_batch += n_avg / per_core
-        if (i_n + 1) % 2 == 0:
-            print('Core %.i finished realisation %.i \n' % (i_batch, i_n + 1))
-    np.save(mypath + os.sep + 'psipsi_full' + '_' + 'core' + str(i_batch + 1) + '_' + str(iteration * per_core + i_n + 1) + '.npy', psipsi_full_batch)
-    np.save(mypath + os.sep + 'n_avg' + '_' + 'core' + str(i_batch + 1) + '_' + str(iteration * per_core + i_n + 1) + '.npy', n_avg_batch)
+        psipsi_full_batch += psipsi_full / jobs_per_core
+        n_avg_batch += n_avg / jobs_per_core
+    np.save(mypath + os.sep + 'psipsi_full' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', psipsi_full_batch)
+    np.save(mypath + os.sep + 'n_avg' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', n_avg_batch)
     return None
 
 def call_avg(final_save_path, **args):
@@ -87,14 +86,14 @@ def call_avg(final_save_path, **args):
         parameters_current['simul_id'] = name
         parameters_current['misc_folder'] = misc_folder
 
-        parallel_map(g1_data, range(cores), task_kwargs = parameters_current, progress_bar=True)
+        parallel_map(g1_data, range(number_of_cores), task_kwargs = parameters_current, progress_bar=True)
         psipsi_full = np.zeros((int(time_dict.get('N_input') / time_dict.get('di') + 1), params_init.get('N')//2), dtype = complex)
         n_avg = np.zeros((int(time_dict.get('N_input') / time_dict.get('di') + 1), params_init.get('N')//2), dtype = complex)
         for file in os.listdir(misc_folder):
             if 'psipsi_full' in file:
-                psipsi_full += np.load(misc_folder + os.sep + file) / cores
+                psipsi_full += np.load(misc_folder + os.sep + file) / number_of_files
             elif 'n_avg' in file:
-                n_avg += np.load(misc_folder + os.sep + file) / cores
+                n_avg += np.load(misc_folder + os.sep + file) / number_of_files
         np.save(final_save_path + os.sep + name + '_' + 'full_g1' + '.npy', np.real(np.abs(psipsi_full) / np.sqrt(n_avg[0, 0] * n_avg)))
         return None
 
