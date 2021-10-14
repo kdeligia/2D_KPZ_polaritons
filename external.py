@@ -173,7 +173,8 @@ def vortex_plots(folder, x, t, index, vortex_positions, phase, density):
     cbar1.ax.tick_params(labelsize=16)
     cbar1.ax.set_ylabel(r'$\theta(x,y)$', fontsize = 20)
 
-    im2 = ax[1].pcolormesh(X, Y, density, vmin = 0.2 * np.mean(density), vmax = 2 * np.mean(density), cmap='RdBu_r')
+    #im2 = ax[1].pcolormesh(X, Y, density, vmin = 0.1 * np.mean(density), vmax = 10 * np.mean(density), cmap='RdBu_r')
+    im2 = ax[1].pcolormesh(X, Y, density, cmap='RdBu_r')
     ax[1].plot(x[np.where(vortex_positions == 1)[1]], x[np.where(vortex_positions == 1)[0]], 'go', markersize=12)
     ax[1].plot(x[np.where(vortex_positions == -1)[1]], x[np.where(vortex_positions == -1)[0]], 'bo', markersize=12)
     ax[1].set_xlabel(r'$x$', fontsize = 20)

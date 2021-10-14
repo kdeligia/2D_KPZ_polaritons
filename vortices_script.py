@@ -6,6 +6,7 @@ Created on Wed May 19 13:53:23 2021
 @author: delis
 """
 
+import matplotlib.pyplot as pl
 from qutip import *
 import os
 import numpy as np
@@ -21,20 +22,20 @@ if os.path.isdir(initial_path) == False:
 params_init = {}
 params_init['N'] = [2 ** 6]
 params_init['dx'] = [0.5]
-params_init['p'] = [1.6, 1.8, 2]
+params_init['p'] = [2]
 params_init['sigma'] = [7.5]
 params_init['gamma0'] = [0.3125]
-params_init['gamma2'] = [0.7, 0.8]
+params_init['gamma2'] = [0.1, 0.2, 0.4, 0.8]
 params_init['g'] = [0]
 params_init['gr'] = [0]
-params_init['ns'] = [20]
-params_init['m'] = [1e-4]
+params_init['ns'] = [300, 150]
+params_init['m'] = [1e-4, 6.2e-5]
 
 time_dict = {}
 time_dict['dt'] = 0.005
 time_dict['i_start'] = 0
 time_dict['di'] = 100
-time_dict['N_input'] = 250000
+time_dict['N_input'] = 100000
 t = ext.time(time_dict.get('dt'), time_dict.get('N_input'), time_dict.get('i_start'), time_dict.get('di'))
 
 keys = params_init.keys()
@@ -42,7 +43,8 @@ values = (params_init[key] for key in keys)
 params = [dict(zip(keys, combination)) for combination in itertools.product(*values)]
 for i in range(len(params)):
     params[i]['number'] = i + 1
-qutip.settings.num_cpus = len(params)
+#qutip.settings.num_cpus = len(params)
+qutip.settings.num_cpus = 2
 
 '''
 import matplotlib.pyplot as pl
@@ -57,7 +59,6 @@ for mydict in params:
 
 def evolution(i_dict, home):
     for i in range(len(params)):
-
         if params[i]['number'] == i_dict + 1:
             current_dict = params[i]
             break
@@ -80,8 +81,7 @@ def evolution(i_dict, home):
     gpe = model_script.gpe(**current_dict)
     density = gpe.time_evolution_vortices(misc_folder, **time_dict)
     #np.savetxt(initial_path + os.sep + name + '__' + 'nvortices' + '.dat', vortex_number)
-    np.savetxt(initial_path + os.sep + name + '__' + 'density' + '.dat', density)
-
+    #np.savetxt(initial_path + os.sep + name + '__' + 'density' + '.dat', density)
     os.system(
         'ffmpeg -framerate 10 -i ' + 
         misc_folder + os.sep + 
@@ -90,32 +90,9 @@ def evolution(i_dict, home):
         name + '__' + 'movie' + '.mp4')
     return None
 
-#parallel_map(evolution, range(len(params)), task_kwargs = dict(home = r'/Users/delis/Desktop'))
-#evolution(0, r'/Users/delis/Desktop')
+#parallel_map(evolution, range(len(params)), task_kwargs = dict(home = final_save_path))
+
+for i_dict in range(len(params)):
+    evolution(i_dict, final_save_path)
 
 #import matplotlib.pyplot as pl
-
-'''
-n01 = np.loadtxt('/Users/delis/Desktop/TEST_SIMULATIONS/N64_p2_sigma0.75_gamma0.3125_gammak0.1_g0_ns20_m0.0001__density.dat')
-n025 = np.loadtxt('/Users/delis/Desktop/TEST_SIMULATIONS/N64_p2_sigma0.75_gamma0.3125_gammak0.25_g0_ns20_m0.0001__density.dat')
-n05 = np.loadtxt('/Users/delis/Desktop/TEST_SIMULATIONS/N64_p2_sigma0.75_gamma0.3125_gammak0.5_g0_ns20_m0.0001__density.dat')
-n08 = np.loadtxt('/Users/delis/Desktop/TEST_SIMULATIONS/N64_p2_sigma0.75_gamma0.3125_gammak0.8_g0_ns20_m0.0001__density.dat')
-
-fig, ax = pl.subplots()
-ax.plot(t, n01)
-ax.plot(t, n025)
-ax.plot(t, n05)
-ax.plot(t, n08)
-fig.show()
-'''
-
-'''
-n06 = np.loadtxt('/Users/delis/Desktop/TEST_SIMULATIONS/N64_p2_sigma7.5_gamma0.3125_gammak0.6_g0_ns20_m0.0001__density.dat')
-n07 = np.loadtxt('/Users/delis/Desktop/TEST_SIMULATIONS/N64_p2_sigma7.5_gamma0.3125_gammak0.7_g0_ns20_m0.0001__density.dat')
-
-fig, ax = pl.subplots()
-ax.plot(t, n06, label=r'gammak=0.6')
-ax.plot(t, n07, label=r'gammak=0.7')
-pl.legend()
-fig.show()
-'''

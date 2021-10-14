@@ -40,8 +40,7 @@ class gpe:
         self.gr_tilde = args.get('gr') * hatrho / hatepsilon
 
         self.R_tilde = self.gammar_tilde / args.get('ns')
-        self.ns_tilde = self.gammar_tilde / self.R_tilde
-        self.P_tilde = args.get('p') * self.gamma0_tilde * self.ns_tilde
+        self.P_tilde = args.get('p') * self.gamma0_tilde * args.get('ns')
         self.p = self.P_tilde * self. R_tilde / (self.gamma0_tilde * self.gammar_tilde)
         self.sigma = args.get('sigma')
 
@@ -52,7 +51,7 @@ class gpe:
 # Definition of the split steps
 # =============================================================================
     def n(self, psi):
-        return (psi * np.conjugate(psi)).real
+        return np.real(psi * np.conjugate(psi))
 
     def exp_x(self, dt, n):
         if self.g_tilde == 0:
@@ -77,7 +76,7 @@ class gpe:
         t = ext.time(dt, N_input, i_start, di)
         N_i = N_input + i_start + di
         
-        sigma = 0
+        sigma = self.sigma
         a = 2
         #vortex_number = np.zeros(int(N_input / di) + 1)
         density = np.zeros(int(N_input / di) + 1)
@@ -91,13 +90,15 @@ class gpe:
             if i >= i_start and i <= N_i and i % di == 0:
                 time_index = (i - i_start) // di
                 vortex_positions = ext.vortex_detect(a, np.angle(self.psi_x), self.x, self.y)
-                ext.vortex_plots(folder, self.x, t, time_index, vortex_positions, np.angle(self.psi_x), self.n(self.psi_x))
+                ext.vortex_plots(folder, self.x, t, time_index, vortex_positions, np.angle(self.psi_x), np.abs(self.n(self.psi_x) - np.mean(self.n(self.psi_x))) / np.mean(self.n(self.psi_x)))
                 #vortex_number[time_index] = len(np.where(vortex_positions == 1)[0]) + len(np.where(vortex_positions == -1)[0])
                 density[time_index] = np.mean(self.n(self.psi_x))
-                if time_index >= 1250 and time_index <= 1750:
+                '''
+                if time_index >= 400 and time_index <= 600:
                     sigma = self.sigma
                 else:
                     sigma = 0
+                '''
         return density
     
     def time_evolution_theta(self, **time_dict):
