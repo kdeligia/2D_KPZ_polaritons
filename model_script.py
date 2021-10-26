@@ -39,8 +39,9 @@ class gpe:
         self.g_tilde = args.get('g') * hatrho / hatepsilon
         self.gr_tilde = args.get('gr') * hatrho / hatepsilon
 
-        self.R_tilde = self.gammar_tilde / args.get('ns')
-        self.P_tilde = args.get('p') * self.gamma0_tilde * args.get('ns')
+        self.ns_tilde = args.get('ns')
+        self.R_tilde = self.gammar_tilde / self.ns_tilde
+        self.P_tilde = args.get('p') * self.gamma0_tilde * self.ns_tilde
         self.p = self.P_tilde * self. R_tilde / (self.gamma0_tilde * self.gammar_tilde)
         self.sigma = args.get('sigma')
 
@@ -89,8 +90,8 @@ class gpe:
             self.psi_x += np.sqrt(dt) * np.sqrt(sigma / self.dx ** 2) * (np.random.normal(0, 1, (self.N, self.N)) + 1j * np.random.normal(0, 1, (self.N, self.N)))
             if i >= i_start and i <= N_i and i % di == 0:
                 time_index = (i - i_start) // di
-                vortex_positions = ext.vortex_detect(a, np.angle(self.psi_x), self.x, self.y)
-                ext.vortex_plots(folder, self.x, t, time_index, vortex_positions, np.angle(self.psi_x), np.abs(self.n(self.psi_x) - np.mean(self.n(self.psi_x))) / np.mean(self.n(self.psi_x)))
+                #vortex_positions = ext.vortex_detect(a, np.angle(self.psi_x), self.x, self.y)
+                #ext.vortex_plots(folder, self.x, t, time_index, vortex_positions, np.angle(self.psi_x), np.abs(self.n(self.psi_x) - np.mean(self.n(self.psi_x))) / np.mean(self.n(self.psi_x)))
                 #vortex_number[time_index] = len(np.where(vortex_positions == 1)[0]) + len(np.where(vortex_positions == -1)[0])
                 density[time_index] = np.mean(self.n(self.psi_x))
                 '''
@@ -101,14 +102,14 @@ class gpe:
                 '''
         return density
     
-    def time_evolution_theta(self, **time_dict):
+    def time_evolution_theta(self, cutoff, **time_dict):
         np.random.seed()
         N_input = time_dict.get('N_input')
         i_start = time_dict.get('i_start')
         di = time_dict.get('di')
         dt = time_dict.get('dt')
         N_i = N_input + i_start + di
-
+        print(cutoff)
         a_unw = (self.N // 4) * self.dx
         xc = self.x[self.N // 2]
         yc = self.y[self.N // 2]
@@ -133,7 +134,7 @@ class gpe:
                                            self.psi_x[np.where(abs(self.y - yc) <= a_unw)[0][0], np.where(abs(self.x - xc) <= a_unw)[0][-1]],
                                            self.psi_x[np.where(abs(self.y - yc) <= a_unw)[0][-1], np.where(abs(self.x - xc) <= a_unw)[0][-1]],
                                            self.psi_x[np.where(abs(self.y - yc) <= a_unw)[0][-1], np.where(abs(self.x - xc) <= a_unw)[0][0]]])
-                theta_unwound_new = theta_unwound_old + ext.unwinding(theta_wound_new - theta_wound_old,  0.99)
+                theta_unwound_new = theta_unwound_old + ext.unwinding(theta_wound_new - theta_wound_old, cutoff)
                 theta_wound_old = theta_wound_new
                 theta_unwound_old = theta_unwound_new
             if i >= i_start and i <= N_i and i % di == 0:
