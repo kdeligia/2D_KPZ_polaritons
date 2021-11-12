@@ -78,9 +78,12 @@ class gpe:
         N_i = N_input + i_start + di
         
         sigma = self.sigma
+        '''
         a = 2
-        #vortex_number = np.zeros(int(N_input / di) + 1)
-        density = np.zeros(int(N_input / di) + 1)
+        vortex_number = np.zeros(int(N_input / di) + 1)
+        '''
+        theta = np.zeros((int(N_input / di) + 1, self.N, self.N))
+        density = np.zeros((int(N_input / di) + 1, self.N, self.N))
         for i in range(N_i):
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
@@ -89,18 +92,23 @@ class gpe:
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             self.psi_x += np.sqrt(dt) * np.sqrt(sigma / self.dx ** 2) * (np.random.normal(0, 1, (self.N, self.N)) + 1j * np.random.normal(0, 1, (self.N, self.N)))
             if i >= i_start and i <= N_i and i % di == 0:
+                if i%100 == 0:
+                    print(i)
                 time_index = (i - i_start) // di
-                #vortex_positions = ext.vortex_detect(a, np.angle(self.psi_x), self.x, self.y)
-                #ext.vortex_plots(folder, self.x, t, time_index, vortex_positions, np.angle(self.psi_x), np.abs(self.n(self.psi_x) - np.mean(self.n(self.psi_x))) / np.mean(self.n(self.psi_x)))
-                #vortex_number[time_index] = len(np.where(vortex_positions == 1)[0]) + len(np.where(vortex_positions == -1)[0])
-                density[time_index] = np.mean(self.n(self.psi_x))
+                '''
+                vortex_positions = ext.vortex_detect(a, np.angle(self.psi_x), self.x, self.y)
+                ext.vortex_plots(folder, self.x, t, time_index, vortex_positions, np.angle(self.psi_x), np.abs(self.n(self.psi_x) - np.mean(self.n(self.psi_x))) / np.mean(self.n(self.psi_x)))
+                vortex_number[time_index] = len(np.where(vortex_positions == 1)[0]) + len(np.where(vortex_positions == -1)[0])
+                '''
+                density[time_index] = self.n(self.psi_x)
+                theta[time_index] = np.angle(self.psi_x)
                 '''
                 if time_index >= 400 and time_index <= 600:
                     sigma = self.sigma
                 else:
                     sigma = 0
                 '''
-        return density
+        return density, theta
     
     def time_evolution_theta(self, cutoff, **time_dict):
         np.random.seed()
@@ -109,7 +117,6 @@ class gpe:
         di = time_dict.get('di')
         dt = time_dict.get('dt')
         N_i = N_input + i_start + di
-        print(cutoff)
         a_unw = (self.N // 4) * self.dx
         xc = self.x[self.N // 2]
         yc = self.y[self.N // 2]
@@ -154,6 +161,8 @@ class gpe:
         center_indices = isotropic_indices.get('r = ' + str(0))
         psipsi_full = np.zeros((int(N_input / di) + 1, self.N // 2), dtype = complex)
         n_avg = np.zeros((int(N_input / di) + 1, self.N // 2), dtype = complex)
+
+        deltatheta_full = np.zeros((int(N_input / di) + 1, self.N // 2))
         for i in range(N_i):
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
@@ -165,6 +174,8 @@ class gpe:
                 time_index = (i - i_start) // di
                 if i == i_start:
                     psi_x0t0 = self.psi_x[center_indices[0][0], center_indices[0][1]]
-                psipsi_full[time_index] = ext.isotropic_avg('correlation', self.psi_x, np.conjugate(psi_x0t0), **isotropic_indices)
-                n_avg[time_index] = ext.isotropic_avg('density average', self.n(self.psi_x), None, **isotropic_indices)
-        return psipsi_full, n_avg
+                    theta_x0t0 = np.angle(psi_x0t0)
+                psipsi_full[time_index] = ext.isotropic_avg('psi', self.psi_x, np.conjugate(psi_x0t0), **isotropic_indices)
+                n_avg[time_index] = ext.isotropic_avg('density', self.n(self.psi_x), None, **isotropic_indices)
+                deltatheta_full[time_index] = ext.isotropic_avg('deltatheta', np.angle(self.psi_x), theta_x0t0, **isotropic_indices)
+        return psipsi_full, n_avg, np.exp(1j * deltatheta_full)

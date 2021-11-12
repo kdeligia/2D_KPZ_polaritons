@@ -207,12 +207,15 @@ def isotropic_avg(keyword, matrix, central_element, **args):
     avg = np.zeros(N//2, dtype=complex)
     for rad in range(N//2):
         indices = args.get('r = ' + str(rad))
-        if keyword == 'correlation':
+        if keyword == 'psi':
             for i in range(len(indices)):
                 avg[rad] += central_element * matrix[indices[i][0], indices[i][1]] / len(indices)
-        elif keyword == 'density average':
+        elif keyword == 'density':
             for i in range(len(indices)):
                 avg[rad] += matrix[indices[i][0], indices[i][1]] / len(indices)
+        elif keyword == 'deltatheta':
+            for i in range(len(indices)):
+                avg[rad] += (central_element - matrix[indices[i][0], indices[i][1]]) / len(indices)
     return avg
 
 def unwinding(deltatheta, cutoff):
