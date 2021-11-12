@@ -48,7 +48,17 @@ class gpe:
         self.psi_x = 0.4 * (np.ones((self.N, self.N)) + 1j * np.ones((self.N, self.N)))
         self.psi_x /= hatpsi
 
-# =============================================================================
+        print(self.x[16], self.x[16])
+        print(self.x[16], self.x[16 + 32])
+        print(self.x[16 + 32], self.x[16])
+        print(self.x[16 + 32], self.x[16 + 32])
+        
+        print(self.x[32], self.x[16])
+        print(self.x[16], self.x[32])
+        print(self.x[16+32], self.x[32])
+        print(self.x[16], self.x[16+32])
+        
+        
 # Definition of the split steps
 # =============================================================================
     def n(self, psi):
@@ -117,10 +127,7 @@ class gpe:
         di = time_dict.get('di')
         dt = time_dict.get('dt')
         N_i = N_input + i_start + di
-        a_unw = (self.N // 4) * self.dx
-        xc = self.x[self.N // 2]
-        yc = self.y[self.N // 2]
-        unwound_sampling = np.zeros((4, int(N_input / di) + 1))
+        unwound_sampling = np.zeros((8, int(N_input / di) + 1))
         for i in range(N_i):
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
@@ -129,18 +136,26 @@ class gpe:
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             self.psi_x += np.sqrt(dt) * np.sqrt(self.sigma / self.dx ** 2) * (np.random.normal(0, 1, (self.N, self.N)) + 1j * np.random.normal(0, 1, (self.N, self.N)))
             if i == 0:
-                theta_wound_old = np.angle([self.psi_x[np.where(abs(self.y - yc) <= a_unw)[0][0], np.where(abs(self.x - xc) <= a_unw)[0][0]], 
-                                           self.psi_x[np.where(abs(self.y - yc) <= a_unw)[0][0], np.where(abs(self.x - xc) <= a_unw)[0][-1]],
-                                           self.psi_x[np.where(abs(self.y - yc) <= a_unw)[0][-1], np.where(abs(self.x - xc) <= a_unw)[0][-1]],
-                                           self.psi_x[np.where(abs(self.y - yc) <= a_unw)[0][-1], np.where(abs(self.x - xc) <= a_unw)[0][0]]])
+                theta_wound_old = np.angle([self.psi_x[self.N//4, self.N//4], 
+                                            self.psi_x[self.N//4, self.N//4 + self.N//2], 
+                                            self.psi_x[self.N//4 + self.N//2, self.N//4],
+                                            self.psi_x[self.N//4 + self.N//2, self.N//4 + self.N//2],
+                                            self.psi_x[self.N//2, self.N//4],
+                                            self.psi_x[self.N//4, self.N//2],
+                                            self.psi_x[self.N//4 + self.N//2, self.N//2],
+                                            self.psi_x[self.N//2, self.N//4 + self.N//2]])
                 theta_wound_new = theta_wound_old
                 theta_unwound_old = theta_wound_old
                 theta_unwound_new = theta_wound_old
             else:
-                theta_wound_new = np.angle([self.psi_x[np.where(abs(self.y - yc) <= a_unw)[0][0], np.where(abs(self.x - xc) <= a_unw)[0][0]], 
-                                           self.psi_x[np.where(abs(self.y - yc) <= a_unw)[0][0], np.where(abs(self.x - xc) <= a_unw)[0][-1]],
-                                           self.psi_x[np.where(abs(self.y - yc) <= a_unw)[0][-1], np.where(abs(self.x - xc) <= a_unw)[0][-1]],
-                                           self.psi_x[np.where(abs(self.y - yc) <= a_unw)[0][-1], np.where(abs(self.x - xc) <= a_unw)[0][0]]])
+                theta_wound_new = np.angle([self.psi_x[self.N//4, self.N//4], 
+                                            self.psi_x[self.N//4, self.N//4 + self.N//2], 
+                                            self.psi_x[self.N//4 + self.N//2, self.N//4],
+                                            self.psi_x[self.N//4 + self.N//2, self.N//4 + self.N//2],
+                                            self.psi_x[self.N//2, self.N//4],
+                                            self.psi_x[self.N//4, self.N//2],
+                                            self.psi_x[self.N//4 + self.N//2, self.N//2],
+                                            self.psi_x[self.N//2, self.N//4 + self.N//2]])
                 theta_unwound_new = theta_unwound_old + ext.unwinding(theta_wound_new - theta_wound_old, cutoff)
                 theta_wound_old = theta_wound_new
                 theta_unwound_old = theta_unwound_new

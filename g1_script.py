@@ -19,7 +19,7 @@ if os.path.isdir(r'/scratch/konstantinos') == True and os.path.isdir(initial_pat
 else:
     pass
 
-parallel_tasks = 128
+parallel_tasks = 3072
 number_of_cores = 128
 jobs_per_core = parallel_tasks // number_of_cores
 qutip.settings.num_cpus = number_of_cores
@@ -56,9 +56,11 @@ def g1_data(i_batch, **args):
     for job in range(jobs_per_core):
         gpe = model_script.gpe(**args)
         psipsi_full, n_avg, exponential = gpe.time_evolution_psi(**time_dict)
+        
         psipsi_full_batch += psipsi_full / jobs_per_core
         n_avg_batch += n_avg / jobs_per_core
         exponential_batch += exponential / jobs_per_core
+        
     np.save(mypath + os.sep + 'psipsi_full' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', psipsi_full_batch)
     np.save(mypath + os.sep + 'n_avg' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', n_avg_batch)
     np.save(mypath + os.sep + 'exponential_avg' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', exponential_batch)
@@ -88,7 +90,6 @@ def call_avg(final_save_path, **args):
         misc_folder = initial_path + os.sep + name
         if os.path.isdir(initial_path) == True and os.path.isdir(misc_folder) == False:
             os.mkdir(misc_folder)
-        np.savetxt(final_save_path + os.sep + '_' + 'dt_g1_new' + '.dat', t-t[0])
         parameters_current['misc_folder'] = misc_folder
         parallel_map(g1_data, range(number_of_cores), task_kwargs = parameters_current, progress_bar=True)
         

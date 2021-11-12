@@ -19,8 +19,8 @@ if os.path.isdir(r'/scratch/konstantinos') == True and os.path.isdir(initial_pat
 else:
     pass
 
-parallel_tasks = 1
-number_of_cores = 1
+parallel_tasks = 10240
+number_of_cores = 128
 jobs_per_core = parallel_tasks // number_of_cores
 qutip.settings.num_cpus = number_of_cores
 iteration = 1
@@ -76,7 +76,6 @@ def call_avg(final_save_path, **args):
         misc_folder = initial_path + os.sep + name
         if os.path.isdir(initial_path) == True and os.path.isdir(misc_folder) == False:
             os.mkdir(misc_folder)
-        np.savetxt(final_save_path + os.sep + name + '_' + 't_theta' + '.dat', t)
         parameters_current['misc_folder'] = misc_folder
         parallel_map(theta_data, range(number_of_cores), task_kwargs = parameters_current, progress_bar=True)
 
@@ -88,4 +87,4 @@ def call_avg(final_save_path, **args):
             np.savetxt(final_save_path + os.sep + name + '_' + 'trajectories' + '.dat', np.concatenate(unwound_trajectories, axis = 0))
         return None
 
-#call_avg(r'/home6/konstantinos', **params_init)
+call_avg(r'/home6/konstantinos', **params_init)
