@@ -13,13 +13,14 @@ import external as ext
 import model_script
 import itertools
 
+hatt = 32 # ps
 initial_path = r'/scratch/konstantinos' + os.sep + 'g1_SIMULATIONS'
 if os.path.isdir(r'/scratch/konstantinos') == True and os.path.isdir(initial_path) == False:
     os.mkdir(initial_path)
 else:
     pass
 
-parallel_tasks = 3072
+parallel_tasks = 4092
 number_of_cores = 128
 jobs_per_core = parallel_tasks // number_of_cores
 qutip.settings.num_cpus = number_of_cores
@@ -29,8 +30,7 @@ number_of_files = number_of_cores * iteration
 params_init = {}
 params_init['N'] = [2 ** 6]
 params_init['dx'] = [0.5]
-params_init['p'] = [2]
-params_init['sigma'] = [7.5]
+params_init['p'] = [1.6, 1.7, 1.8, 2, 2.5]
 params_init['gamma0'] = [0.3125]
 params_init['gamma2'] = [0.1]
 params_init['g'] = [0]
@@ -45,23 +45,25 @@ time_dict['di'] = 250
 time_dict['N_input'] = 1000000
 t = ext.time(time_dict.get('dt'), time_dict.get('N_input'), time_dict.get('i_start'), time_dict.get('di'))
 
-def g1_data(i_batch, **args):
+def correlation(i_batch, **args):
     mypath = args.get('misc_folder')
     N_input = time_dict.get('N_input')
     N = args.get('N')
     di = time_dict.get('di')
-    psipsi_full_batch = np.zeros((N_input//di + 1, N//2), dtype = complex)
+    psi_correlation_batch = np.zeros((N_input//di + 1, N//2), dtype = complex)
+    n_correlation_batch = np.zeros((N_input//di + 1, N//2), dtype = complex)
     n_avg_batch = np.zeros((N_input//di + 1, N//2), dtype = complex)
     exponential_batch = np.zeros((N_input//di + 1, N//2), dtype = complex)
     for job in range(jobs_per_core):
         gpe = model_script.gpe(**args)
-        psipsi_full, n_avg, exponential = gpe.time_evolution_psi(**time_dict)
+        psi_correlation, n_correlation, n_avg, exponential_avg = gpe.time_evolution_psi(**time_dict)
         
-        psipsi_full_batch += psipsi_full / jobs_per_core
+        psi_correlation_batch += psi_correlation / jobs_per_core
+        n_correlation_batch += n_correlation / jobs_per_core
         n_avg_batch += n_avg / jobs_per_core
-        exponential_batch += exponential / jobs_per_core
-        
-    np.save(mypath + os.sep + 'psipsi_full' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', psipsi_full_batch)
+        exponential_batch += exponential_avg / jobs_per_core
+    np.save(mypath + os.sep + 'psi_correlation' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', psi_correlation_batch)
+    np.save(mypath + os.sep + 'n_correlation' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', n_correlation_batch)
     np.save(mypath + os.sep + 'n_avg' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', n_avg_batch)
     np.save(mypath + os.sep + 'exponential_avg' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', exponential_batch)
     return None
@@ -74,39 +76,44 @@ def call_avg(final_save_path, **args):
         N = parameters_current.get('N')
         dx = parameters_current.get('dx')
         p = parameters_current.get('p')
-        sigma = parameters_current.get('sigma')
         gamma0 = parameters_current.get('gamma0')
         gamma2 = parameters_current.get('gamma2')
+        sigma = hatt * gamma0 * (p + 1) / 4
         g = parameters_current.get('g')
         gr = parameters_current.get('gr')
         ns = parameters_current.get('ns')
         m = parameters_current.get('m')
+        parameters_current['sigma'] = sigma
         print('--- g1 Simulations ---')
         print('--- Grid: N = %.i, dx = %.1f' % (N, dx))
         print('--- Main: p = %.3f, sigma = %.3f, g = %.3f, gr = %.3f, ns = %.i, m = %.e' % (p, sigma, g, gr, ns, m))
         print('--- Loss rates: gamma0 = %.4f, gamma2 = %.4f' % (gamma0, gamma2))
-
+        
         name = 'N' + str(N) + '_' + 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_' + 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2) + '_' + 'g' + str(g) + '_' + 'ns' + str(ns) + '_' + 'm' + str(m) 
         misc_folder = initial_path + os.sep + name
         if os.path.isdir(initial_path) == True and os.path.isdir(misc_folder) == False:
             os.mkdir(misc_folder)
         parameters_current['misc_folder'] = misc_folder
-        parallel_map(g1_data, range(number_of_cores), task_kwargs = parameters_current, progress_bar=True)
+        parallel_map(correlation, range(number_of_cores), task_kwargs = parameters_current, progress_bar = True)
         
         N_input = time_dict.get('N_input')
         di = time_dict.get('di')
-        psipsi_full = np.zeros((N_input//di + 1, N//2), dtype = complex)
+        psi_correlation = np.zeros((N_input//di + 1, N//2), dtype = complex)
+        n_correlation = np.zeros((N_input//di + 1, N//2), dtype = complex)
         n_avg = np.zeros((N_input//di + 1, N//2), dtype = complex)
         exponential_avg = np.zeros((N_input//di + 1, N//2), dtype = complex)
         if os.path.isdir(initial_path) == True:
             for file in os.listdir(misc_folder):
-                if 'psipsi_full' in file:
-                    psipsi_full += np.load(misc_folder + os.sep + file) / number_of_files
+                if 'psi_correlation' in file:
+                    psi_correlation += np.load(misc_folder + os.sep + file) / number_of_files
+                elif 'n_correlation' in file:
+                    n_correlation += np.load(misc_folder + os.sep + file) / number_of_files
                 elif 'n_avg' in file:
                     n_avg += np.load(misc_folder + os.sep + file) / number_of_files
                 elif 'exponential_avg' in file:
                     exponential_avg += np.load(misc_folder + os.sep + file) / number_of_files
-        np.save(final_save_path + os.sep + name + '_' + 'full_g1' + '.npy', np.real(np.abs(psipsi_full) / np.sqrt(n_avg[0, 0] * n_avg)))
+        np.save(final_save_path + os.sep + name + '_' + 'full_g1' + '.npy', np.real(np.abs(psi_correlation) / np.sqrt(n_avg[0, 0] * n_avg)))
+        np.save(final_save_path + os.sep + name + '_' + 'full_g2' + '.npy', np.real(np.abs(n_correlation) / np.sqrt(n_avg[0, 0] * n_avg)))
         np.save(final_save_path + os.sep + name + '_' + 'exponential_g1' + '.npy', np.real(np.abs(exponential_avg)))
 
 call_avg(r'/home6/konstantinos', **params_init)

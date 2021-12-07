@@ -15,7 +15,7 @@ hbar = 6.582119569 * 1e2 # μeV ps
 melectron = 0.510998950 * 1e12 / c ** 2 # μeV/(μm^2/ps^2)
 
 hatt = 32 # ps
-hatx = 4 * np.sqrt(2)
+hatx = 4 * np.sqrt(2) # μm
 hatpsi = 1 / hatx # μm^-1
 hatrho = 1 / hatx ** 2 # μm^-2
 hatepsilon = hbar / hatt # μeV
@@ -48,17 +48,6 @@ class gpe:
         self.psi_x = 0.4 * (np.ones((self.N, self.N)) + 1j * np.ones((self.N, self.N)))
         self.psi_x /= hatpsi
 
-        print(self.x[16], self.x[16])
-        print(self.x[16], self.x[16 + 32])
-        print(self.x[16 + 32], self.x[16])
-        print(self.x[16 + 32], self.x[16 + 32])
-        
-        print(self.x[32], self.x[16])
-        print(self.x[16], self.x[32])
-        print(self.x[16+32], self.x[32])
-        print(self.x[16], self.x[16+32])
-        
-        
 # Definition of the split steps
 # =============================================================================
     def n(self, psi):
@@ -78,64 +67,50 @@ class gpe:
 # =============================================================================
 # Time evolution
 # =============================================================================
-    def time_evolution_vortices(self, folder, **time_dict):
+    def time_evolution_vortices(self, folder, **time):
         np.random.seed()
-        N_input = time_dict.get('N_input')
-        i_start = time_dict.get('i_start')
-        di = time_dict.get('di')
-        dt = time_dict.get('dt')
-        t = ext.time(dt, N_input, i_start, di)
-        N_i = N_input + i_start + di
-        
-        sigma = self.sigma
-        '''
-        a = 2
-        vortex_number = np.zeros(int(N_input / di) + 1)
-        '''
-        theta = np.zeros((int(N_input / di) + 1, self.N, self.N))
-        density = np.zeros((int(N_input / di) + 1, self.N, self.N))
-        for i in range(N_i):
+        N_input = time.get('N_input')
+        dt = time.get('dt')
+        di = time.get('di')
+        #sigma = self.sigma
+        #sigma = 0
+        density = []
+        vortex_plots = ext.vortex_plots_class()
+        for i in range(N_input + 1):
+            ti = i * dt
+            if ti >= 5 and ti <= 10:
+                sigma = self.sigma
+            else:
+                sigma = 0
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
             psi_k *= self.exp_k(dt)
             self.psi_x = ifft2(psi_k)
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             self.psi_x += np.sqrt(dt) * np.sqrt(sigma / self.dx ** 2) * (np.random.normal(0, 1, (self.N, self.N)) + 1j * np.random.normal(0, 1, (self.N, self.N)))
-            if i >= i_start and i <= N_i and i % di == 0:
-                if i%100 == 0:
-                    print(i)
-                time_index = (i - i_start) // di
-                '''
-                vortex_positions = ext.vortex_detect(a, np.angle(self.psi_x), self.x, self.y)
-                ext.vortex_plots(folder, self.x, t, time_index, vortex_positions, np.angle(self.psi_x), np.abs(self.n(self.psi_x) - np.mean(self.n(self.psi_x))) / np.mean(self.n(self.psi_x)))
-                vortex_number[time_index] = len(np.where(vortex_positions == 1)[0]) + len(np.where(vortex_positions == -1)[0])
-                '''
-                density[time_index] = self.n(self.psi_x)
-                theta[time_index] = np.angle(self.psi_x)
-                '''
-                if time_index >= 400 and time_index <= 600:
-                    sigma = self.sigma
-                else:
-                    sigma = 0
-                '''
-        return density, theta
-    
-    def time_evolution_theta(self, cutoff, **time_dict):
+            if ti >= 9.8 and ti <= 15 and i % di == 0:
+                print(i, sigma)
+                vortex_positions = ext.vortex_detect(np.angle(self.psi_x), self.N, self.dx, self.x, self.y)
+                vortex_plots(folder, self.x, ti, vortex_positions, np.angle(self.psi_x), self.n(self.psi_x))
+                density.append(np.mean(self.n(self.psi_x)))
+        #return np.array(density), np.array(theta)
+        return np.array(density)
+
+    def time_evolution_theta(self, cutoff, **time):
         np.random.seed()
-        N_input = time_dict.get('N_input')
-        i_start = time_dict.get('i_start')
-        di = time_dict.get('di')
-        dt = time_dict.get('dt')
-        N_i = N_input + i_start + di
+        N_input = int(time.get('N_input'))
+        dt = time.get('dt')
+        di = time.get('di')
         unwound_sampling = np.zeros((8, int(N_input / di) + 1))
-        for i in range(N_i):
+        for i in range(N_input + 1):
+            ti = i * dt
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
             psi_k *= self.exp_k(dt)
             self.psi_x = ifft2(psi_k)
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             self.psi_x += np.sqrt(dt) * np.sqrt(self.sigma / self.dx ** 2) * (np.random.normal(0, 1, (self.N, self.N)) + 1j * np.random.normal(0, 1, (self.N, self.N)))
-            if i == 0:
+            if ti == 0:
                 theta_wound_old = np.angle([self.psi_x[self.N//4, self.N//4], 
                                             self.psi_x[self.N//4, self.N//4 + self.N//2], 
                                             self.psi_x[self.N//4 + self.N//2, self.N//4],
@@ -159,8 +134,8 @@ class gpe:
                 theta_unwound_new = theta_unwound_old + ext.unwinding(theta_wound_new - theta_wound_old, cutoff)
                 theta_wound_old = theta_wound_new
                 theta_unwound_old = theta_unwound_new
-            if i >= i_start and i <= N_i and i % di == 0:
-                time_index = (i - i_start) // di
+            if i % di == 0:
+                time_index = i // di
                 unwound_sampling[:, time_index] = theta_unwound_new
         return unwound_sampling
 
@@ -174,10 +149,10 @@ class gpe:
 
         isotropic_indices = ext.get_indices(self.x)
         center_indices = isotropic_indices.get('r = ' + str(0))
-        psipsi_full = np.zeros((int(N_input / di) + 1, self.N // 2), dtype = complex)
-        n_avg = np.zeros((int(N_input / di) + 1, self.N // 2), dtype = complex)
-
-        deltatheta_full = np.zeros((int(N_input / di) + 1, self.N // 2))
+        psi_correlation = np.zeros((N_input//di + 1, self.N//2), dtype = complex)
+        n_correlation = np.zeros((N_input//di + 1, self.N//2), dtype = complex)
+        n_avg = np.zeros((N_input//di + 1, self.N//2), dtype = complex)
+        deltatheta_full = np.zeros((N_input//di + 1, self.N//2))
         for i in range(N_i):
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
@@ -189,8 +164,10 @@ class gpe:
                 time_index = (i - i_start) // di
                 if i == i_start:
                     psi_x0t0 = self.psi_x[center_indices[0][0], center_indices[0][1]]
+                    n_x0t0 = psi_x0t0 * np.conjugate(psi_x0t0)
                     theta_x0t0 = np.angle(psi_x0t0)
-                psipsi_full[time_index] = ext.isotropic_avg('psi', self.psi_x, np.conjugate(psi_x0t0), **isotropic_indices)
-                n_avg[time_index] = ext.isotropic_avg('density', self.n(self.psi_x), None, **isotropic_indices)
+                psi_correlation[time_index] = ext.isotropic_avg('psi correlation', self.psi_x, np.conjugate(psi_x0t0), **isotropic_indices)
+                n_correlation[time_index] = ext.isotropic_avg('n correlation', np.sqrt(self.n(self.psi_x)), np.sqrt(n_x0t0), **isotropic_indices)
+                n_avg[time_index] = ext.isotropic_avg('n average', self.n(self.psi_x), None, **isotropic_indices)
                 deltatheta_full[time_index] = ext.isotropic_avg('deltatheta', np.angle(self.psi_x), theta_x0t0, **isotropic_indices)
-        return psipsi_full, n_avg, np.exp(1j * deltatheta_full)
+        return psi_correlation, n_correlation, n_avg, np.exp(1j * deltatheta_full)

@@ -13,14 +13,16 @@ import external as ext
 import model_script
 import itertools
 
-initial_path = r'/scratch/konstantinos' + os.sep + 'THETA_SIMULATIONS'
-if os.path.isdir(r'/scratch/konstantinos') == True and os.path.isdir(initial_path) == False:
+initial_path = r'/Users/delis/Desktop' + os.sep + 'THETA_SIMULATIONS'
+if os.path.isdir(r'/Users/delis/Desktop') == True and os.path.isdir(initial_path) == False:
     os.mkdir(initial_path)
 else:
     pass
 
-parallel_tasks = 10240
-number_of_cores = 128
+#parallel_tasks = 10240
+parallel_tasks = 1
+#number_of_cores = 128
+number_of_cores = 1
 jobs_per_core = parallel_tasks // number_of_cores
 qutip.settings.num_cpus = number_of_cores
 iteration = 1
@@ -37,18 +39,22 @@ params_init['gr'] = [0]
 params_init['ns'] = [120]
 params_init['m'] = [8e-5]
 
-time_dict = {}
-time_dict['dt'] = 0.00005
-time_dict['i_start'] = 0
-time_dict['di'] = 500
-time_dict['N_input'] = 4000000
-t = ext.time(time_dict.get('dt'), time_dict.get('N_input'), time_dict.get('i_start'), time_dict.get('di'))
+dt = 5e-6
+di = 8000
+N_input = 40e6
+time = {}
+time['dt'] = dt
+time['N_input'] = N_input
+time['di'] = di
+t = [i * dt for i in range(0, int(N_input) + 1, di)]
+print(t)
+#np.savetxt('/Users/delis/Desktop/t_test.dat', t)
 
 def theta_data(i_batch, **args):
     mypath = args.get('misc_folder')
     for job in range(jobs_per_core):
         gpe = model_script.gpe(**args)
-        theta_unwound = gpe.time_evolution_theta(cutoff = 0.6, **time_dict)
+        theta_unwound = gpe.time_evolution_theta(cutoff = 0.8, **time)
         np.savetxt(mypath + os.sep + 'trajectories_unwound'+ '_' + 'core' + str(i_batch + 1) + '_' + 'job' + str(job + 1) +'_' + 'iteration' + str(iteration) +'.dat', theta_unwound)
     return None
 
@@ -87,4 +93,4 @@ def call_avg(final_save_path, **args):
             np.savetxt(final_save_path + os.sep + name + '_' + 'trajectories' + '.dat', np.concatenate(unwound_trajectories, axis = 0))
         return None
 
-call_avg(r'/home6/konstantinos', **params_init)
+#call_avg(r'/Users/delis/Desktop', **params_init)
