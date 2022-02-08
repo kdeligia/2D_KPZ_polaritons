@@ -13,22 +13,22 @@ import external as ext
 import model_script
 import itertools
 
-initial_path = r'/Users/delis/Desktop' + os.sep + 'THETA_SIMULATIONS'
-if os.path.isdir(r'/Users/delis/Desktop') == True and os.path.isdir(initial_path) == False:
+'''
+initial_path = r'/scratch/konstantinos' + os.sep + 'THETA_SIMULATIONS'
+if os.path.isdir(r'/scratch/konstantinos') == True and os.path.isdir(initial_path) == False:
     os.mkdir(initial_path)
 else:
     pass
+'''
 
-#parallel_tasks = 10240
-parallel_tasks = 1
-#number_of_cores = 128
-number_of_cores = 1
+parallel_tasks = 5120
+number_of_cores = 128
 jobs_per_core = parallel_tasks // number_of_cores
 qutip.settings.num_cpus = number_of_cores
 iteration = 1
 
 params_init = {}
-params_init['N'] = [2 ** 6]
+params_init['N'] = [2 ** 5]
 params_init['dx'] = [0.5]
 params_init['p'] = [2]
 params_init['sigma'] = [7.5]
@@ -39,23 +39,21 @@ params_init['gr'] = [0]
 params_init['ns'] = [120]
 params_init['m'] = [8e-5]
 
-dt = 5e-6
-di = 8000
-N_input = 40e6
+dt = 5e-5
+di = 500
+N_input = 4e6
 time = {}
 time['dt'] = dt
 time['N_input'] = N_input
 time['di'] = di
-t = [i * dt for i in range(0, int(N_input) + 1, di)]
-print(t)
-#np.savetxt('/Users/delis/Desktop/t_test.dat', t)
+t = np.array([i * dt for i in range(0, int(N_input) + 1, di)])
 
 def theta_data(i_batch, **args):
     mypath = args.get('misc_folder')
     for job in range(jobs_per_core):
         gpe = model_script.gpe(**args)
-        theta_unwound = gpe.time_evolution_theta(cutoff = 0.8, **time)
-        np.savetxt(mypath + os.sep + 'trajectories_unwound'+ '_' + 'core' + str(i_batch + 1) + '_' + 'job' + str(job + 1) +'_' + 'iteration' + str(iteration) +'.dat', theta_unwound)
+        theta_unwound = gpe.time_evolution_theta(cutoff = 0.6, **time)
+        #np.savetxt(mypath + os.sep + 'trajectories_unwound'+ '_' + 'core' + str(i_batch + 1) + '_' + 'job' + str(job + 1) +'_' + 'iteration' + str(iteration) +'.dat', theta_unwound)
     return None
 
 def call_avg(final_save_path, **args):

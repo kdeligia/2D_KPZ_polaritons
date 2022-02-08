@@ -159,7 +159,7 @@ class vortex_plots_class:
             x *= hatx
         X, Y = np.meshgrid(x, x)
         fig1, ax1 = pl.subplots()
-        im1 = ax1.pcolormesh(X, Y, phase, vmin = -np.pi, vmax = np.pi, cmap='twilight')
+        im1 = ax1.pcolormesh(X, Y, phase, cmap='twilight')
         ax1.plot(x[np.where(vortex_positions == 1)[1]], x[np.where(vortex_positions == 1)[0]], 'go', markersize = 4)
         ax1.plot(x[np.where(vortex_positions == -1)[1]], x[np.where(vortex_positions == -1)[0]], 'bo', markersize = 4)
         ax1.set_xlabel('$y[\mu m]$')
@@ -167,15 +167,12 @@ class vortex_plots_class:
         cbar1 = pl.colorbar(im1, ax = ax1)
         cbar1.ax.tick_params(labelsize = 12)
         cbar1.ax.set_ylabel(r'$\theta(x, y)$', fontsize = 12)
-        cbar1.set_ticks([-np.pi, np.pi])
-        cbar1.set_ticklabels([r'-$\pi$', r'$\pi$'])
-        #fig1.suptitle(r't = %.4f' % ti, fontsize = 12)
+        #cbar1.set_ticks([-np.pi, np.pi])
+        #cbar1.set_ticklabels([r'-$\pi$', r'$\pi$'])
         pl.savefig(folder + os.sep + 'fig_theta' + str(self.count) + '.pdf')
         pl.close()
-        
-        '''
         fig2, ax2 = pl.subplots()
-        im2 = ax2.pcolormesh(X, Y, density, cmap='RdBu_r')
+        im2 = ax2.pcolormesh(X, Y, density / hatx ** 2, cmap='RdBu_r')
         ax2.plot(x[np.where(vortex_positions == 1)[1]], x[np.where(vortex_positions == 1)[0]], 'go', markersize = 4)
         ax2.plot(x[np.where(vortex_positions == -1)[1]], x[np.where(vortex_positions == -1)[0]], 'bo', markersize = 4)
         ax2.set_xlabel(r'$y$')
@@ -185,7 +182,6 @@ class vortex_plots_class:
         cbar2.ax.set_ylabel(r'$n(x,y)$', fontsize = 12)
         pl.savefig(folder + os.sep + 'fig_density' + str(self.count) + '.pdf')
         pl.close()
-        '''
         self.count += 1
         return None
 
@@ -221,8 +217,16 @@ def isotropic_avg(keyword, matrix, central_element, **args):
                 avg[rad] += (central_element - matrix[indices[i][0], indices[i][1]]) / len(indices)
     return avg
 
-def unwinding(deltatheta, cutoff):
-    for i in range(len(deltatheta)):
-        if abs(deltatheta[i]) > cutoff * 2 * np.pi:
-            deltatheta[i] -= np.sign(deltatheta[i]) * 2 * np.pi
-    return deltatheta
+def unwinding(deltatheta, cutoff, keyword):
+    if keyword == 'distinct points':
+        for i in range(len(deltatheta)):
+            if abs(deltatheta[i]) > cutoff * 2 * np.pi:
+                deltatheta[i] -= np.sign(deltatheta[i]) * 2 * np.pi
+        return deltatheta
+    if keyword == 'whole profile':
+        howmany = len(deltatheta[deltatheta > cutoff * 2 * np.pi])
+        if howmany == 0:
+            pass
+        else:
+            deltatheta[deltatheta > cutoff * 2 * np.pi] -= np.sign(deltatheta[deltatheta > cutoff * 2 * np.pi]) * 2 * np.pi
+        return deltatheta

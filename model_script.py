@@ -69,32 +69,70 @@ class gpe:
 # =============================================================================
     def time_evolution_vortices(self, folder, **time):
         np.random.seed()
-        N_input = time.get('N_input')
+        N_input = int(time.get('N_input'))
         dt = time.get('dt')
         di = time.get('di')
-        #sigma = self.sigma
-        #sigma = 0
-        density = []
+        tau0 = time.get('dim')
+        sigma = self.sigma
+        t = []
         vortex_plots = ext.vortex_plots_class()
         for i in range(N_input + 1):
-            ti = i * dt
-            if ti >= 5 and ti <= 10:
-                sigma = self.sigma
-            else:
-                sigma = 0
+            ti = i * dt * tau0
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
             psi_k *= self.exp_k(dt)
             self.psi_x = ifft2(psi_k)
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             self.psi_x += np.sqrt(dt) * np.sqrt(sigma / self.dx ** 2) * (np.random.normal(0, 1, (self.N, self.N)) + 1j * np.random.normal(0, 1, (self.N, self.N)))
-            if ti >= 9.8 and ti <= 15 and i % di == 0:
-                print(i, sigma)
+            if i % di == 0:
+                t.append(ti)
+                sigma = 0
                 vortex_positions = ext.vortex_detect(np.angle(self.psi_x), self.N, self.dx, self.x, self.y)
                 vortex_plots(folder, self.x, ti, vortex_positions, np.angle(self.psi_x), self.n(self.psi_x))
-                density.append(np.mean(self.n(self.psi_x)))
-        #return np.array(density), np.array(theta)
-        return np.array(density)
+        np.savetxt(folder, t)
+        return None
+
+    def time_evolution_spacetime_vortices(self, unwinding_cutoff, folder, **time):
+        np.random.seed()
+        N_input = int(time.get('N_input'))
+        dt = time.get('dt')
+        di = time.get('di')
+        tau0 = time.get('tau0')
+        sigma = self.sigma
+        t = []
+        theta_unw = []
+        theta_w = []
+        #vortex_positions = []
+        #vortex_plots = ext.vortex_plots_class()
+        for i in range(N_input + 1):
+            print(i)
+            ti = i * dt * tau0
+            self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
+            psi_k = fft2(self.psi_x)
+            psi_k *= self.exp_k(dt)
+            self.psi_x = ifft2(psi_k)
+            self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
+            self.psi_x += np.sqrt(dt) * np.sqrt(sigma / self.dx ** 2) * (np.random.normal(0, 1, (self.N, self.N)) + 1j * np.random.normal(0, 1, (self.N, self.N)))
+            if i == 0:
+                theta_wound_old = np.angle(self.psi_x)
+                theta_wound_new = theta_wound_old
+                theta_unwound_old = theta_wound_old
+                theta_unwound_new = theta_wound_old
+            else:
+                theta_wound_new = np.angle(self.psi_x)
+                theta_unwound_new = theta_unwound_old + ext.unwinding(theta_wound_new - theta_wound_old, unwinding_cutoff, 'whole profile')
+                theta_wound_old = theta_wound_new
+                theta_unwound_old = theta_unwound_new
+            if i % di == 0:
+                t.append(ti)
+                theta_unw.append(theta_unwound_new)
+                theta_w.append(theta_wound_new)
+                #positions = ext.vortex_detect(theta_unwound_new, self.N, self.dx, self.x, self.y)
+                #vortex_positions.append(positions)
+                #vortex_plots(folder, self.x, ti, positions, theta_unwound_new, self.n(self.psi_x))
+            #if i % 100 == 0:
+                #print(i)
+        return t, theta_unw, theta_w
 
     def time_evolution_theta(self, cutoff, **time):
         np.random.seed()
@@ -102,6 +140,22 @@ class gpe:
         dt = time.get('dt')
         di = time.get('di')
         unwound_sampling = np.zeros((8, int(N_input / di) + 1))
+        '''
+        import matplotlib.pyplot as pl
+        fig, ax = pl.subplots()
+        for i in range(self.N):
+            for j in range(self.N):
+                ax.plot(self.y[i], self.x[j], 'bo')
+        ax.plot(self.y[self.N//4], self.x[self.N//4], 'ro')
+        ax.plot(self.y[self.N//4], self.x[self.N//4 + self.N//2], 'ro')
+        ax.plot(self.y[self.N//4 + self.N//2], self.x[self.N//4], 'ro')
+        ax.plot(self.y[self.N//4 + self.N//2], self.x[self.N//4 + self.N//2], 'ro')
+        ax.plot(self.y[self.N//2], self.x[self.N//4], 'ro')
+        ax.plot(self.y[self.N//4], self.x[self.N//2], 'ro')
+        ax.plot(self.y[self.N//4+self.N//2], self.x[self.N//2], 'ro')
+        ax.plot(self.y[self.N//2], self.x[self.N//4+self.N//2], 'ro')
+        fig.show()
+        '''
         for i in range(N_input + 1):
             ti = i * dt
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
@@ -131,7 +185,7 @@ class gpe:
                                             self.psi_x[self.N//4, self.N//2],
                                             self.psi_x[self.N//4 + self.N//2, self.N//2],
                                             self.psi_x[self.N//2, self.N//4 + self.N//2]])
-                theta_unwound_new = theta_unwound_old + ext.unwinding(theta_wound_new - theta_wound_old, cutoff)
+                theta_unwound_new = theta_unwound_old + ext.unwinding(theta_wound_new - theta_wound_old, cutoff, 'distinct points')
                 theta_wound_old = theta_wound_new
                 theta_unwound_old = theta_unwound_new
             if i % di == 0:
