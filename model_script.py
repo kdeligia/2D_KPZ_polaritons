@@ -14,42 +14,39 @@ c = 3e2 #μm/ps
 hbar = 6.582119569 * 1e2 # μeV ps
 melectron = 0.510998950 * 1e12 / c ** 2 # μeV/(μm^2/ps^2)
 
-hatt = 32 # ps
-hatx = 4 * np.sqrt(2) # μm
-hatpsi = 1 / hatx # μm^-1
-hatrho = 1 / hatx ** 2 # μm^-2
-hatepsilon = hbar / hatt # μeV
-
 class gpe:
     def __init__(self, **args):
+        self.l0 = args.get('l0')
+        self.tau0 = args.get('tau0')
+        self.psi0 = 1 / self.l0
+        self.rho0 = 1 / self.l0 ** 2
+        self.epsilon0 = hbar / self.tau0
+        
         self.N = args.get('N')
         self.dx = args.get('dx')
         self.x, self.y = ext.space_grid(self.N, self.dx)
-
         self.kx = (2 * np.pi) / self.dx * np.fft.fftfreq(self.N, d = 1)
         self.ky = (2 * np.pi) / self.dx * np.fft.fftfreq(self.N, d = 1)
         self.KX, self.KY = np.meshgrid(self.kx, self.ky, sparse = True)
         
-        self.gamma2_tilde = args.get('gamma2')  * hatt / hatx ** 2
-        self.gamma0_tilde = args.get('gamma0') * hatt
+        self.gamma2_tilde = args.get('gamma2') * self.tau0 / self.l0 ** 2
+        self.gamma0_tilde = args.get('gamma0') * self.tau0
         self.gammar_tilde = 0.1 * self.gamma0_tilde
 
-        self.Kc = hbar ** 2 / (2 * args.get('m') * melectron * hatepsilon * hatx ** 2)
+        self.Kc = hbar ** 2 / (2 * args.get('m') * melectron * self.epsilon0 * self.l0 ** 2)
         self.Kd = self.gamma2_tilde / 2
-        self.g_tilde = args.get('g') * hatrho / hatepsilon
-        self.gr_tilde = args.get('gr') * hatrho / hatepsilon
+        self.g_tilde = args.get('g') * self.rho0 / self.epsilon0
+        self.gr_tilde = args.get('gr') * self.rho0 / self.epsilon0
 
-        self.ns_tilde = args.get('ns')
+        self.ns_tilde = args.get('ns') / self.rho0
         self.R_tilde = self.gammar_tilde / self.ns_tilde
         self.P_tilde = args.get('p') * self.gamma0_tilde * self.ns_tilde
         self.p = self.P_tilde * self. R_tilde / (self.gamma0_tilde * self.gammar_tilde)
         self.sigma = args.get('sigma')
 
         self.psi_x = 0.4 * (np.ones((self.N, self.N)) + 1j * np.ones((self.N, self.N)))
-        self.psi_x /= hatpsi
+        self.psi_x /= self.psi0
 
-# Definition of the split steps
-# =============================================================================
     def n(self, psi):
         return np.real(psi * np.conjugate(psi))
 
@@ -72,12 +69,11 @@ class gpe:
         N_input = int(time.get('N_input'))
         dt = time.get('dt')
         di = time.get('di')
-        tau0 = time.get('dim')
         sigma = self.sigma
         t = []
         vortex_plots = ext.vortex_plots_class()
         for i in range(N_input + 1):
-            ti = i * dt * tau0
+            ti = i * dt * self.tau0
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
             psi_k *= self.exp_k(dt)
@@ -97,7 +93,6 @@ class gpe:
         N_input = int(time.get('N_input'))
         dt = time.get('dt')
         di = time.get('di')
-        tau0 = time.get('tau0')
         sigma = self.sigma
         t = []
         theta_unw = []
@@ -105,8 +100,7 @@ class gpe:
         #vortex_positions = []
         #vortex_plots = ext.vortex_plots_class()
         for i in range(N_input + 1):
-            print(i)
-            ti = i * dt * tau0
+            ti = i * dt * self.tau0
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
             psi_k *= self.exp_k(dt)
@@ -130,8 +124,8 @@ class gpe:
                 #positions = ext.vortex_detect(theta_unwound_new, self.N, self.dx, self.x, self.y)
                 #vortex_positions.append(positions)
                 #vortex_plots(folder, self.x, ti, positions, theta_unwound_new, self.n(self.psi_x))
-            #if i % 100 == 0:
-                #print(i)
+            if i % 100 == 0:
+                print(i)
         return t, theta_unw, theta_w
 
     def time_evolution_theta(self, cutoff, **time):
@@ -157,7 +151,7 @@ class gpe:
         fig.show()
         '''
         for i in range(N_input + 1):
-            ti = i * dt
+            ti = i * dt * self.tau0
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
             psi_k *= self.exp_k(dt)
