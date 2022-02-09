@@ -22,7 +22,7 @@ class gpe:
         self.rho0 = 1 / self.l0 ** 2
         self.epsilon0 = hbar / self.tau0
         
-        self.N = args.get('N')
+        self.N = int(args.get('N'))
         self.dx = args.get('dx')
         self.x, self.y = ext.space_grid(self.N, self.dx)
         self.kx = (2 * np.pi) / self.dx * np.fft.fftfreq(self.N, d = 1)
@@ -46,7 +46,7 @@ class gpe:
 
         self.psi_x = 0.4 * (np.ones((self.N, self.N)) + 1j * np.ones((self.N, self.N)))
         self.psi_x /= self.psi0
-
+        
     def n(self, psi):
         return np.real(psi * np.conjugate(psi))
 
