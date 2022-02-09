@@ -10,9 +10,9 @@ import numpy as np
 import external as ext
 from scipy.fftpack import fft2, ifft2
 
-c = 3e2 #μm/ps
+c = 3e2 # μm ps^-1
 hbar = 6.582119569 * 1e2 # μeV ps
-melectron = 0.510998950 * 1e12 / c ** 2 # μeV/(μm^2/ps^2)
+melectron = 0.510998950 * 1e12 / c ** 2 # μeV ps^2 μm^-2)
 
 class gpe:
     def __init__(self, **args):

@@ -220,13 +220,13 @@ def isotropic_avg(keyword, matrix, central_element, **args):
 def unwinding(deltatheta, cutoff, keyword):
     if keyword == 'distinct points':
         for i in range(len(deltatheta)):
-            if abs(deltatheta[i]) > cutoff * 2 * np.pi:
+            if abs(deltatheta[i]) > cutoff:
                 deltatheta[i] -= np.sign(deltatheta[i]) * 2 * np.pi
         return deltatheta
     if keyword == 'whole profile':
-        howmany = len(deltatheta[deltatheta > cutoff * 2 * np.pi])
+        howmany = len(deltatheta[deltatheta > cutoff])
         if howmany == 0:
             pass
         else:
-            deltatheta[deltatheta > cutoff * 2 * np.pi] -= np.sign(deltatheta[deltatheta > cutoff * 2 * np.pi]) * 2 * np.pi
+            deltatheta[abs(deltatheta) > cutoff] -= np.sign(deltatheta[abs(deltatheta) > cutoff]) * 2 * np.pi
         return deltatheta

@@ -14,27 +14,29 @@ import external as ext
 import model_script
 import itertools
 
+'''
 final_save_path = r'/home6/konstantinos'
 initial_path = r'/home6/konstantinos' + os.sep + 'TEST_SIMULATIONS'
 if os.path.isdir(initial_path) == False:
     os.mkdir(initial_path)
+'''
 
 params_init = {}
-params_init['l0'] = [4 * np.sqrt(2)]                                            #μm
-params_init['tau0'] = [32]                                                      #ps
-params_init['N'] = [640]                                                        # !dimensionless!
-params_init['dx'] = [0.05]                                                      # !dimensionless!
-params_init['p'] = [2]                                                          # !dimensionless!
-params_init['gamma0'] = [0.3125]                                                #ps^-1
-params_init['gamma2'] = [0.1]                                                   #μm^2 ps^-1
+params_init['l0'] = [4 * np.sqrt(2)]                                            # μm
+params_init['tau0'] = [32]                                                      # ps
+params_init['N'] = [640]                                                        # dimensionless!
+params_init['dx'] = [0.05]                                                      # dimensionless!
+params_init['m'] = [8e-5]                                                       # will multiply m_el in model_script.py
+params_init['p'] = [2]                                                          # dimensionless!
+params_init['gamma0'] = [0.3125]                                                # ps^-1
+params_init['gamma2'] = [0.1]                                                   # μm^2 ps^-1
 params_init['g'] = [0]                                                          # μeV μm^-2
 params_init['gr'] = [0]                                                         # μeV μm^-2
 params_init['ns'] = [3.75]                                                      # μm^-2
-params_init['m'] = [8e-5]                                                       #times m_el in model_script.py
 
-dt = 5e-5                                                                       # !dimensionless!
+dt = 5e-5                                                                       # dimensionless!
 di = 1                                                                          # sample step
-N_input = 6.25e3                                                                # time steps
+N_input = 6.25e3                                                                # number of time steps
 time = {}
 time['dt'] = dt
 time['di'] = di
@@ -52,23 +54,23 @@ def evolution_vortices(i_dict, home):
         if params[i]['number'] == i_dict + 1:
             current_dict = params[i]
             break
-    N = current_dict.get('N')
     p = current_dict.get('p')
     gamma0 = current_dict.get('gamma0')
     gamma2 = current_dict.get('gamma2')
     sigma = params_init['tau0'][0] * gamma0 * (p + 1) / 4
     g = current_dict.get('g')
+    gr = current_dict.get('gr')
     ns = current_dict.get('ns')
     m = current_dict.get('m')
     current_dict['sigma'] = sigma
     
-    name = 'N' + str(N) + '_' + 'p' + str(p) + '_' + 'sigma' + str(sigma) + '_' + 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2) + '_' + 'g' + str(g) + '_' + 'ns' + str(ns) + '_' + 'm' + str(m) 
+    name = 'm' + str(m) + '_' + 'p' + str(p) + '_' + 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2) + '_' + 'g' + str(g) + '_' + 'gr' + str(gr) + '_'  + 'ns' + str(ns)
     misc_folder = initial_path + os.sep + name
     if os.path.isdir(misc_folder) == False:
         os.mkdir(misc_folder)
     current_dict['misc_folder'] = misc_folder
     gpe = model_script.gpe(**current_dict)
-    t, theta_unwrapped, theta_wrapped = gpe.time_evolution_spacetime_vortices(1/2, misc_folder, **time)
+    t, theta_unwrapped, theta_wrapped = gpe.time_evolution_spacetime_vortices(np.pi, misc_folder, **time)
     np.save(initial_path + os.sep + name + '_' + 'theta_unwrapped' + '.npy', theta_unwrapped)
     np.save(initial_path + os.sep + name + '_' + 'theta_wrapped' + '.npy', theta_wrapped)
     np.save(initial_path + os.sep + name + '_' + 't_test' + '.npy', t)
