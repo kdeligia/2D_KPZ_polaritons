@@ -97,7 +97,7 @@ def dimensional_units(**args):
 def space_grid(N, dx_tilde):
     x_0 = - N * dx_tilde / 2
     x = x_0 + dx_tilde * np.arange(N)
-    y = x
+    y = np.copy(x)
     return x, y
 
 def time(dt, N_input, i_start, di):

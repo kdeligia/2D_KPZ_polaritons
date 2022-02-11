@@ -6,7 +6,6 @@ Created on Wed May 19 13:53:23 2021
 @author: delis
 """
 
-import matplotlib.pyplot as pl
 from qutip import *
 import os
 import numpy as np
@@ -14,11 +13,9 @@ import external as ext
 import model_script
 import itertools
 
-
-final_save_path = r'/Users/delis/Desktop'
-initial_path = r'/Users/delis/Desktop' + os.sep + 'TEST_SIMULATIONS'
-if os.path.isdir(initial_path) == False:
-    os.mkdir(initial_path)
+path = r'/scratch/konstantinos' + os.sep + 'simulations_vortices'
+if os.path.isdir(path) == False:
+    os.mkdir(path)
 
 params_init = {}
 params_init['l0'] = [4 * 2 ** (1/2) / 5]                                        # μm
@@ -33,17 +30,30 @@ params_init['g'] = [0]                                                          
 params_init['gr'] = [0]                                                         # μeV μm^-2
 params_init['ns'] = [3.75 * (4 * 2**(1/2)) ** 2 / params_init.get('l0')[0] ** 2]# μm^-2
 
-dt = 5e-5                                                                       # dimensionless!
+dt = 5e-4                                                                       # dimensionless!
 di = 1                                                                          # sample step
-N_input = 6.25e3                                                                # number of time steps
+N_input = 3.125e5                                                               # number of time steps
 time = {}
 time['dt'] = dt
 time['di'] = di
 time['N_input'] = N_input
 
+'''
+t=[]
+for i in range(0, int(N_input)+1, di):
+    t.append(i*dt*params_init.get('tau0')[0])
+print(np.array(t))
+'''
+
+'''
+x, y = ext.space_grid(params_init.get('N')[0], params_init.get('dx')[0])
+np.savetxt('/Users/delis/Desktop/N320_dx0.5_spacing1.13137_x.dat', x*params_init.get('l0')[0])
+np.savetxt('/Users/delis/Desktop/N320_dx0.5_spacing1.13137_y.dat', y*params_init.get('l0')[0])
+
 print('Number of points = %.i, l0 = %.5f, tau0 = %.5f' % (params_init.get('N')[0], params_init.get('l0')[0], params_init.get('tau0')[0]))
 print('L = %.5f' % (params_init.get('N')[0] * params_init.get('dx')[0] * params_init.get('l0')[0]))
 print('gamma0 = %.5f, lifetime = %.5f' % (params_init.get('gamma0')[0], 1/params_init.get('gamma0')[0]))
+'''
 
 keys = params_init.keys()
 values = (params_init[key] for key in keys)
@@ -52,7 +62,7 @@ for i in range(len(params)):
     params[i]['number'] = i + 1
 qutip.settings.num_cpus = len(params)
 
-def evolution_vortices(i_dict, home):
+def evolution_vortices(i_dict, savepath):
     for i in range(len(params)):
         if params[i]['number'] == i_dict + 1:
             current_dict = params[i]
@@ -68,19 +78,15 @@ def evolution_vortices(i_dict, home):
     current_dict['sigma'] = sigma
 
     name = 'm' + str(m) + '_' + 'p' + str(p) + '_' + 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2) + '_' + 'g' + str(g) + '_' + 'gr' + str(gr) + '_'  + 'ns' + str(ns)
-    misc_folder = initial_path + os.sep + name
-    if os.path.isdir(misc_folder) == False:
-        os.mkdir(misc_folder)
-    current_dict['misc_folder'] = misc_folder
     gpe = model_script.gpe(**current_dict)
-    t, theta_unwrapped, theta_wrapped = gpe.time_evolution_spacetime_vortices(np.pi, misc_folder, **time)
-    np.save(initial_path + os.sep + name + '_' + 'theta_unwrapped' + '.npy', theta_unwrapped)
-    np.save(initial_path + os.sep + name + '_' + 'theta_wrapped' + '.npy', theta_wrapped)
-    np.save(initial_path + os.sep + name + '_' + 't_test' + '.npy', t)
+    t, n, theta_unwrapped = gpe.time_evolution_spacetime_vortices(np.pi, **time)
+    np.save(savepath + os.sep + name + '_' + 'theta_unwrapped' + '.npy', theta_unwrapped)
+    np.save(savepath + os.sep + name + '_' + 'time' + '.npy', t)
+    np.save(savepath + os.sep + name + '_' + 'density' + '.npy', n)
     return None
 
 #parallel_map(evolution, range(len(params)), task_kwargs = dict(home = final_save_path))
-#evolution_vortices(0, home = final_save_path)
+evolution_vortices(0, savepath = path)
 
 # =============================================================================
 # 
