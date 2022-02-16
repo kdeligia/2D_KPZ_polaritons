@@ -85,7 +85,7 @@ def evolution_vortices(i_dict, savepath):
     name = 'm' + str(m) + '_' + 'p' + str(p) + '_' + 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2) + '_' + 'g' + str(g) + '_' + 'gr' + str(gr) + '_'  + 'ns' + str(ns)
     gpe = model_script.gpe(**current_dict)
     n, theta_unwrapped = gpe.time_evolution_spacetime_vortices(np.pi, **time)
-    np.save(savepath + os.sep + name + '_' + 'theta_unwrapped' + '.npy', theta_unwrapped)
+    #np.save(savepath + os.sep + name + '_' + 'theta_unwrapped' + '.npy', theta_unwrapped)
     np.save(savepath + os.sep + name + '_' + 'density' + '.npy', theta_unwrapped)
     return None
 
