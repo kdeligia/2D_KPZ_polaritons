@@ -94,7 +94,6 @@ class gpe:
         dt = time.get('dt')
         di = time.get('di')
         sigma = self.sigma
-        t = []
         n = []
         theta_unw = []
         for i in range(N_input + 1):
@@ -115,13 +114,12 @@ class gpe:
                 theta_unwound_new = theta_unwound_old + ext.unwinding(theta_wound_new - theta_wound_old, unwinding_cutoff, 'whole profile')
                 theta_wound_old = theta_wound_new
                 theta_unwound_old = theta_unwound_new
-            if i % di == 0 and ti >= 50:
-                t.append(ti)
+            if i % di == 0:
                 theta_unw.append(theta_unwound_new)
                 n.append(np.mean(self.n(self.psi_x)))
             if i % 100 == 0:
                 print(i)
-        return t, n, theta_unw
+        return n, theta_unw
 
     def time_evolution_theta(self, cutoff, **time):
         np.random.seed()

@@ -108,48 +108,31 @@ def time(dt, N_input, i_start, di):
             t[(i - i_start) // di] = i * dt
     return t
 
-def vortex_detect(theta, N, dx, x, y):
-    positions = np.zeros((N, N))
-    partialx, partialy = np.gradient(theta, dx)
-    integral = np.zeros((N, N))
-    for i in range(N):
-        for j in range(N):
-            if np.abs(partialx[i, j]) > 0.6 * np.pi / dx:
-                partialx[i, j] -= np.sign(partialx[i, j]) * np.pi / dx
-            if np.abs(partialy[i, j]) > 0.6 * np.pi / dx:
-                partialy[i, j] -= np.sign(partialy[i, j]) * np.pi / dx
-    for i in range(2, N, 2):
-        for j in range(2, N, 2):
-            i0 = i
-            j0 = j
-            I1 = 1/6 * (partialy[i0 - 1, j0 - 1] + 4 * partialy[i0 - 1, j0] + partialy[i0 - 1, j0 + 1])
-            I3 = - 1/6 * (partialy[i0 + 1, j0 - 1] + 4 * partialy[i0 + 1, j0] + partialy[i0 + 1, j0 + 1])
-            I2 = 1/6 * (partialx[i0 - 1, j0 + 1] + 4 * partialx[i0, j0 + 1] + partialx[i0 + 1, j0 + 1])
-            I4 = - 1/6 * (partialx[i0 - 1, j0 - 1] + 4 * partialx[i0, j0 - 1] + partialx[i0 + 1, j0 - 1])
-            integral[i0, j0] = - (I1 + I2 + I3 + I4)
-            if np.abs(integral[i, j] / (np.pi)) > 1:
-                positions[i0, j0] = np.sign(integral[i0, j0])
-            
-            '''
-            if i0 == N - 2 and j0 == N - 2:
-                pl.plot(y[j0], x[i0], 'bo')
-                pl.plot(y[j0 - 1], x[i0 - 1], 'go-')
-                pl.plot(y[j0], x[i0 - 1], 'go-')
-                pl.plot(y[j0 + 1], x[i0 - 1], 'go-')
-                
-                pl.plot(y[j0 - 1], x[i0 + 1], 'go-')
-                pl.plot(y[j0], x[i0 + 1], 'go-')
-                pl.plot(y[j0 + 1], x[i0 + 1], 'go-')
-                
-                pl.plot(y[j0 + 1], x[i0 - 1], 'go-')
-                pl.plot(y[j0 + 1], x[i0], 'go-')
-                pl.plot(y[j0 + 1], x[i0 + 1], 'go-')
-                
-                pl.plot(y[j0 - 1], x[i0 - 1], 'go-')
-                pl.plot(y[j0 - 1], x[i0], 'go-')
-                pl.plot(y[j0 - 1], x[i0 + 1], 'go-')
-            '''
-    return positions
+def vortex_detect(theta, Nrow, Ncol, drow, dcol):
+    positions = np.zeros((Nrow, Ncol))
+    offset = 1
+    integral = np.zeros_like(positions)
+    partial_rows, partial_columns = np.gradient(theta, drow, dcol)
+    for i in range(Nrow):
+        for j in range(Ncol):
+            if np.abs(partial_rows[i, j]) > np.pi / (2 * drow):
+                partial_rows[i, j] -= np.sign(partial_rows[i, j]) * np.pi / drow
+            if np.abs(partial_columns[i, j]) > np.pi / (2 * dcol):
+                partial_columns[i, j] -= np.sign(partial_columns[i, j]) * np.pi / dcol
+    for i in range(2, Nrow-offset, 2):
+        for j in range(2, Ncol, 2):
+#    for i in range(1, Nrow-offset, 1):
+#        for j in range(1, Ncol-1, 1):
+                i0 = i
+                j0 = j
+                I1 = 1/6 * 2 * dcol * (partial_columns[i0 - 1, j0 - 1] + 4 * partial_columns[i0 - 1, j0] + partial_columns[i0 - 1, j0 + 1])
+                I3 = - 1/6 * 2 * dcol * (partial_columns[i0 + 1, j0 - 1] + 4 * partial_columns[i0 + 1, j0] + partial_columns[i0 + 1, j0 + 1])
+                I2 = 1/6 * 2 * drow * (partial_rows[i0 - 1, j0 + 1] + 4 * partial_rows[i0, j0 + 1] + partial_rows[i0 + 1, j0 + 1])
+                I4 = - 1/6 * 2 * drow * (partial_rows[i0 - 1, j0 - 1] + 4 * partial_rows[i0, j0 - 1] + partial_rows[i0 + 1, j0 - 1])
+                integral[i0, j0] = - (I1 + I2 + I3 + I4)
+                if np.abs(integral[i, j] / np.pi) > 1:
+                    positions[i0, j0] = np.sign(integral[i0, j0])
+    return positions, integral
 
 class vortex_plots_class:
     def __init__(self):
