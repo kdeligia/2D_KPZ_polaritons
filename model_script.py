@@ -64,37 +64,14 @@ class gpe:
 # =============================================================================
 # Time evolution
 # =============================================================================
-    def time_evolution_vortices(self, folder, **time):
-        np.random.seed()
-        N_input = int(time.get('N_input'))
-        dt = time.get('dt')
-        di = time.get('di')
-        sigma = self.sigma
-        t = []
-        vortex_plots = ext.vortex_plots_class()
-        for i in range(N_input + 1):
-            ti = i * dt * self.tau0
-            self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
-            psi_k = fft2(self.psi_x)
-            psi_k *= self.exp_k(dt)
-            self.psi_x = ifft2(psi_k)
-            self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
-            self.psi_x += np.sqrt(dt) * np.sqrt(sigma / self.dx ** 2) * (np.random.normal(0, 1, (self.N, self.N)) + 1j * np.random.normal(0, 1, (self.N, self.N)))
-            if i % di == 0:
-                t.append(ti)
-                sigma = 0
-                vortex_positions = ext.vortex_detect(np.angle(self.psi_x), self.N, self.dx, self.x, self.y)
-                vortex_plots(folder, self.x, ti, vortex_positions, np.angle(self.psi_x), self.n(self.psi_x))
-        np.savetxt(folder, t)
-        return None
-
     def time_evolution_spacetime_vortices(self, unwinding_cutoff, **time):
         np.random.seed()
         N_input = int(time.get('N_input'))
         dt = time.get('dt')
         di = time.get('di')
+        print(self.dx, dt)
         sigma = self.sigma
-        n = []
+        #n = []
         theta_unw = []
         for i in range(N_input + 1):
             ti = i * dt * self.tau0
@@ -114,12 +91,12 @@ class gpe:
                 theta_unwound_new = theta_unwound_old + ext.unwinding(theta_wound_new - theta_wound_old, unwinding_cutoff, 'whole profile')
                 theta_wound_old = theta_wound_new
                 theta_unwound_old = theta_unwound_new
-            if i % di == 0:
+            if ti >= 100 and ti <= 116 and i % di == 0:
                 theta_unw.append(theta_unwound_new)
-                n.append(np.mean(self.n(self.psi_x)))
-            if i % 100 == 0:
+                #n.append(np.mean(self.n(self.psi_x)))
+            if i % 200 == 0:
                 print(i)
-        return n, theta_unw
+        return theta_unw
 
     def time_evolution_theta(self, cutoff, **time):
         np.random.seed()

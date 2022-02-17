@@ -32,7 +32,9 @@ params_init['ns'] = [3.75 * (4 * 2 ** (1/2)) ** 2 / params_init.get('l0')[0] ** 
 
 dt = 5e-5                                                                       # dimensionless!
 di = 1                                                                          # sample step
-N_input = 3.125e5                                                               # number of time steps
+N_input = 7.25e4                                                                # number of time steps
+canreach = N_input * dt * params_init.get('tau0')[0]
+
 time = {}
 time['dt'] = dt
 time['di'] = di
@@ -40,7 +42,9 @@ time['N_input'] = N_input
 
 t=[]
 for i in range(0, int(N_input)+1, di):
-    t.append(i*dt*params_init.get('tau0')[0])
+    ti = i * dt * params_init.get('tau0')[0]
+    if ti >= 100 and ti <= 116 and i % di == 0:
+        t.append(ti)
 x, y = ext.space_grid(params_init.get('N')[0], params_init.get('dx')[0])
 
 np.savetxt(path + os.sep + 
@@ -85,7 +89,7 @@ def evolution_vortices(i_dict, savepath):
     name = 'm' + str(m) + '_' + 'p' + str(p) + '_' + 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2) + '_' + 'g' + str(g) + '_' + 'gr' + str(gr) + '_'  + 'ns' + str(ns)
     gpe = model_script.gpe(**current_dict)
     n, theta_unwrapped = gpe.time_evolution_spacetime_vortices(np.pi, **time)
-    #np.save(savepath + os.sep + name + '_' + 'theta_unwrapped' + '.npy', theta_unwrapped)
+    np.save(savepath + os.sep + name + '_' + 'theta_unwrapped' + '.npy', theta_unwrapped)
     np.save(savepath + os.sep + name + '_' + 'density' + '.npy', theta_unwrapped)
     return None
 
