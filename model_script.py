@@ -42,8 +42,6 @@ class gpe:
         self.R_tilde = self.gammar_tilde / self.ns_tilde
         self.P_tilde = args.get('p') * self.gamma0_tilde * self.ns_tilde
         self.p = self.P_tilde * self. R_tilde / (self.gamma0_tilde * self.gammar_tilde)
-        self.sigma = args.get('sigma')
-
         self.psi_x = 0.4 * (np.ones((self.N, self.N)) + 1j * np.ones((self.N, self.N)))
         self.psi_x /= self.psi0
 
@@ -69,10 +67,9 @@ class gpe:
         N_input = int(time.get('N_input'))
         dt = time.get('dt')
         di = time.get('di')
-        print(self.dx, dt)
-        sigma = self.sigma
-        #n = []
+        self.sigma = time.get('dt') / self.dx ** 2 * self.gamma0_tilde * (self.p + 1) / 4
         theta_unw = []
+        #n = []
         for i in range(N_input + 1):
             ti = i * dt * self.tau0
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
@@ -80,7 +77,7 @@ class gpe:
             psi_k *= self.exp_k(dt)
             self.psi_x = ifft2(psi_k)
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
-            self.psi_x += np.sqrt(dt) * np.sqrt(sigma / self.dx ** 2) * (np.random.normal(0, 1, (self.N, self.N)) + 1j * np.random.normal(0, 1, (self.N, self.N)))
+            self.psi_x += np.sqrt(self.sigma) * (np.random.normal(0, 1, (self.N, self.N)) + 1j * np.random.normal(0, 1, (self.N, self.N)))
             if i == 0:
                 theta_wound_old = np.angle(self.psi_x)
                 theta_wound_new = theta_wound_old
@@ -91,10 +88,10 @@ class gpe:
                 theta_unwound_new = theta_unwound_old + ext.unwinding(theta_wound_new - theta_wound_old, unwinding_cutoff, 'whole profile')
                 theta_wound_old = theta_wound_new
                 theta_unwound_old = theta_unwound_new
-            if ti >= 100 and ti <= 116 and i % di == 0:
+            if ti >= 100 and i % di == 0:
                 theta_unw.append(theta_unwound_new)
                 #n.append(np.mean(self.n(self.psi_x)))
-            if i % 200 == 0:
+            if i % 500 == 0:
                 print(i)
         return theta_unw
 
@@ -103,6 +100,7 @@ class gpe:
         N_input = int(time.get('N_input'))
         dt = time.get('dt')
         di = time.get('di')
+        self.sigma = time.get('dt') / self.dx ** 2 * self.gamma0_tilde * (self.p + 1) / 4
         unwound_sampling = np.zeros((8, int(N_input / di) + 1))
         '''
         import matplotlib.pyplot as pl
@@ -127,7 +125,7 @@ class gpe:
             psi_k *= self.exp_k(dt)
             self.psi_x = ifft2(psi_k)
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
-            self.psi_x += np.sqrt(dt) * np.sqrt(self.sigma / self.dx ** 2) * (np.random.normal(0, 1, (self.N, self.N)) + 1j * np.random.normal(0, 1, (self.N, self.N)))
+            self.psi_x += np.sqrt(self.sigma) * (np.random.normal(0, 1, (self.N, self.N)) + 1j * np.random.normal(0, 1, (self.N, self.N)))
             if ti == 0:
                 theta_wound_old = np.angle([self.psi_x[self.N//4, self.N//4], 
                                             self.psi_x[self.N//4, self.N//4 + self.N//2], 
@@ -157,14 +155,12 @@ class gpe:
                 unwound_sampling[:, time_index] = theta_unwound_new
         return unwound_sampling
 
-    def time_evolution_psi(self, **time_dict):
+    def time_evolution_psi(self, **time):
         np.random.seed()
-        N_input = time_dict.get('N_input')
-        i_start = time_dict.get('i_start')
-        di = time_dict.get('di')
-        dt = time_dict.get('dt')
-        N_i = N_input + i_start + di
-
+        N_input = time.get('N_input')
+        di = time.get('di')
+        dt = time.get('dt')
+        self.sigma = time.get('dt') / self.dx ** 2 * self.gamma0_tilde * (self.p + 1) / 4
         isotropic_indices = ext.get_indices(self.x)
         center_indices = isotropic_indices.get('r = ' + str(0))
         psi_correlation = np.zeros((N_input//di + 1, self.N//2), dtype = complex)
@@ -177,7 +173,7 @@ class gpe:
             psi_k *= self.exp_k(dt)
             self.psi_x = ifft2(psi_k)
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
-            self.psi_x += np.sqrt(dt) * np.sqrt(self.sigma / self.dx ** 2) * (np.random.normal(0, 1, (self.N, self.N)) + 1j * np.random.normal(0, 1, (self.N, self.N)))
+            self.psi_x += np.sqrt(self.sigma) * (np.random.normal(0, 1, (self.N, self.N)) + 1j * np.random.normal(0, 1, (self.N, self.N)))
             if i >= i_start and i <= N_i and i % di == 0:
                 time_index = (i - i_start) // di
                 if i == i_start:

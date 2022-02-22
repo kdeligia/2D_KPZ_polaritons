@@ -5,6 +5,8 @@ Created on Fri Aug 30 11:03:50 2019
 
 @author: delis
 """
+
+import scipy.optimize
 import os
 import numpy as np
 import matplotlib.pyplot as pl
@@ -81,19 +83,6 @@ def bogoliubov(**args):
             Im_minus[i] = - Kd * k_phys[i] ** 2 - Gamma - np.sqrt(np.abs(- Gamma ** 2 + Kc ** 2 * k_phys[i] ** 4 + 2 * Kc * k_phys[i] ** 2 * mu_tilde))
     return k, Im_plus, Im_minus
 
-'''
-def dimensional_units(**args):
-    L_dim = L_tilde * hatx                                # result in μm
-    P_dim = P_tilde * (1 / (hatx ** 2 * hatt))            # result in μm^-2 ps^-1
-    R_dim = R_tilde * (hatx ** 2 / hatt)                  # result in μm^2 ps^-1
-    gamma0_dim = gamma0_tilde * (1 / hatt)                # result in ps^-1
-    gammar_dim = gammar_tilde * (1 / hatt)                # result in ps^-1
-    ns_dim = ns_tilde * hatrho                            # result in μm^-2
-    n0_dim = n0_tilde * hatrho                            # result in μm^-2
-    nr_dim = nres_tilde * hatrho                          # result in μm^-2
-    return L_dim, P_dim, R_dim, gamma0_dim, gammar_dim, gamma2_dim, ns_dim, n0_dim, nr_dim
-'''
-
 def space_grid(N, dx_tilde):
     x_0 = - N * dx_tilde / 2
     x = x_0 + dx_tilde * np.arange(N)
@@ -107,6 +96,24 @@ def time(dt, N_input, i_start, di):
         if i >= i_start and i <= N_input + i_start + di and i % di == 0:
             t[(i - i_start) // di] = i * dt
     return t
+
+def linear(x, om):
+    return om * x
+
+def omega(theta, focus_point, extent_x, extent_y, t):
+    theta_mean = np.zeros(len(t))
+    count = 0
+    fig, ax = pl.subplots()
+    for i in range(-extent_x, extent_x + 1):
+        for j in range(-extent_y, extent_y + 1):
+            ax.plot(t[0:-1:500], theta[0:-1:500, i, j])
+            if abs(theta[0, focus_point - i, focus_point - j] - theta[-1, focus_point - i, focus_point - j]) < 1.5 * np.pi:
+                count += 1
+                theta_mean += theta[:, focus_point - i, focus_point - j]
+    theta_mean /= count
+    theta_mean -= theta_mean[0]
+    om, ignore = scipy.optimize.curve_fit(linear, t, theta_mean)
+    return om
 
 def vortex_detect(theta, Nrow, Ncol, drow, dcol):
     positions = np.zeros((Nrow, Ncol))
