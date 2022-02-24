@@ -16,8 +16,8 @@ import itertools
 params_init = {}
 params_init['l0'] = [4 * 2 ** (1/2)]                                                                                         # μm
 params_init['tau0'] = [params_init.get('l0')[0] ** 2]                                                                        # ps
-params_init['N'] = [4 * 64]                                                                                                  # dimensionless!
-params_init['dx'] = [0.5 / 4]                                                                                                # dimensionless!
+params_init['N'] = [256]                                                                                                  # dimensionless!
+params_init['dx'] = [0.125]                                                                                                # dimensionless!
 params_init['m'] = [8e-5]                                                                                                    # will multiply m_el in model_script.py
 params_init['p'] = [2]                                                                                                       # dimensionless!
 params_init['gamma0'] = [0.3125]                                                                                             # ps^-1
@@ -26,9 +26,9 @@ params_init['g'] = [0]                                                          
 params_init['gr'] = [0]                                                                                                      # μeV μm^2
 params_init['ns'] = [3.75]                                                                                                   # μm^-2
 
-dt = 5e-5 / 16                                                                                                               # dimensionless!
-di = 80                                                                                                                     # sample step
-N_input = 2e6                                                                                                                # number of time steps
+dt = 5e-5                                                                                                               # dimensionless!
+di = 10                                                                                                                       # sample step
+N_input = 1e5                                                                                                                # number of time steps
 tf = N_input * dt * params_init.get('tau0')[0]
 
 time = {}
@@ -37,8 +37,15 @@ time['di'] = di
 time['N_input'] = N_input
 t=[]
 
+for i in range(0, int(N_input)+1, di):
+    ti = i * dt * params_init.get('tau0')[0]
+    if ti >= 0 and i % di == 0:
+        t.append(ti)
+print(np.array(t), len(t))
+
 path = r'/home6/konstantinos' + os.sep + 'simulations_vortices'
 path_test = path + os.sep + 'dt' + str(dt) + 'dx' + str(params_init.get('dx')[0])
+
 if os.path.isdir(path) == False:
     os.mkdir(path)
     if os.path.isdir(path_test) == False:
@@ -49,10 +56,6 @@ else:
     else:
         pass
 
-for i in range(0, int(N_input)+1, di):
-    ti = i * dt * params_init.get('tau0')[0]
-    if ti >= 100 and i % di == 0:
-        t.append(ti)
 x, y = ext.space_grid(params_init.get('N')[0], params_init.get('dx')[0])
 np.savetxt(path_test + os.sep + 
            'N' + str(int(params_init.get('N')[0])) + '_' + 
@@ -92,18 +95,11 @@ def evolution_vortices(i_dict, savepath):
     m = current_dict.get('m')
     name = 'm' + str(m) + '_' + 'p' + str(p) + '_' + 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2) + '_' + 'g' + str(g) + '_' + 'gr' + str(gr) + '_'  + 'ns' + str(ns)
     gpe = model_script.gpe(**current_dict)
-    theta_unwrapped = gpe.time_evolution_spacetime_vortices(np.pi, **time)
+    theta_unwrapped, theta_wrapped, n = gpe.time_evolution_spacetime_vortices(**time)
     np.save(savepath + os.sep + name + '_' + 'theta_unwrapped' + '.npy', theta_unwrapped)
-    #np.save(savepath + os.sep + name + '_' + 'density' + '.npy', n)
+    np.save(savepath + os.sep + name + '_' + 'theta_wrapped' + '.npy', theta_wrapped)
+    np.save(savepath + os.sep + name + '_' + 'density' + '.npy', n)
     return None
 
 #parallel_map(evolution, range(len(params)), task_kwargs = dict(home = final_save_path))
 evolution_vortices(0, savepath = path_test)
-
-'''
-import matplotlib.pyplot as pl
-n = np.load(path + os.sep + 'm8e-05_p2_gamma0.3125_gammak0.1_g0_gr0_ns3.75_density.npy')
-fig,ax=pl.subplots()
-ax.plot(np.array(t), n)
-fig.show()
-'''

@@ -101,18 +101,19 @@ def linear(x, om):
     return om * x
 
 def omega(theta, focus_point, extent_x, extent_y, t):
-    theta_mean = np.zeros(len(t))
+    traj_mean = np.zeros(len(t))
     count = 0
-    fig, ax = pl.subplots()
-    for i in range(-extent_x, extent_x + 1):
-        for j in range(-extent_y, extent_y + 1):
-            ax.plot(t[0:-1:500], theta[0:-1:500, i, j])
-            if abs(theta[0, focus_point - i, focus_point - j] - theta[-1, focus_point - i, focus_point - j]) < 1.5 * np.pi:
+    #fig, ax = pl.subplots()
+    for i in range(focus_point - extent_x, focus_point + extent_x + 1):
+        for j in range(focus_point - extent_y, focus_point + extent_y + 1):
+            traj = theta[:, i, j]
+            if abs(traj[0] - traj[-1]) < np.pi:
+                #ax.plot(t, traj)
                 count += 1
-                theta_mean += theta[:, focus_point - i, focus_point - j]
-    theta_mean /= count
-    theta_mean -= theta_mean[0]
-    om, ignore = scipy.optimize.curve_fit(linear, t, theta_mean)
+                traj_mean += traj
+    traj_mean /= count
+    traj_mean -= traj_mean[0]
+    om, ignore = scipy.optimize.curve_fit(linear, t, traj_mean)
     return om
 
 def vortex_detect(theta, Nrow, Ncol, drow, dcol):
@@ -207,16 +208,16 @@ def isotropic_avg(keyword, matrix, central_element, **args):
                 avg[rad] += (central_element - matrix[indices[i][0], indices[i][1]]) / len(indices)
     return avg
 
-def unwinding(deltatheta, cutoff, keyword):
+def unwinding(deltatheta, keyword):
     if keyword == 'distinct points':
         for i in range(len(deltatheta)):
-            if abs(deltatheta[i]) > cutoff:
+            if abs(deltatheta[i]) > np.pi:
                 deltatheta[i] -= np.sign(deltatheta[i]) * 2 * np.pi
         return deltatheta
     if keyword == 'whole profile':
-        howmany = len(deltatheta[deltatheta > cutoff])
+        howmany = len(deltatheta[abs(deltatheta) > np.pi])
         if howmany == 0:
-            pass
+            return deltatheta
         else:
-            deltatheta[abs(deltatheta) > cutoff] -= np.sign(deltatheta[abs(deltatheta) > cutoff]) * 2 * np.pi
-        return deltatheta
+            deltatheta[abs(deltatheta) > np.pi] -= np.sign(deltatheta[abs(deltatheta) > np.pi]) * 2 * np.pi
+            return deltatheta

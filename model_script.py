@@ -62,14 +62,15 @@ class gpe:
 # =============================================================================
 # Time evolution
 # =============================================================================
-    def time_evolution_spacetime_vortices(self, unwinding_cutoff, **time):
+    def time_evolution_spacetime_vortices(self, **time):
         np.random.seed()
         N_input = int(time.get('N_input'))
         dt = time.get('dt')
         di = time.get('di')
-        self.sigma = time.get('dt') / self.dx ** 2 * self.gamma0_tilde * (self.p + 1) / 4
+        self.sigma = self.gamma0_tilde * (self.p + 1) / 4 * (time.get('dt') / self.dx ** 2)
         theta_unw = []
-        #n = []
+        theta_w = []
+        n = []
         for i in range(N_input + 1):
             ti = i * dt * self.tau0
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
@@ -85,15 +86,17 @@ class gpe:
                 theta_unwound_new = theta_wound_old
             else:
                 theta_wound_new = np.angle(self.psi_x)
-                theta_unwound_new = theta_unwound_old + ext.unwinding(theta_wound_new - theta_wound_old, unwinding_cutoff, 'whole profile')
+                deltatheta = theta_wound_new - theta_wound_old
+                theta_unwound_new = theta_unwound_old + ext.unwinding(deltatheta, 'whole profile')
                 theta_wound_old = theta_wound_new
                 theta_unwound_old = theta_unwound_new
-            if ti >= 100 and i % di == 0:
+            if ti >= 0 and i % di == 0:
+                theta_w.append(theta_wound_new)
                 theta_unw.append(theta_unwound_new)
-                #n.append(np.mean(self.n(self.psi_x)))
+                n.append(np.mean(self.n(self.psi_x)))
             if i % 500 == 0:
                 print(i)
-        return theta_unw
+        return theta_unw, theta_w, n
 
     def time_evolution_theta(self, cutoff, **time):
         np.random.seed()
@@ -163,25 +166,26 @@ class gpe:
         self.sigma = time.get('dt') / self.dx ** 2 * self.gamma0_tilde * (self.p + 1) / 4
         isotropic_indices = ext.get_indices(self.x)
         center_indices = isotropic_indices.get('r = ' + str(0))
-        psi_correlation = np.zeros((N_input//di + 1, self.N//2), dtype = complex)
-        n_correlation = np.zeros((N_input//di + 1, self.N//2), dtype = complex)
-        n_avg = np.zeros((N_input//di + 1, self.N//2), dtype = complex)
-        deltatheta_full = np.zeros((N_input//di + 1, self.N//2))
-        for i in range(N_i):
+        psi_correlation = []
+        n_correlation = []
+        n_avg = []
+        deltatheta_full = []
+        for i in range(N_input + 1):
+            print(i)
+            ti = i * dt * self.tau0
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
             psi_k *= self.exp_k(dt)
             self.psi_x = ifft2(psi_k)
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             self.psi_x += np.sqrt(self.sigma) * (np.random.normal(0, 1, (self.N, self.N)) + 1j * np.random.normal(0, 1, (self.N, self.N)))
-            if i >= i_start and i <= N_i and i % di == 0:
-                time_index = (i - i_start) // di
-                if i == i_start:
+            if ti >= 0 and i % di == 0:
+                if ti == 0:
                     psi_x0t0 = self.psi_x[center_indices[0][0], center_indices[0][1]]
                     n_x0t0 = psi_x0t0 * np.conjugate(psi_x0t0)
                     theta_x0t0 = np.angle(psi_x0t0)
-                psi_correlation[time_index] = ext.isotropic_avg('psi correlation', self.psi_x, np.conjugate(psi_x0t0), **isotropic_indices)
-                n_correlation[time_index] = ext.isotropic_avg('n correlation', np.sqrt(self.n(self.psi_x)), np.sqrt(n_x0t0), **isotropic_indices)
-                n_avg[time_index] = ext.isotropic_avg('n average', self.n(self.psi_x), None, **isotropic_indices)
-                deltatheta_full[time_index] = ext.isotropic_avg('deltatheta', np.angle(self.psi_x), theta_x0t0, **isotropic_indices)
-        return psi_correlation, n_correlation, n_avg, np.exp(1j * deltatheta_full)
+                psi_correlation.append(ext.isotropic_avg('psi correlation', self.psi_x, np.conjugate(psi_x0t0), **isotropic_indices))
+                n_correlation.append(ext.isotropic_avg('n correlation', np.sqrt(self.n(self.psi_x)), np.sqrt(n_x0t0), **isotropic_indices))
+                n_avg.append(ext.isotropic_avg('n average', self.n(self.psi_x), None, **isotropic_indices))
+                deltatheta_full.append(ext.isotropic_avg('deltatheta', np.angle(self.psi_x), theta_x0t0, **isotropic_indices))
+        return np.array(psi_correlation), np.array(n_correlation), np.array(n_avg), np.exp(1j * np.array(deltatheta_full))
