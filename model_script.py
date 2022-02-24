@@ -69,7 +69,6 @@ class gpe:
         di = time.get('di')
         self.sigma = self.gamma0_tilde * (self.p + 1) / 4 * (time.get('dt') / self.dx ** 2)
         theta_unw = []
-        theta_w = []
         n = []
         for i in range(N_input + 1):
             ti = i * dt * self.tau0
@@ -91,12 +90,11 @@ class gpe:
                 theta_wound_old = theta_wound_new
                 theta_unwound_old = theta_unwound_new
             if ti >= 0 and i % di == 0:
-                theta_w.append(theta_wound_new)
                 theta_unw.append(theta_unwound_new)
-                n.append(np.mean(self.n(self.psi_x)))
+                n.append(self.n(self.psi_x))
             if i % 500 == 0:
                 print(i)
-        return theta_unw, theta_w, n
+        return theta_unw, n
 
     def time_evolution_theta(self, cutoff, **time):
         np.random.seed()
