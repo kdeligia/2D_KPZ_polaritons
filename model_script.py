@@ -11,7 +11,7 @@ import external as ext
 from scipy.fftpack import fft2, ifft2
 
 c = 3e2 # μm ps^-1
-hbar = 6.582119569 * 1e2 # μeV ps
+hbar = 658.2119569 # μeV ps
 melectron = 0.510998950 * 1e12 / c ** 2 # μeV ps^2 μm^-2)
 
 class gpe:
@@ -32,9 +32,13 @@ class gpe:
         self.gamma2_tilde = args.get('gamma2') * self.tau0 / self.l0 ** 2
         self.gamma0_tilde = args.get('gamma0') * self.tau0
         self.gammar_tilde = 0.1 * self.gamma0_tilde
-
+        '''
+        self.gammainf_tilde = args.get('gammainf') * self.tau0
+        self.a2 = (self.gammainf_tilde / self.gamma0_tilde - 1) ** (-1)
+        self.b2 = self.gamma2_tilde / self.gamma0_tilde * (1 + self.a2)
+        self.gammaexp = self.gamma0_tilde * (1 + self.a2) / (np.exp(-self.b2 * (self.KX ** 2 + self.KY ** 2) + self.a2))
+        '''
         self.Kc = hbar ** 2 / (2 * args.get('m') * melectron * self.epsilon0 * self.l0 ** 2)
-        self.Kd = self.gamma2_tilde / 2
         self.g_tilde = args.get('g') * self.rho0 / self.epsilon0
         self.gr_tilde = args.get('gr') * self.rho0 / self.epsilon0
 
@@ -44,7 +48,7 @@ class gpe:
         self.p = self.P_tilde * self. R_tilde / (self.gamma0_tilde * self.gammar_tilde)
         self.psi_x = 0.4 * (np.ones((self.N, self.N)) + 1j * np.ones((self.N, self.N)))
         self.psi_x /= self.psi0
-
+        
     def n(self, psi):
         return np.real(psi * np.conjugate(psi))
 
@@ -57,7 +61,7 @@ class gpe:
         return np.exp(-1j * dt * (self.uc_tilde + 1j * self.rd_tilde))
 
     def exp_k(self, dt):
-        return np.exp(-1j * dt * (self.KX ** 2 + self.KY ** 2) * (self.Kc - 1j * self.Kd))
+        return np.exp(-1j * dt * (self.KX ** 2 + self.KY ** 2) * (self.Kc - 1j * self.gamma2_tilde / 2))
 
 # =============================================================================
 # Time evolution
@@ -86,14 +90,12 @@ class gpe:
             else:
                 theta_wound_new = np.angle(self.psi_x)
                 deltatheta = theta_wound_new - theta_wound_old
-                theta_unwound_new = theta_unwound_old + ext.unwinding(deltatheta, 'whole profile')
+                theta_unwound_new = theta_unwound_old + ext.unwinding(deltatheta)
                 theta_wound_old = theta_wound_new
                 theta_unwound_old = theta_unwound_new
             if ti >= 0 and i % di == 0:
                 theta_unw.append(theta_unwound_new)
                 n.append(self.n(self.psi_x))
-            if i % 500 == 0:
-                print(i)
         return theta_unw, n
 
     def time_evolution_theta(self, cutoff, **time):
@@ -102,23 +104,7 @@ class gpe:
         dt = time.get('dt')
         di = time.get('di')
         self.sigma = time.get('dt') / self.dx ** 2 * self.gamma0_tilde * (self.p + 1) / 4
-        unwound_sampling = np.zeros((8, int(N_input / di) + 1))
-        '''
-        import matplotlib.pyplot as pl
-        fig, ax = pl.subplots()
-        for i in range(self.N):
-            for j in range(self.N):
-                ax.plot(self.y[i], self.x[j], 'bo')
-        ax.plot(self.y[self.N//4], self.x[self.N//4], 'ro')
-        ax.plot(self.y[self.N//4], self.x[self.N//4 + self.N//2], 'ro')
-        ax.plot(self.y[self.N//4 + self.N//2], self.x[self.N//4], 'ro')
-        ax.plot(self.y[self.N//4 + self.N//2], self.x[self.N//4 + self.N//2], 'ro')
-        ax.plot(self.y[self.N//2], self.x[self.N//4], 'ro')
-        ax.plot(self.y[self.N//4], self.x[self.N//2], 'ro')
-        ax.plot(self.y[self.N//4+self.N//2], self.x[self.N//2], 'ro')
-        ax.plot(self.y[self.N//2], self.x[self.N//4+self.N//2], 'ro')
-        fig.show()
-        '''
+        unwound_sampling = np.zeros((self.N, int(N_input / di) + 1))
         for i in range(N_input + 1):
             ti = i * dt * self.tau0
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
@@ -128,27 +114,13 @@ class gpe:
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             self.psi_x += np.sqrt(self.sigma) * (np.random.normal(0, 1, (self.N, self.N)) + 1j * np.random.normal(0, 1, (self.N, self.N)))
             if ti == 0:
-                theta_wound_old = np.angle([self.psi_x[self.N//4, self.N//4], 
-                                            self.psi_x[self.N//4, self.N//4 + self.N//2], 
-                                            self.psi_x[self.N//4 + self.N//2, self.N//4],
-                                            self.psi_x[self.N//4 + self.N//2, self.N//4 + self.N//2],
-                                            self.psi_x[self.N//2, self.N//4],
-                                            self.psi_x[self.N//4, self.N//2],
-                                            self.psi_x[self.N//4 + self.N//2, self.N//2],
-                                            self.psi_x[self.N//2, self.N//4 + self.N//2]])
+                theta_wound_old = np.angle(self.psi_x)
                 theta_wound_new = theta_wound_old
                 theta_unwound_old = theta_wound_old
                 theta_unwound_new = theta_wound_old
             else:
-                theta_wound_new = np.angle([self.psi_x[self.N//4, self.N//4], 
-                                            self.psi_x[self.N//4, self.N//4 + self.N//2], 
-                                            self.psi_x[self.N//4 + self.N//2, self.N//4],
-                                            self.psi_x[self.N//4 + self.N//2, self.N//4 + self.N//2],
-                                            self.psi_x[self.N//2, self.N//4],
-                                            self.psi_x[self.N//4, self.N//2],
-                                            self.psi_x[self.N//4 + self.N//2, self.N//2],
-                                            self.psi_x[self.N//2, self.N//4 + self.N//2]])
-                theta_unwound_new = theta_unwound_old + ext.unwinding(theta_wound_new - theta_wound_old, cutoff, 'distinct points')
+                theta_wound_new = np.angle(self.psi_x)
+                theta_unwound_new = theta_unwound_old + ext.unwinding(theta_wound_new - theta_wound_old, cutoff)
                 theta_wound_old = theta_wound_new
                 theta_unwound_old = theta_unwound_new
             if i % di == 0:
@@ -169,7 +141,6 @@ class gpe:
         n_avg = []
         deltatheta_full = []
         for i in range(N_input + 1):
-            print(i)
             ti = i * dt * self.tau0
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)

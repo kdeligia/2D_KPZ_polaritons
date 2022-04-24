@@ -53,14 +53,8 @@ def correlation(i_batch, **args):
     mypath = args.get('misc_folder')
     for job in range(jobs_per_core):
         print('Running job = %.i at core = %.i' % (job, i_batch))
-        '''
         gpe = model_script.gpe(**args)
         psi_correlation, n_correlation, n_avg, exponential_avg = gpe.time_evolution_psi(**time)
-        '''
-        psi_correlation = np.ones((3,3)) * job
-        n_correlation = np.ones((3,3)) * job
-        n_avg = np.ones((3,3)) * job
-        exponential_avg = np.ones((3,3)) * job
         
         psi_correlation /= jobs_per_core
         n_correlation /= jobs_per_core
@@ -120,3 +114,14 @@ def call_avg(final_save_path, **args):
         np.savetxt(final_save_path + os.sep + name + '_' + 'g1theta' + '.npy', np.real(np.abs(np.mean(exponential_avg, axis=0))))
 
 call_avg(r'/Users/delis/Desktop', **params_init)
+
+# =============================================================================
+# The times associated with sampling are the following:
+# =============================================================================
+'''
+t=[]
+for i in range(0, int(N_input) + 1, di):
+    ti = i * dt * params_init.get('tau0')[0]
+    if ti >= 0 and i % di == 0:
+        t.append(ti)
+'''

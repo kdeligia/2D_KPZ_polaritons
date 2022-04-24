@@ -97,51 +97,6 @@ def time(dt, N_input, i_start, di):
             t[(i - i_start) // di] = i * dt
     return t
 
-def linear(x, om):
-    return om * x
-
-def omega(theta, focus_point, extent_x, extent_y, t):
-    traj_mean = np.zeros(len(t))
-    count = 0
-    #fig, ax = pl.subplots()
-    for i in range(focus_point - extent_x, focus_point + extent_x + 1):
-        for j in range(focus_point - extent_y, focus_point + extent_y + 1):
-            traj = theta[:, i, j]
-            if abs(traj[0] - traj[-1]) < np.pi:
-                #ax.plot(t, traj)
-                count += 1
-                traj_mean += traj
-    traj_mean /= count
-    traj_mean -= traj_mean[0]
-    om, ignore = scipy.optimize.curve_fit(linear, t, traj_mean)
-    return om
-
-def vortex_detect(theta, Nrow, Ncol, drow, dcol):
-    positions = np.zeros((Nrow, Ncol))
-    offset = 1
-    integral = np.zeros_like(positions)
-    partial_rows, partial_columns = np.gradient(theta, drow, dcol)
-    for i in range(Nrow):
-        for j in range(Ncol):
-            if np.abs(partial_rows[i, j]) > np.pi / (2 * drow):
-                partial_rows[i, j] -= np.sign(partial_rows[i, j]) * np.pi / drow
-            if np.abs(partial_columns[i, j]) > np.pi / (2 * dcol):
-                partial_columns[i, j] -= np.sign(partial_columns[i, j]) * np.pi / dcol
-    for i in range(2, Nrow-offset, 2):
-        for j in range(2, Ncol, 2):
-#    for i in range(1, Nrow-offset, 1):
-#        for j in range(1, Ncol-1, 1):
-                i0 = i
-                j0 = j
-                I1 = 1/6 * 2 * dcol * (partial_columns[i0 - 1, j0 - 1] + 4 * partial_columns[i0 - 1, j0] + partial_columns[i0 - 1, j0 + 1])
-                I3 = - 1/6 * 2 * dcol * (partial_columns[i0 + 1, j0 - 1] + 4 * partial_columns[i0 + 1, j0] + partial_columns[i0 + 1, j0 + 1])
-                I2 = 1/6 * 2 * drow * (partial_rows[i0 - 1, j0 + 1] + 4 * partial_rows[i0, j0 + 1] + partial_rows[i0 + 1, j0 + 1])
-                I4 = - 1/6 * 2 * drow * (partial_rows[i0 - 1, j0 - 1] + 4 * partial_rows[i0, j0 - 1] + partial_rows[i0 + 1, j0 - 1])
-                integral[i0, j0] = - (I1 + I2 + I3 + I4)
-                if np.abs(integral[i, j] / np.pi) > 1:
-                    positions[i0, j0] = np.sign(integral[i0, j0])
-    return positions, integral
-
 class vortex_plots_class:
     def __init__(self):
         self.count = 0
@@ -208,16 +163,10 @@ def isotropic_avg(keyword, matrix, central_element, **args):
                 avg[rad] += (central_element - matrix[indices[i][0], indices[i][1]]) / len(indices)
     return avg
 
-def unwinding(deltatheta, keyword):
-    if keyword == 'distinct points':
-        for i in range(len(deltatheta)):
-            if abs(deltatheta[i]) > np.pi:
-                deltatheta[i] -= np.sign(deltatheta[i]) * 2 * np.pi
+def unwinding(deltatheta):
+    howmany = len(deltatheta[abs(deltatheta) > np.pi])
+    if howmany == 0:
         return deltatheta
-    if keyword == 'whole profile':
-        howmany = len(deltatheta[abs(deltatheta) > np.pi])
-        if howmany == 0:
-            return deltatheta
-        else:
-            deltatheta[abs(deltatheta) > np.pi] -= np.sign(deltatheta[abs(deltatheta) > np.pi]) * 2 * np.pi
-            return deltatheta
+    else:
+        deltatheta[abs(deltatheta) > np.pi] -= np.sign(deltatheta[abs(deltatheta) > np.pi]) * 2 * np.pi
+        return deltatheta
