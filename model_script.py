@@ -32,12 +32,7 @@ class gpe:
         self.gamma2_tilde = args.get('gamma2') * self.tau0 / self.l0 ** 2
         self.gamma0_tilde = args.get('gamma0') * self.tau0
         self.gammar_tilde = 0.1 * self.gamma0_tilde
-        '''
-        self.gammainf_tilde = args.get('gammainf') * self.tau0
-        self.a2 = (self.gammainf_tilde / self.gamma0_tilde - 1) ** (-1)
-        self.b2 = self.gamma2_tilde / self.gamma0_tilde * (1 + self.a2)
-        self.gammaexp = self.gamma0_tilde * (1 + self.a2) / (np.exp(-self.b2 * (self.KX ** 2 + self.KY ** 2) + self.a2))
-        '''
+
         self.Kc = hbar ** 2 / (2 * args.get('m') * melectron * self.epsilon0 * self.l0 ** 2)
         self.g_tilde = args.get('g') * self.rho0 / self.epsilon0
         self.gr_tilde = args.get('gr') * self.rho0 / self.epsilon0
@@ -72,6 +67,7 @@ class gpe:
         dt = time.get('dt')
         di = time.get('di')
         self.sigma = self.gamma0_tilde * (self.p + 1) / 4 * (time.get('dt') / self.dx ** 2)
+        print(self.sigma)
         theta_unw = []
         n = []
         for i in range(N_input + 1):
@@ -95,7 +91,9 @@ class gpe:
                 theta_unwound_old = theta_unwound_new
             if ti >= 0 and i % di == 0:
                 theta_unw.append(theta_unwound_new)
-                n.append(self.n(self.psi_x))
+                n.append(np.mean(self.n(self.psi_x)))
+                if i % 500 == 0:
+                    print(i)
         return theta_unw, n
 
     def time_evolution_theta(self, cutoff, **time):

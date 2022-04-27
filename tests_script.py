@@ -16,8 +16,8 @@ import itertools
 params_init = {}
 params_init['l0'] = [4 * 2 ** (1/2)]                                                                                         # μm
 params_init['tau0'] = [params_init.get('l0')[0] ** 2]                                                                        # ps
-params_init['N'] = [64]                                                                                                      # dimensionless!
-params_init['dx'] = [0.5]                                                                                                    # dimensionless!
+params_init['N'] = [64 * 8]                                                                                                  # dimensionless!
+params_init['dx'] = [0.5 / 8]                                                                                                # dimensionless!
 params_init['m'] = [8e-5]                                                                                                    # will multiply m_el in model_script.py
 params_init['p'] = [2]                                                                                                       # dimensionless!
 params_init['gamma0'] = [0.3125]                                                                                             # ps^-1
@@ -26,9 +26,9 @@ params_init['g'] = [0]                                                          
 params_init['gr'] = [0]                                                                                                      # μeV μm^2
 params_init['ns'] = [3.75]                                                                                                   # μm^-2
 
-dt = 5e-5
-di = 5
-N_input = 2.5e5
+dt = 5e-5 / 32
+di = 5 * 32
+N_input = 1.5e5 * 32
 tf = N_input * dt * params_init.get('tau0')[0]
 time = {}
 time['dt'] = dt
@@ -41,7 +41,7 @@ for i in range(0, int(N_input) + 1, di):
     if ti >= 0 and i % di == 0:
         t.append(ti)
 
-path = r'/Users/delis/Desktop' + os.sep + 'simulations vortices'
+path = r'/home6/konstantinos' + os.sep + 'convergence tests'
 path_test = path + os.sep + 'dt' + str(dt) + 'dx' + str(params_init.get('dx')[0])
 
 if os.path.isdir(path) == False:
@@ -53,7 +53,8 @@ else:
         os.mkdir(path_test)
     else:
         pass
-    
+
+
 x, y = ext.space_grid(params_init.get('N')[0], params_init.get('dx')[0])
 np.savetxt(path_test + os.sep + 
            'N' + str(int(params_init.get('N')[0])) + '_' + 
@@ -98,4 +99,19 @@ def evolution(i_dict, savepath):
     np.save(savepath + os.sep + name + '_' + 'density' + '.npy', n)
     return None
 
-parallel_map(evolution, range(len(params)), task_kwargs = dict(home = path_test))
+evolution(0, savepath = path_test)
+
+'''
+import matplotlib.pyplot as pl
+t1 = np.loadtxt('/Users/delis/Desktop/convergence tests/dt5e-05dx0.5' + os.sep + 'Ninput150000_dt5e-05_unit32.00000000000001_tphys.dat')
+n1 = np.load('/Users/delis/Desktop/convergence tests/dt5e-05dx0.5' + os.sep + 'm8e-05_p2_gamma0.3125_gammak0.1_g0_gr0_ns3.75_density.npy')
+t2 = np.loadtxt('/Users/delis/Desktop/convergence tests/dt1.25e-05dx0.25' + os.sep + 'Ninput600000_dt1.25e-05_unit32.00000000000001_tphys.dat')
+n2 = np.load('/Users/delis/Desktop/convergence tests/dt1.25e-05dx0.25' + os.sep + 'm8e-05_p2_gamma0.3125_gammak0.1_g0_gr0_ns3.75_density.npy')
+t3 = np.loadtxt('/Users/delis/Desktop/convergence tests/dt3.125e-06dx0.125' + os.sep + 'Ninput2400000_dt3.125e-06_unit32.00000000000001_tphys.dat')
+n3 = np.load('/Users/delis/Desktop/convergence tests/dt3.125e-06dx0.125' + os.sep + 'm8e-05_p2_gamma0.3125_gammak0.1_g0_gr0_ns3.75_density.npy')
+pl.plot(t1, n1, label='dx=0.5, dt=5e-5')
+pl.plot(t2, n2, label='dx=0.25, dt=1.25e-5')
+pl.plot(t3, n3, label='dx=0.125, dt=3.125e-6')
+pl.legend()
+pl.show()
+'''
