@@ -13,11 +13,12 @@ import external as ext
 import model_script
 import itertools
 
+f = 5
 params_init = {}
 params_init['l0'] = [4 * 2 ** (1/2)]                                                                                         # μm
 params_init['tau0'] = [params_init.get('l0')[0] ** 2]                                                                        # ps
-params_init['N'] = [64 * 8]                                                                                                  # dimensionless!
-params_init['dx'] = [0.5 / 8]                                                                                                # dimensionless!
+params_init['N'] = [64 * f]                                                                                                  # dimensionless!
+params_init['dx'] = [0.5 / f]                                                                                                # dimensionless!
 params_init['m'] = [8e-5]                                                                                                    # will multiply m_el in model_script.py
 params_init['p'] = [2]                                                                                                       # dimensionless!
 params_init['gamma0'] = [0.3125]                                                                                             # ps^-1
@@ -26,9 +27,9 @@ params_init['g'] = [0]                                                          
 params_init['gr'] = [0]                                                                                                      # μeV μm^2
 params_init['ns'] = [3.75]                                                                                                   # μm^-2
 
-dt = 5e-5 / 32
-di = 5 * 32
-N_input = 1.5e5 * 32
+dt = 5e-5 / f ** 2
+di = 30 * f ** 2
+N_input = 1.5e5 * f**2
 tf = N_input * dt * params_init.get('tau0')[0]
 time = {}
 time['dt'] = dt
@@ -42,7 +43,7 @@ for i in range(0, int(N_input) + 1, di):
         t.append(ti)
 
 path = r'/home6/konstantinos' + os.sep + 'convergence tests'
-path_test = path + os.sep + 'dt' + str(dt) + 'dx' + str(params_init.get('dx')[0])
+path_test = path + os.sep + 'f' + str(f)
 
 if os.path.isdir(path) == False:
     os.mkdir(path)
@@ -53,7 +54,6 @@ else:
         os.mkdir(path_test)
     else:
         pass
-
 
 x, y = ext.space_grid(params_init.get('N')[0], params_init.get('dx')[0])
 np.savetxt(path_test + os.sep + 
@@ -84,6 +84,7 @@ def evolution(i_dict, savepath):
     print('Simulations parameters')
     print('----------------------')
     print(current_dict)
+    print('noise lvl = %.4f' % (current_dict.get('gamma0') * current_dict.get('tau0') * (current_dict.get('p') + 1) / 4 * time.get('dt') / current_dict.get('dx') ** 2))
     print('----------------------')
     p = current_dict.get('p')
     gamma0 = current_dict.get('gamma0')
@@ -99,7 +100,7 @@ def evolution(i_dict, savepath):
     np.save(savepath + os.sep + name + '_' + 'density' + '.npy', n)
     return None
 
-evolution(0, savepath = path_test)
+evolution(0, savepath = 0)
 
 '''
 import matplotlib.pyplot as pl

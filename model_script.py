@@ -67,7 +67,6 @@ class gpe:
         dt = time.get('dt')
         di = time.get('di')
         self.sigma = self.gamma0_tilde * (self.p + 1) / 4 * (time.get('dt') / self.dx ** 2)
-        print(self.sigma)
         theta_unw = []
         n = []
         for i in range(N_input + 1):
