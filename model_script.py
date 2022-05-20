@@ -43,7 +43,7 @@ class gpe:
         self.p = self.P_tilde * self. R_tilde / (self.gamma0_tilde * self.gammar_tilde)
         self.psi_x = 0.4 * (np.ones((self.N, self.N)) + 1j * np.ones((self.N, self.N)))
         self.psi_x /= self.psi0
-        
+
     def n(self, psi):
         return np.real(psi * np.conjugate(psi))
 
@@ -70,7 +70,6 @@ class gpe:
         theta_unw = []
         n = []
         for i in range(N_input + 1):
-            ti = i * dt * self.tau0
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
             psi_k *= self.exp_k(dt)
@@ -84,18 +83,17 @@ class gpe:
                 theta_unwound_new = theta_wound_old
             else:
                 theta_wound_new = np.angle(self.psi_x)
-                deltatheta = theta_wound_new - theta_wound_old
-                theta_unwound_new = theta_unwound_old + ext.unwinding(deltatheta)
+                theta_unwound_new = theta_unwound_old + ext.unwinding(theta_wound_new - theta_wound_old)
                 theta_wound_old = theta_wound_new
                 theta_unwound_old = theta_unwound_new
-            if ti >= 0 and i % di == 0:
+            if i % di == 0:
                 theta_unw.append(theta_unwound_new)
                 n.append(np.mean(self.n(self.psi_x)))
                 if i % 500 == 0:
-                    print(i)
+                    print(i / N_input)
         return theta_unw, n
 
-    def time_evolution_theta(self, cutoff, **time):
+    def time_evolution_theta(self, **time):
         np.random.seed()
         N_input = int(time.get('N_input'))
         dt = time.get('dt')
@@ -117,7 +115,7 @@ class gpe:
                 theta_unwound_new = theta_wound_old
             else:
                 theta_wound_new = np.angle(self.psi_x)
-                theta_unwound_new = theta_unwound_old + ext.unwinding(theta_wound_new - theta_wound_old, cutoff)
+                theta_unwound_new = theta_unwound_old + ext.unwinding(theta_wound_new - theta_wound_old)
                 theta_wound_old = theta_wound_new
                 theta_unwound_old = theta_unwound_new
             if i % di == 0:
