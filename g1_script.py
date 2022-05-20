@@ -80,6 +80,7 @@ def call_avg(final_save_path, **args):
     keys = args.keys()
     values = (args[key] for key in keys)
     params = [dict(zip(keys, combination)) for combination in itertools.product(*values)]
+    print(keys)
     for parameters_current in params:
         p = parameters_current.get('p')
         gamma0 = parameters_current.get('gamma0')
@@ -88,7 +89,7 @@ def call_avg(final_save_path, **args):
         gr = parameters_current.get('gr')
         ns = parameters_current.get('ns')
         m = parameters_current.get('m')
-        
+ 
         name = 'm' + str(m) + '_' + 'p' + str(p) + '_' + 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2) + '_' + 'g' + str(g) + '_' + 'gr' + str(gr) + '_'  + 'ns' + str(ns)
         misc_folder = initial_path + os.sep + name
         if os.path.isdir(initial_path) == True and os.path.isdir(misc_folder) == False:
