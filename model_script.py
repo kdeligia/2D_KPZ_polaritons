@@ -10,9 +10,10 @@ import numpy as np
 import external as ext
 from scipy.fftpack import fft2, ifft2
 
-c = 3e2 # μm ps^-1
-hbar = 658.2119569 # μeV ps
-melectron = 0.510998950 * 1e12 / c ** 2 # μeV ps^2 μm^-2)
+c = 3e2  # μm ps^-1
+hbar = 658.2119569  # μeV ps
+melectron = 0.510998950 * 1e12 / c ** 2  # μeV ps^2 μm^-2)
+
 
 class gpe:
     def __init__(self, **args):
@@ -21,14 +22,12 @@ class gpe:
         self.psi0 = 1 / self.l0
         self.rho0 = 1 / self.l0 ** 2
         self.epsilon0 = hbar / self.tau0
-        
         self.N = int(args.get('N'))
         self.dx = args.get('dx')
         self.x, self.y = ext.space_grid(self.N, self.dx)
-        self.kx = (2 * np.pi) / self.dx * np.fft.fftfreq(self.N, d = 1)
-        self.ky = (2 * np.pi) / self.dx * np.fft.fftfreq(self.N, d = 1)
-        self.KX, self.KY = np.meshgrid(self.kx, self.ky, sparse = True)
-        
+        self.kx = (2 * np.pi) / self.dx * np.fft.fftfreq(self.N, d=1)
+        self.ky = (2 * np.pi) / self.dx * np.fft.fftfreq(self.N, d=1)
+        self.KX, self.KY = np.meshgrid(self.kx, self.ky, sparse=True)
         self.gamma2_tilde = args.get('gamma2') * self.tau0 / self.l0 ** 2
         self.gamma0_tilde = args.get('gamma0') * self.tau0
         self.gammar_tilde = 0.1 * self.gamma0_tilde

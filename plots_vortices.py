@@ -16,7 +16,7 @@ from matplotlib import rcParams as rcP
 import gc
 
 import sys
-sys.path.insert(0, '/Users/delis/Python Workspace/2D_KPZ_polaritons')
+sys.path.insert(0, '/Users/konstantinosdeligiannis/Python Workspace/2D_KPZ_polaritons')
 import external as ext
 
 pi = 3.14
@@ -400,27 +400,10 @@ def scan_y(arg, curl_x, curl_y, curl_t):
                     list_pairs_final.append(item)
     return np.array(list_pairs_final), mean_density / count
 
-'''
-mydict_t = dict_fill('t projection', curl_t)
-countmissing, pos_pairs_xy = scan_t(mydict_t, curl_x, curl_y, curl_t)
-print('---> Total pairs in XY plane = %.i' %(pos_pairs_xy.shape[0]//2))
-print('---> Total clusters of missing quanta = %.i \n' %countmissing)
-
-mydict_x = dict_fill('x projection', curl_x)
-countmissing, pos_pairs_yt = scan_x(mydict_x, curl_x, curl_y, curl_t)
-print('---> Total pairs in YT plane = %.i' %(pos_pairs_yt.shape[0]//2))
-print('-> Total clusters of missing quanta = %.i \n' %countmissing)
-
-mydict_y = dict_fill('y projection', curl_y)
-countmissing, pos_pairs_xt = scan_y(mydict_y, curl_x, curl_y, curl_t)
-print('---> Total pairs in XT plane = %.i' %(pos_pairs_xt.shape[0]//2))
-print('-> Total clusters of missing quanta = %.i' %countmissing)
-'''
-
 def spatiotemporal_vortices(f):
     dx = 0.5 / f
     dy = dx
-    path = '/Users/delis/Desktop/convergence tests/' + 'f' + str(f)
+    path = '/Users/konstantinosdeligiannis/Documents/PhD/Data 2D' +  os.sep + 'convergence tests' + os.sep + 'f' + str(f)
     for element in os.listdir(path):
         if 'tphys' in element:
             t = np.loadtxt(path + os.sep + element)
@@ -469,7 +452,7 @@ def spatiotemporal_vortices(f):
 def spatial_vortices(p):
     dx = 0.5
     dy = dx
-    path = '/Users/delis/Desktop/pump tests/'
+    path = '/Users/konstantinosdeligiannis/Documents/PhD/Data 2D' +  os.sep + 'vortices' + os.sep + 'pump tests' + os.sep
     for element in os.listdir(path):
         if 'tphys' in element:
             t = np.loadtxt(path + os.sep + element)
@@ -491,6 +474,7 @@ def spatial_vortices(p):
     
     mydict_t = dict_fill('t projection', curl_t)
     pos_pairs_xy, mean_density_xy = scan_t(mydict_t, curl_x, curl_y, curl_t)
+    print('---> p = %.2f', p)
     print('---> Total pairs in XY plane = %.i' %(pos_pairs_xy.shape[0]//2))
     print('---> Mean density in XY plane = %.5f' %mean_density_xy)
     np.savetxt(path + os.sep + 'p' + str(p) + '_' + 'pos_pairs_xy.dat', pos_pairs_xy)
@@ -502,7 +486,7 @@ d[0] = [1, 2, 3, 4, 5, 6, 7]
 for i in range(len(d[0])):
     f = int(d[0, i])
     d[1, i], d[2, i], d[3, i] = spatiotemporal_vortices(f)
-np.savetxt('/Users/delis/Desktop/mean_density_fig2.dat', d)
+np.savetxt('/Users/konstantinosdeligiannis/Documents/PhD/Data 2D' +  os.sep + 'vortices' + os.sep + 'mean_density_fig2.dat', d)
 '''
 
 '''
@@ -513,9 +497,8 @@ for i in range(len(d[0])):
     if p == 2:
         p = int(p)
     d[1, i] = spatial_vortices(p)
-np.savetxt('/Users/delis/Desktop/mean_density_fig1.dat', d)
+np.savetxt('/Users/konstantinosdeligiannis/Documents/PhD/Data 2D' +  os.sep + 'vortices' + os.sep + 'mean_density_fig1.dat', d)
 '''
-
 # =============================================================================
 # Fig 1
 # =============================================================================
@@ -621,7 +604,7 @@ fig.show()
 # =============================================================================
 # Fig 2
 # =============================================================================
-
+'''
 from matplotlib.ticker import FixedLocator
 mean_density_fig2 = np.array(np.loadtxt('/Users/delis/Desktop/convergence tests/mean_density_fig2.dat'))
 fig, ax = pl.subplots()
@@ -732,7 +715,7 @@ for row in rows:
     elif positions[row, 3] < 0:
         axins2.plot(t[t_index], y[y_index], marker=(5, 2), color='red', markersize=0.0001)
 fig.show()
-
+'''
 # =============================================================================
 # Trajectories vs time
 # =============================================================================
