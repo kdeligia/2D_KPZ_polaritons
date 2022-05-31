@@ -7,17 +7,15 @@ Created on Tue Feb  8 10:06:57 2022
 """
 
 import math
-import time as time
 import os
 import numpy as np
 import matplotlib.pyplot as pl
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib import rcParams as rcP
-import gc
+from matplotlib.ticker import FixedLocator
 
 import sys
 sys.path.insert(0, '/Users/konstantinosdeligiannis/Python Workspace/2D_KPZ_polaritons')
-import external as ext
 
 pi = 3.14
 fig_width_pt = 246.0
@@ -30,9 +28,9 @@ fig_size = [fig_width, fig_height]
 params = {
         'xtick.direction': 'in',
         'ytick.direction': 'in',
-        'axes.formatter.limits' : [-4, 4],
-        'legend.columnspacing' : 1,
-        'legend.fontsize' : 10,
+        'axes.formatter.limits': [-4, 4],
+        'legend.columnspacing': 1,
+        'legend.fontsize': 10,
         'legend.frameon': False,
         'axes.labelsize': 12,
         'font.size': 12,
@@ -40,16 +38,17 @@ params = {
         'ytick.labelsize': 12,
         'lines.linewidth': 1,
         'lines.markersize': 3,
-        'ytick.major.pad' : 4,
-        'xtick.major.pad' : 4,
+        'ytick.major.pad': 4,
+        'xtick.major.pad': 4,
         'text.usetex': True,
-        'font.family' : 'sans-serif',
-        'font.weight' : 'light',
+        'font.family': 'sans-serif',
+        'font.weight': 'light',
         'figure.figsize': fig_size,
         'savefig.format': 'pdf',
         'savefig.bbox': 'tight'
 }
 rcP.update(params)
+
 
 def grad3d(theta, dt, dx, dy):
     Ft = np.gradient(theta, dt, axis=0)
@@ -57,45 +56,18 @@ def grad3d(theta, dt, dx, dy):
     Fy = np.gradient(np.unwrap(theta, axis=2), dy, axis=2)
     return Ft, Fx, Fy
 
+
 def curl(Ft, Fx, Fy, dt, dx, dy):
     curl_t = np.gradient(Fy, dx, axis=1) - np.gradient(Fx, dy, axis=2)
     curl_x = np.gradient(Ft, dy, axis=2) - np.gradient(Fy, dt, axis=0)
     curl_y = np.gradient(Fx, dt, axis=0) - np.gradient(Ft, dx, axis=1)
     return curl_t, curl_x, curl_y
 
+
 l0 = 4 * 2 ** (1/2)
 tau0 = l0 ** 2
 rho0 = 1 / l0 ** 2
-# =============================================================================
-# Load data 
-# =============================================================================
-'''
-offset = 12500
-path = '/Users/delis/Desktop/simulations vortices/'
-x = np.loadtxt(path + 'dt5e-05dx0.5/' + 'N64_dx0.5_unit5.656854249492381_xphys.dat')
-y = np.loadtxt(path + 'dt5e-05dx0.5/' + 'N64_dx0.5_unit5.656854249492381_yphys.dat')
-t = np.round(np.loadtxt(path + 'dt5e-05dx0.5/' + 'Ninput250000_dt5e-05_unit32.00000000000001_tphys.dat'), 3)
-dx = 0.5 
-dy = 0.5
-dt = 5e-5 * 5
 
-n = np.load(path + 'dt5e-05dx0.5/' + 'm8e-05_p2_gamma0.3125_gammak0.1_g0_gr0_ns3.75_density.npy')[offset:25001]
-theta = np.load(path + 'dt5e-05dx0.5/' + 'm8e-05_p2_gamma0.3125_gammak0.1_g0_gr0_ns3.75_theta_unwrapped.npy')[offset:25001]
-print(theta.shape)
-#grad3d(theta, dt, dx, dy)
-
-Ft = np.load(path + 'dt5e-05dx0.5/' + 'Ft.npy')
-Fx = np.load(path + 'dt5e-05dx0.5/' + 'Fx.npy')
-Fy = np.load(path + 'dt5e-05dx0.5/' + 'Fy.npy')
-
-curl_t, curl_x, curl_y = curl(Ft, Fx, Fy, dt, dx, dy)
-curl_t *= dx * dy
-curl_x *= dt * dy
-curl_y *= dt * dx
-curl_t[abs(curl_t)<0.01] = 0
-curl_x[abs(curl_x)<0.01] = 0
-curl_y[abs(curl_y)<0.01] = 0
-'''
 # =============================================================================
 # Convergence tests: steady state density
 # =============================================================================
@@ -155,6 +127,7 @@ fig.show()
 # Treat data
 # =============================================================================
 
+
 def dict_fill(keyword, A):
     a, b, c = np.where(abs(A) >= pi/2)
     mydict = {}
@@ -180,6 +153,7 @@ def dict_fill(keyword, A):
             mydict[c[i]].append([a[i], b[i]])
         return mydict
 
+
 def decluster_simple(keyword, key, lists, vort_x, vort_y, vort_t):
     incl_pos = True
     incl_neg = True
@@ -189,10 +163,10 @@ def decluster_simple(keyword, key, lists, vort_x, vort_y, vort_t):
         for i in range(len(lists)):
             t_index = lists[i][0]
             y_index = lists[i][1]
-            if vort_t[i] == 0 and vort_x[i] > 0 and vort_y[i] == 0 and incl_pos == True:
+            if vort_t[i] == 0 and vort_x[i] > 0 and vort_y[i] == 0 and incl_pos is True:
                 l.append([x_index, y_index, t_index, 2 * pi, 0, 0])
                 incl_pos = False
-            elif vort_t[i] == 0 and vort_x[i] < 0 and vort_y[i] == 0 and incl_neg == True:
+            elif vort_t[i] == 0 and vort_x[i] < 0 and vort_y[i] == 0 and incl_neg is True:
                 l.append([x_index, y_index, t_index, - 2 * pi, 0, 0])
                 incl_neg = False
         return l
@@ -201,10 +175,10 @@ def decluster_simple(keyword, key, lists, vort_x, vort_y, vort_t):
         for i in range(len(lists)):
             t_index = lists[i][0]
             x_index = lists[i][1]
-            if vort_t[i] == 0 and vort_x[i] == 0 and vort_y[i] > 0 and incl_pos == True:
+            if vort_t[i] == 0 and vort_x[i] == 0 and vort_y[i] > 0 and incl_pos is True:
                 l.append([x_index, y_index, t_index, 0, 2 * pi, 0])
                 incl_pos = False
-            elif vort_t[i] == 0 and vort_x[i] == 0 and vort_y[i] < 0 and incl_neg == True:
+            elif vort_t[i] == 0 and vort_x[i] == 0 and vort_y[i] < 0 and incl_neg is True:
                 l.append([x_index, y_index, t_index, 0, -2 * pi, 0])
                 incl_neg = False
         return l
@@ -213,13 +187,14 @@ def decluster_simple(keyword, key, lists, vort_x, vort_y, vort_t):
         for i in range(len(lists)):
             x_index = lists[i][0]
             y_index = lists[i][1]
-            if vort_t[i] > 0 and incl_pos == True:
+            if vort_t[i] > 0 and incl_pos is True:
                 l.append([x_index, y_index, t_index, 0, 0, 2 * pi])
                 incl_pos = False
-            elif vort_t[i] < 0 and incl_neg == True:
+            elif vort_t[i] < 0 and incl_neg is True:
                 l.append([x_index, y_index, t_index, 0, 0, -2 * pi])
                 incl_neg = False
         return l
+
 
 def decluster_advanced(keyword, key, lists, curl_x, curl_y, curl_t):
     lists.sort()
@@ -308,6 +283,7 @@ def decluster_advanced(keyword, key, lists, curl_x, curl_y, curl_t):
                     list_pairs.append([math.floor(mean_index_x), math.floor(mean_index_y), t_index, 0, 0, -2 * pi])
     return list_pairs
 
+
 def scan_t(arg, curl_x, curl_y, curl_t):
     keys = arg.keys()
     list_pairs_final = []
@@ -334,7 +310,8 @@ def scan_t(arg, curl_x, curl_y, curl_t):
                 mean_density += len(list_pairs) / (179.6051224213831 * 179.6051224213831)
                 for item in list_pairs:
                     list_pairs_final.append(item)
-    return  np.array(list_pairs_final), mean_density / count
+    return np.array(list_pairs_final), mean_density / count
+
 
 def scan_x(arg, curl_x, curl_y, curl_t):
     keys = arg.keys()
@@ -368,6 +345,7 @@ def scan_x(arg, curl_x, curl_y, curl_t):
                     list_pairs_final.append(item)
     return np.array(list_pairs_final), mean_density / count
 
+
 def scan_y(arg, curl_x, curl_y, curl_t):
     keys = arg.keys()
     list_pairs_final = []
@@ -400,45 +378,47 @@ def scan_y(arg, curl_x, curl_y, curl_t):
                     list_pairs_final.append(item)
     return np.array(list_pairs_final), mean_density / count
 
+
 def spatiotemporal_vortices(f):
     dx = 0.5 / f
     dy = dx
-    path = '/Users/konstantinosdeligiannis/Documents/PhD/Data 2D' +  os.sep + 'convergence tests' + os.sep + 'f' + str(f)
+    path = '/Users/konstantinosdeligiannis/Documents/PhD/Data 2D' + os.sep + 'vortices/convergence tests' + os.sep + 'f' + str(f)
     for element in os.listdir(path):
         if 'tphys' in element:
             t = np.loadtxt(path + os.sep + element)
             dt = (t[1] - t[0]) / tau0
-            i1 = np.where(t>=100)[0][0]
+            i1 = np.where(t >= 100)[0][0]
             try:
-                i2 = np.where(t>=200)[0][0]
+                i2 = np.where(t >= 200)[0][0]
             except IndexError:
                 i2 = len(t)-1
+    print('---> f = %.i' % f)
     print('---> N = %.i, dx = %.5f' % (64 * f, dx * l0))
-    theta = np.load(path + os.sep + 'm8e-05_p2_gamma0.3125_gammak0.1_g0_gr0_ns3.75_theta_unwrapped.npy')[i1 : i2+1]
+    theta = np.load(path + os.sep + 'm8e-05_p2_gamma0.3125_gammak0.1_g0_gr0_ns3.75_theta_unwrapped.npy')[i1: i2 + 1]
 
     Ft, Fx, Fy = grad3d(theta, dt, dx, dy)
     curl_t, curl_x, curl_y = curl(Ft, Fx, Fy, dt, dx, dy)
     curl_t *= dx * dy
     curl_x *= dt * dy
     curl_y *= dt * dx
-    curl_t[abs(curl_t)<0.01] = 0
-    curl_x[abs(curl_x)<0.01] = 0
-    curl_y[abs(curl_y)<0.01] = 0
+    curl_t[abs(curl_t) < 0.01] = 0
+    curl_x[abs(curl_x) < 0.01] = 0
+    curl_y[abs(curl_y) < 0.01] = 0
 
     mydict_t = dict_fill('t projection', curl_t)
     pos_pairs_xy, mean_density_xy = scan_t(mydict_t, curl_x, curl_y, curl_t)
-    print('---> Total pairs in XY plane = %.i' %(pos_pairs_xy.shape[0]//2))
-    print('---> Mean density in XY plane = %.5f' %mean_density_xy)
-    
+    print('---> Total pairs in XY plane = %.i' % (pos_pairs_xy.shape[0] // 2))
+    print('---> Mean density in XY plane = %.5f' % mean_density_xy)
+
     mydict_x = dict_fill('x projection', curl_x)
     pos_pairs_yt, mean_density_yt = scan_x(mydict_x, curl_x, curl_y, curl_t)
-    print('---> Total pairs in YT plane = %.i' %(pos_pairs_yt.shape[0]//2))
-    print('---> Mean density in YT plane = %.5f' %mean_density_yt)
+    print('---> Total pairs in YT plane = %.i' % (pos_pairs_yt.shape[0] // 2))
+    print('---> Mean density in YT plane = %.8f' % mean_density_yt)
 
     mydict_y = dict_fill('y projection', curl_y)
     pos_pairs_xt, mean_density_xt = scan_y(mydict_y, curl_x, curl_y, curl_t)
-    print('---> Total pairs in XT plane = %.i' %(pos_pairs_xt.shape[0]//2))
-    print('---> Mean density in XT plane = %.5f' %mean_density_xt)
+    print('---> Total pairs in XT plane = %.i' % (pos_pairs_xt.shape[0] // 2))
+    print('---> Mean density in XT plane = %.8f' % mean_density_xt)
 
     np.savetxt(path + os.sep + 'pos_pairs_xy.dat', pos_pairs_xy)
     del pos_pairs_xy
@@ -446,39 +426,40 @@ def spatiotemporal_vortices(f):
     del pos_pairs_xt
     np.savetxt(path + os.sep + 'pos_pairs_yt.dat', pos_pairs_yt)
     del pos_pairs_yt
-
     return dx, (mean_density_yt + mean_density_xt) / 2, mean_density_xy
+
 
 def spatial_vortices(p):
     dx = 0.5
     dy = dx
-    path = '/Users/konstantinosdeligiannis/Documents/PhD/Data 2D' +  os.sep + 'vortices' + os.sep + 'pump tests' + os.sep
+    path = '/Users/konstantinosdeligiannis/Documents/PhD/Data 2D' + os.sep + 'vortices/pump tests' + os.sep + 'pump tests' + os.sep
     for element in os.listdir(path):
         if 'tphys' in element:
             t = np.loadtxt(path + os.sep + element)
             dt = (t[1] - t[0]) / tau0
-            i1 = np.where(t>=100)[0][0]
+            i1 = np.where(t >= 100)[0][0]
             try:
-                i2 = np.where(t>=200)[0][0]
+                i2 = np.where(t >= 200)[0][0]
             except IndexError:
                 i2 = len(t)-1
-    theta = np.load(path + os.sep + 'm8e-05' + '_' + 'p' + str(p) + '_gamma0.3125_gammak0.1_g0_gr0_ns3.75_theta_unwrapped.npy')[i1 : i2+1]
+    theta = np.load(path + os.sep + 'm8e-05' + '_' + 'p' + str(p) + '_gamma0.3125_gammak0.1_g0_gr0_ns3.75_theta_unwrapped.npy')[i1: i2 + 1]
     Ft, Fx, Fy = grad3d(theta, dt, dx, dy)
     curl_t, curl_x, curl_y = curl(Ft, Fx, Fy, dt, dx, dy)
     curl_t *= dx * dy
     curl_x *= dt * dy
     curl_y *= dt * dx
-    curl_t[abs(curl_t)<0.01] = 0
-    curl_x[abs(curl_x)<0.01] = 0
-    curl_y[abs(curl_y)<0.01] = 0
-    
+    curl_t[abs(curl_t) < 0.01] = 0
+    curl_x[abs(curl_x) < 0.01] = 0
+    curl_y[abs(curl_y) < 0.01] = 0
+
     mydict_t = dict_fill('t projection', curl_t)
     pos_pairs_xy, mean_density_xy = scan_t(mydict_t, curl_x, curl_y, curl_t)
     print('---> p = %.2f', p)
-    print('---> Total pairs in XY plane = %.i' %(pos_pairs_xy.shape[0]//2))
-    print('---> Mean density in XY plane = %.5f' %mean_density_xy)
+    print('---> Total pairs in XY plane = %.i' % (pos_pairs_xy.shape[0]//2))
+    print('---> Mean density in XY plane = %.5f' % mean_density_xy)
     np.savetxt(path + os.sep + 'p' + str(p) + '_' + 'pos_pairs_xy.dat', pos_pairs_xy)
     return mean_density_xy
+
 
 '''
 d = np.zeros((4, 7))
@@ -486,7 +467,7 @@ d[0] = [1, 2, 3, 4, 5, 6, 7]
 for i in range(len(d[0])):
     f = int(d[0, i])
     d[1, i], d[2, i], d[3, i] = spatiotemporal_vortices(f)
-np.savetxt('/Users/konstantinosdeligiannis/Documents/PhD/Data 2D' +  os.sep + 'vortices' + os.sep + 'mean_density_fig2.dat', d)
+np.savetxt('/Users/konstantinosdeligiannis/Documents/PhD/Data 2D' + os.sep + 'vortices' + os.sep + 'mean_density_fig2.dat', d)
 '''
 
 '''
@@ -499,6 +480,7 @@ for i in range(len(d[0])):
     d[1, i] = spatial_vortices(p)
 np.savetxt('/Users/konstantinosdeligiannis/Documents/PhD/Data 2D' +  os.sep + 'vortices' + os.sep + 'mean_density_fig1.dat', d)
 '''
+
 # =============================================================================
 # Fig 1
 # =============================================================================
@@ -604,9 +586,8 @@ fig.show()
 # =============================================================================
 # Fig 2
 # =============================================================================
-'''
-from matplotlib.ticker import FixedLocator
-mean_density_fig2 = np.array(np.loadtxt('/Users/delis/Desktop/convergence tests/mean_density_fig2.dat'))
+
+mean_density_fig2 = np.array(np.loadtxt('/Users/konstantinosdeligiannis/Documents/PhD/Data 2D' + os.sep + 'vortices' + os.sep + 'mean_density_fig2.dat'))
 fig, ax = pl.subplots()
 ax.set_ylabel(r'$\overline{d}_{vort}[\mu m^{-2}, \mu m^{-1} ps^{-1}]$')
 ax.set_xlabel(r'$dx[\mu m]$')
@@ -615,7 +596,7 @@ ax.plot(mean_density_fig2[1] * l0, mean_density_fig2[3], 'o-', label=r'$xy$')
 ax.plot(mean_density_fig2[1] * l0, mean_density_fig2[2], 'o-', label=r'$xt+yt$')
 ax.set_xticks(np.linspace(0, 3, 7))
 ax.set_xticklabels(['$0$', '$0.5$', '$1$', '$1.5$', '$2$', '$2.5$', '$3$'])
-ax.yaxis.set_major_locator(FixedLocator(locs = np.logspace(-8, 1, 10)))
+ax.yaxis.set_major_locator(FixedLocator(locs=np.logspace(-8, 1, 10)))
 ax.set_ylim([1e-8, 1e1])
 ax.set_xlim([0, 3.5])
 ax.legend(loc='lower right')
@@ -623,39 +604,34 @@ ax.legend(loc='lower right')
 f = 2
 dx = 0.5 / f
 N = 64 * f
-path = '/Users/delis/Desktop/convergence tests/' + 'f' + str(f)
+path = '/Users/konstantinosdeligiannis/Documents/PhD/Data 2D' + os.sep + 'vortices/convergence tests' + os.sep + 'f' + str(f)
 for element in os.listdir(path):
     if 'tphys' in element:
         t = np.loadtxt(path + os.sep + element)
-        i1 = np.where(t>=100)[0][0]
+        i1 = np.where(t >= 100)[0][0]
         try:
-            i2 = np.where(t>=200)[0][0]
+            i2 = np.where(t >= 200)[0][0]
         except IndexError:
             i2 = -1
     if 'xphys' in element:
         x = np.loadtxt(path + os.sep + element)
     if 'yphys' in element:
         y = np.loadtxt(path + os.sep + element)
-T, Y = np.meshgrid(t[i1 : i2+1 : 50], x, indexing='ij')
+T, Y = np.meshgrid(t[i1: i2: 50], x, indexing='ij')
 
 print('---> N = %.i, dx = %.5f' % (N, dx * l0))
-theta = np.load(path + os.sep + 'm8e-05_p2_gamma0.3125_gammak0.1_g0_gr0_ns3.75_theta_unwrapped.npy')[i1 : i2+1]
+theta = np.load(path + os.sep + 'm8e-05_p2_gamma0.3125_gammak0.1_g0_gr0_ns3.75_theta_unwrapped.npy')[i1: i2]
 positions = np.loadtxt(path + os.sep + 'pos_pairs_yt.dat')
 axins1 = ax.inset_axes([5.815e-1, 6.5e-1, 0.28, 0.32])
-axins1.set_ylabel(r'$y[\mu m]$', fontsize = 9, labelpad = -0.25)
-axins1.set_xlabel(r'$t[ps]$', fontsize = 9, labelpad = -8)
-axins1.set_xticks([100, 200])
-axins1.tick_params(which='both', labelsize = 9)
+axins1.set_ylabel(r'$y[\mu m]$', fontsize=9, labelpad=-0.25)
+axins1.set_xlabel(r'$t[ps]$', fontsize=9, labelpad=-8)
+axins1.set_xticks([t[i1], t[i2]])
+axins1.set_xticklabels([r'$100$', r'$200$'])
+axins1.tick_params(which='both', labelsize=9)
 im1 = axins1.pcolormesh(T, Y, np.angle(np.exp(1j * theta[::50, N//2, :])), cmap='twilight', shading='gouraud')
-cax1 = inset_axes(axins1,
-                 width="5%",
-                 height="100%",
-                 loc='lower left',
-                 bbox_to_anchor=(1.05, 0., 1, 1),
-                 bbox_transform=axins1.transAxes,
-                 borderpad=0)
+cax1 = inset_axes(axins1, width="5%", height="100%", loc='lower left', bbox_to_anchor=(1.05, 0., 1, 1), bbox_transform=axins1.transAxes, borderpad=0)
 cbar1 = fig.colorbar(im1, cax=cax1)
-cbar1.set_label(r'$\theta_{x=0}(t, y)$', fontsize = 9, labelpad = -4)
+cbar1.set_label(r'$\theta_{x=0}(t, y)$', fontsize=9, labelpad=-4)
 cax1.set_yticks([-np.pi, np.pi])
 cax1.set_yticklabels([r'-$\pi$', r'$\pi$'])
 rows = np.where(positions[:, 0] == N//2)[0]
@@ -670,40 +646,33 @@ for row in rows:
 f = 4
 dx = 0.5 / f
 N = 64 * f
-path = '/Users/delis/Desktop/convergence tests/' + 'f' + str(f)
+path = '/Users/konstantinosdeligiannis/Documents/PhD/Data 2D' + os.sep + 'vortices/convergence tests' + os.sep + 'f' + str(f)
 for element in os.listdir(path):
     if 'tphys' in element:
         t = np.loadtxt(path + os.sep + element)
-        i1 = np.where(t>=100)[0][0]
+        i1 = np.where(t >= 100)[0][0]
         try:
-            i2 = np.where(t>=200)[0][0]
+            i2 = np.where(t >= 200)[0][0]
         except IndexError:
             i2 = -1
     if 'xphys' in element:
         x = np.loadtxt(path + os.sep + element)
     if 'yphys' in element:
         y = np.loadtxt(path + os.sep + element)
-T, Y = np.meshgrid(t[i1 : i2 : 6], x, indexing='ij')
+T, Y = np.meshgrid(t[i1: i2: 6], x, indexing='ij')
 print('---> N = %.i, dx = %.5f' % (N, dx * l0))
-theta = np.load(path + os.sep + 'm8e-05_p2_gamma0.3125_gammak0.1_g0_gr0_ns3.75_theta_unwrapped.npy')[i1 : i2]
+theta = np.load(path + os.sep + 'm8e-05_p2_gamma0.3125_gammak0.1_g0_gr0_ns3.75_theta_unwrapped.npy')[i1: i2]
 positions = np.loadtxt(path + os.sep + 'pos_pairs_yt.dat')
 axins2 = ax.inset_axes([1.75e-1, 1.2e-1, 0.3, 0.32])
-axins2.set_ylabel(r'$y[\mu m]$', fontsize = 9, labelpad=-0.25)
-axins2.set_xlabel(r'$t[ps]$', fontsize = 9, labelpad=-8)
-axins2.set_xticks([100.032, 199.68])
+axins2.set_ylabel(r'$y[\mu m]$', fontsize=9, labelpad=-0.25)
+axins2.set_xlabel(r'$t[ps]$', fontsize=9, labelpad=-8)
+axins2.set_xticks([t[i1], t[i2]])
 axins2.set_xticklabels([r'$100$', r'$200$'])
-axins2.tick_params(which='both', labelsize = 9)
-axins2.set_xlim([t[i1], t[i2]])
+axins2.tick_params(which='both', labelsize=9)
 im2 = axins2.pcolormesh(T, Y, np.angle(np.exp(1j * theta[::6, N//2, :])), cmap='twilight', shading='gouraud')
-cax2 = inset_axes(axins2,
-                 width="5%",
-                 height="100%",
-                 loc='lower left',
-                 bbox_to_anchor=(1.05, 0., 1, 1),
-                 bbox_transform=axins2.transAxes,
-                 borderpad=0)
+cax2 = inset_axes(axins2, width="5%", height="100%", loc='lower left', bbox_to_anchor=(1.05, 0., 1, 1), bbox_transform=axins2.transAxes, borderpad=0)
 cbar2 = fig.colorbar(im2, cax=cax2)
-cbar2.set_label(r'$\theta_{x=0}(t, y)$', fontsize = 9, labelpad = -4)
+cbar2.set_label(r'$\theta_{x=0}(t, y)$', fontsize=9, labelpad=-4)
 cax2.set_yticks([-np.pi, np.pi])
 cax2.set_yticklabels([r'-$\pi$', r'$\pi$'])
 rows = np.where(positions[:, 0] == N//2)[0]
@@ -714,8 +683,7 @@ for row in rows:
         axins2.plot(t[t_index], y[y_index], marker=(5, 2), color='green', markersize=0.0001)
     elif positions[row, 3] < 0:
         axins2.plot(t[t_index], y[y_index], marker=(5, 2), color='red', markersize=0.0001)
-fig.show()
-'''
+pl.savefig('/Users/konstantinosdeligiannis/Desktop/test.pdf', format='pdf')
 # =============================================================================
 # Trajectories vs time
 # =============================================================================

@@ -13,7 +13,7 @@ import external as ext
 import model_script
 import itertools
 
-f = 3                                                                           # allows us to study the dependence on the grid spacing by keeping the ratio dt/dx^2 constant consistenly. Can be changed!
+f = 9                                                                           # allows us to study the dependence on the grid spacing by keeping the ratio dt/dx^2 constant consistenly. Can be changed!
 params_init = {}
 params_init['l0'] = [4 * 2 ** (1/2)]                                            # μm
 params_init['tau0'] = [params_init.get('l0')[0] ** 2]                           # ps
@@ -29,7 +29,7 @@ params_init['ns'] = [3.75]                                                      
 
 dt = 5e-5 / f ** 2
 di = 30 * f ** 2
-N_input = 1.25e5 * f ** 2
+N_input = 1.26e5 * f ** 2
 tf = N_input * dt * params_init.get('tau0')[0]
 time = {}
 time['dt'] = dt
