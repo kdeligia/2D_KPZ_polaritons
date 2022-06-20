@@ -7,7 +7,7 @@ Created on Mon Aug  9 15:36:47 2021
 """
 
 import numpy as np
-import external as ext
+import utils
 from scipy.fftpack import fft2, ifft2
 
 c = 3e2  # μm ps^-1
@@ -16,15 +16,15 @@ melectron = 0.510998950 * 1e12 / c ** 2  # μeV ps^2 μm^-2)
 
 
 class gpe:
-    def __init__(self, **args):
+    def __init__(self, N, dx, **args):
         self.l0 = args.get('l0')
         self.tau0 = args.get('tau0')
         self.psi0 = 1 / self.l0
         self.rho0 = 1 / self.l0 ** 2
         self.epsilon0 = hbar / self.tau0
-        self.N = int(args.get('N'))
-        self.dx = args.get('dx')
-        self.x, self.y = ext.space_grid(self.N, self.dx)
+        self.N = N
+        self.dx = dx
+        self.x, self.y = utils.space_grid(self.N, self.dx)
         self.kx = (2 * np.pi) / self.dx * np.fft.fftfreq(self.N, d=1)
         self.ky = (2 * np.pi) / self.dx * np.fft.fftfreq(self.N, d=1)
         self.KX, self.KY = np.meshgrid(self.kx, self.ky, sparse=True)
@@ -67,8 +67,9 @@ class gpe:
         di = time.get('di')
         self.sigma = self.gamma0_tilde * (self.p + 1) / 4 * (time.get('dt') / self.dx ** 2)
         theta_unw = []
-        n = []
+        flag = False
         for i in range(N_input + 1):
+            ti = i * dt * self.tau0
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
             psi_k *= self.exp_k(dt)
@@ -82,15 +83,14 @@ class gpe:
                 theta_unwound_new = theta_wound_old
             else:
                 theta_wound_new = np.angle(self.psi_x)
-                theta_unwound_new = theta_unwound_old + ext.unwinding(theta_wound_new - theta_wound_old)
+                theta_unwound_new = theta_unwound_old + utils.unwinding(theta_wound_new - theta_wound_old)
                 theta_wound_old = theta_wound_new
                 theta_unwound_old = theta_unwound_new
-            if i % di == 0:
+            if int(ti) >= 100 and int(ti) <= 200:
+                flag = True
+            if flag is True and i % di == 0:
                 theta_unw.append(theta_unwound_new)
-                n.append(np.mean(self.n(self.psi_x)))
-                if i % 500 == 0:
-                    print(i / N_input)
-        return theta_unw, n
+        return theta_unw
 
     def time_evolution_theta(self, **time):
         np.random.seed()
@@ -114,7 +114,7 @@ class gpe:
                 theta_unwound_new = theta_wound_old
             else:
                 theta_wound_new = np.angle(self.psi_x)
-                theta_unwound_new = theta_unwound_old + ext.unwinding(theta_wound_new - theta_wound_old)
+                theta_unwound_new = theta_unwound_old + utils.unwinding(theta_wound_new - theta_wound_old)
                 theta_wound_old = theta_wound_new
                 theta_unwound_old = theta_unwound_new
             if i % di == 0:
@@ -128,7 +128,7 @@ class gpe:
         di = time.get('di')
         dt = time.get('dt')
         self.sigma = time.get('dt') / self.dx ** 2 * self.gamma0_tilde * (self.p + 1) / 4
-        isotropic_indices = ext.get_indices(self.x)
+        isotropic_indices = utils.get_radial_indices(self.x)
         center_indices = isotropic_indices.get('r = ' + str(0))
         psi_correlation = []
         n_correlation = []
@@ -147,8 +147,8 @@ class gpe:
                     psi_x0t0 = self.psi_x[center_indices[0][0], center_indices[0][1]]
                     n_x0t0 = psi_x0t0 * np.conjugate(psi_x0t0)
                     theta_x0t0 = np.angle(psi_x0t0)
-                psi_correlation.append(ext.isotropic_avg('psi correlation', self.psi_x, np.conjugate(psi_x0t0), **isotropic_indices))
-                n_correlation.append(ext.isotropic_avg('n correlation', np.sqrt(self.n(self.psi_x)), np.sqrt(n_x0t0), **isotropic_indices))
-                n_avg.append(ext.isotropic_avg('n average', self.n(self.psi_x), None, **isotropic_indices))
-                deltatheta_full.append(ext.isotropic_avg('deltatheta', np.angle(self.psi_x), theta_x0t0, **isotropic_indices))
+                psi_correlation.append(utils.isotropic_avg('psi correlation', self.psi_x, np.conjugate(psi_x0t0), **isotropic_indices))
+                n_correlation.append(utils.isotropic_avg('n correlation', np.sqrt(self.n(self.psi_x)), np.sqrt(n_x0t0), **isotropic_indices))
+                n_avg.append(utils.isotropic_avg('n average', self.n(self.psi_x), None, **isotropic_indices))
+                deltatheta_full.append(utils.isotropic_avg('deltatheta', np.angle(self.psi_x), theta_x0t0, **isotropic_indices))
         return np.array(psi_correlation), np.array(n_correlation), np.array(n_avg), np.exp(1j * np.array(deltatheta_full))

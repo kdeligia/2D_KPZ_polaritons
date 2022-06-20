@@ -9,29 +9,21 @@ Created on Tue Nov 10 15:09:50 2020
 from qutip import *
 import os
 import numpy as np
-import external as ext
-import model_script
+import utils
 import itertools
+import model_script
 
-initial_path = r'/Users/delis/Desktop' + os.sep + 'g1 simulations'
-if os.path.isdir(r'/Users/delis/Desktop') == True and os.path.isdir(initial_path) == False:
-    os.mkdir(initial_path)
-else:
-    pass
 
 parallel_tasks = 4
 number_of_cores = 4
 jobs_per_core = parallel_tasks // number_of_cores
 qutip.settings.num_cpus = number_of_cores
-
 iteration = 1
-number_of_files = number_of_cores * iteration
 
 params_init = {}
+params_init['factor'] = [1]
 params_init['l0'] = [4 * 2 ** (1/2)]                                                                                         # μm
-params_init['tau0'] = [params_init.get('l0')[0] ** 2]                                                                        # ps
-params_init['N'] = [4 * 64]                                                                                                  # dimensionless!
-params_init['dx'] = [0.5 / 4]                                                                                                # dimensionless!
+params_init['tau0'] = [params_init.get('l0')[0] ** 2]                                                                        # ps                                                                                              # dimensionless!
 params_init['m'] = [8e-5]                                                                                                    # will multiply m_el in model_script.py
 params_init['p'] = [2]                                                                                                       # dimensionless!
 params_init['gamma0'] = [0.3125]                                                                                             # ps^-1
@@ -49,72 +41,77 @@ time['dt'] = dt
 time['di'] = di
 time['N_input'] = N_input
 
+
 def correlation(i_batch, **args):
     mypath = args.get('misc_folder')
+    factor = args.get('factor')
+    N = 64 * factor
+    dx = 0.5 / factor
+    psi_correlation = []
+    n_correlation = []
+    n_avg = []
+    exponential_avg = []
     for job in range(jobs_per_core):
         print('Running job = %.i at core = %.i' % (job, i_batch))
-        gpe = model_script.gpe(**args)
-        psi_correlation, n_correlation, n_avg, exponential_avg = gpe.time_evolution_psi(**time)
-        
-        psi_correlation /= jobs_per_core
-        n_correlation /= jobs_per_core
-        n_avg /= jobs_per_core
-        exponential_avg /= jobs_per_core
-        if job == 0:
-            np.savetxt(mypath + os.sep + 'psi_correlation' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', psi_correlation)
-            np.savetxt(mypath + os.sep + 'n_correlation' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', n_correlation)
-            np.savetxt(mypath + os.sep + 'n_avg' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', n_avg)
-            np.savetxt(mypath + os.sep + 'exponential_avg' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', exponential_avg)
-        elif job > 0:
-            np.savetxt(mypath + os.sep + 'psi_correlation' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', 
-                    psi_correlation + np.load(mypath + os.sep + 'psi_correlation' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy'))
-            np.savetxt(mypath + os.sep + 'n_correlation' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', 
-                    n_correlation + np.load(mypath + os.sep + 'n_correlation_INTERM' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy'))
-            np.savetxt(mypath + os.sep + 'n_avg' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', 
-                    n_avg + np.load(mypath + os.sep + 'n_avg' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy'))
-            np.savetxt(mypath + os.sep + 'exponential_avg' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', 
-                    exponential_avg + np.load(mypath + os.sep + 'exponential_avg_INTERM' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy'))
+        gpe = model_script.gpe(N, dx, **args)
+        psi_correlation_run, n_correlation_run, n_avg_run, exponential_avg_run = gpe.time_evolution_psi(**time)
+
+        psi_correlation.append(psi_correlation_run / jobs_per_core)
+        n_correlation.append(n_correlation_run / jobs_per_core)
+        n_avg.append(n_avg_run / jobs_per_core)
+        exponential_avg.append(exponential_avg_run / jobs_per_core)
+
+    np.savetxt(mypath + os.sep + 'psi_correlation' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', np.sum(psi_correlation))
+    np.savetxt(mypath + os.sep + 'n_correlation' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', np.sum(n_correlation))
+    np.savetxt(mypath + os.sep + 'n_avg' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', np.sum(n_avg))
+    np.savetxt(mypath + os.sep + 'exponential_avg' + '_' + 'core' + str(i_batch + 1) + '_' + 'iteration' + str(iteration) + '.npy', np.sum(exponential_avg))
     return None
 
-def call_avg(final_save_path, **args):
+
+root_path = r'/Users/konstantinosdeligiannis/Desktop'
+obj_path = r'g1 simulations'
+if os.path.isdir(root_path) is True and os.path.isdir(root_path + os.sep + obj_path) is False:
+    os.mkdir(root_path + os.sep + obj_path)
+else:
+    pass
+
+
+def average_g1(full_name, folder, save_path):
+    psi_correlation = []
+    n_correlation = []
+    n_avg = []
+    exponential_avg = []
+    for file in os.listdir(folder):
+        if 'psi_correlation' in file:
+            psi_correlation.append(np.loadtxt(folder + os.sep + file))
+        elif 'n_correlation' in file:
+            n_correlation.append(np.loadtxt(folder + os.sep + file))
+        elif 'n_avg' in file:
+            n_avg.append(np.loadtxt(folder + os.sep + file))
+        elif 'exponential_avg' in file:
+            exponential_avg.append(np.loadtxt(folder + os.sep + file))
+    np.savetxt(save_path + os.sep + full_name + '_' + 'g1psi' + '.npy', np.real(np.abs(np.mean(psi_correlation, axis=0)) / np.sqrt(np.mean(n_avg, axis=0)[0, 0] * np.mean(n_avg, axis=0))))
+    np.savetxt(save_path + os.sep + full_name + '_' + 'g1n' + '.npy', np.real(np.abs(np.mean(n_correlation, axis=0)) / np.sqrt(np.mean(n_avg, axis=0)[0, 0] * np.mean(n_avg, axis=0))))
+    np.savetxt(save_path + os.sep + full_name + '_' + 'g1theta' + '.npy', np.real(np.abs(np.mean(exponential_avg, axis=0))))
+
+
+def call_avg(**args):
     keys = args.keys()
     values = (args[key] for key in keys)
     params = [dict(zip(keys, combination)) for combination in itertools.product(*values)]
-    print(keys)
     for parameters_current in params:
-        p = parameters_current.get('p')
-        gamma0 = parameters_current.get('gamma0')
-        gamma2 = parameters_current.get('gamma2')
-        g = parameters_current.get('g')
-        gr = parameters_current.get('gr')
-        ns = parameters_current.get('ns')
-        m = parameters_current.get('m')
- 
-        name = 'm' + str(m) + '_' + 'p' + str(p) + '_' + 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2) + '_' + 'g' + str(g) + '_' + 'gr' + str(gr) + '_'  + 'ns' + str(ns)
-        misc_folder = initial_path + os.sep + name
-        if os.path.isdir(initial_path) == True and os.path.isdir(misc_folder) == False:
-            os.mkdir(misc_folder)
-        parameters_current['misc_folder'] = misc_folder
-        parallel_map(correlation, range(number_of_cores), task_kwargs = parameters_current, progress_bar = True)
-        psi_correlation = []
-        n_correlation = []
-        n_avg = []
-        exponential_avg = []
-        if os.path.isdir(initial_path) == True:
-            for file in os.listdir(misc_folder):
-                if 'psi_correlation' in file:
-                    psi_correlation.append(np.loadtxt(misc_folder + os.sep + file))
-                elif 'n_correlation' in file:
-                    n_correlation.append(np.loadtxt(misc_folder + os.sep + file))
-                elif 'n_avg' in file:
-                    n_avg.append(np.loadtxt(misc_folder + os.sep + file))
-                elif 'exponential_avg' in file:
-                    exponential_avg.append(np.loadtxt(misc_folder + os.sep + file))
-        np.savetxt(final_save_path + os.sep + name + '_' + 'g1psi' + '.npy', np.real(np.abs(np.mean(psi_correlation, axis=0)) / np.sqrt(np.mean(n_avg, axis=0)[0, 0] * np.mean(n_avg, axis=0))))
-        np.savetxt(final_save_path + os.sep + name + '_' + 'g1n' + '.npy', np.real(np.abs(np.mean(n_correlation, axis=0)) / np.sqrt(np.mean(n_avg, axis=0)[0, 0] * np.mean(n_avg, axis=0))))
-        np.savetxt(final_save_path + os.sep + name + '_' + 'g1theta' + '.npy', np.real(np.abs(np.mean(exponential_avg, axis=0))))
+        full_name = utils.full_id(**parameters_current)
+        folder = root_path + os.sep + obj_path + os.sep + full_name
+        if os.path.isdir(folder) is False:
+            os.mkdir(folder)
+        parameters_current['misc_folder'] = folder
+        parallel_map(correlation, range(number_of_cores), task_kwargs=parameters_current)
+        average_g1(full_name, folder, root_path)
+    return None
 
-call_avg(r'/Users/delis/Desktop', **params_init)
+
+#call_avg(**params_init)
+
 
 # =============================================================================
 # The times associated with sampling are the following:
