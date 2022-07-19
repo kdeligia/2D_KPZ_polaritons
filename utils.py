@@ -6,6 +6,7 @@ Created on Fri Aug 30 11:03:50 2019
 @author: delis
 """
 
+import os
 import numpy as np
 
 c = 3e2  # μm/ps
@@ -65,7 +66,20 @@ def full_id(**params):
     gr = params.get('gr')
     ns = params.get('ns')
     m = params.get('m')
-    return 'm' + str(m) + '_' + 'p' + str(p) + '_' + 'gamma' + str(gamma0) + '_' + 'gammak' + str(gamma2) + '_' + 'g' + str(g) + '_' + 'gr' + str(gr) + '_' + 'ns' + str(ns)
+    return os.path.join('m', str(m), '_',
+                       'p', str(p), '_',
+                       'gamma', str(gamma0), '_',
+                       'gammak', str(gamma2), '_',
+                       'g', str(g), '_',
+                       'gr', str(gr), '_',
+                       'ns', str(ns)).replace('/', '')
+
+
+def mkstring(arg):
+    try:
+        os.mkdir(arg)
+    except FileExistsError:
+        pass
 
 
 def get_radial_indices(x):
@@ -109,3 +123,19 @@ def unwinding(deltatheta):
     else:
         deltatheta[abs(deltatheta) > np.pi] -= np.sign(deltatheta[abs(deltatheta) > np.pi]) * 2 * np.pi
         return deltatheta
+
+
+def ensemble_average(folder):
+    result = []
+    for file in os.listdir(folder):
+        if not file.startswith('.'):
+            result.append(np.load(folder + os.sep + file))                      # Take care here, depending on how you save maybe you want to use loadtxt instead. I use .npy to conserve space, but if you use .dat or .txt you need loadtxt!
+    return sum(result) / len(result)
+
+
+def append_theta_trajectories(folder):
+    result = []
+    for file in os.listdir(folder):
+        if not file.startswith('.'):
+            result.append(np.load(folder + os.sep + file))
+    return np.vstack(result)

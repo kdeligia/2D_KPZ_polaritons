@@ -25,8 +25,8 @@ class gpe:
         self.N = N
         self.dx = dx
         self.x, self.y = utils.space_grid(self.N, self.dx)
-        self.kx = (2 * np.pi) / self.dx * np.fft.fftfreq(self.N, d=1)
-        self.ky = (2 * np.pi) / self.dx * np.fft.fftfreq(self.N, d=1)
+        self.kx = 2 * np.pi * np.fft.fftfreq(self.N, d=self.dx)
+        self.ky = 2 * np.pi * np.fft.fftfreq(self.N, d=self.dx)
         self.KX, self.KY = np.meshgrid(self.kx, self.ky, sparse=True)
         self.gamma2_tilde = args.get('gamma2') * self.tau0 / self.l0 ** 2
         self.gamma0_tilde = args.get('gamma0') * self.tau0
@@ -65,6 +65,8 @@ class gpe:
         N_input = int(time.get('N_input'))
         dt = time.get('dt')
         di = time.get('di')
+        tmin = time.get('tmin')
+        tmax = time.get('tmax')
         self.sigma = self.gamma0_tilde * (self.p + 1) / 4 * (time.get('dt') / self.dx ** 2)
         theta_unw = []
         flag = False
@@ -86,7 +88,7 @@ class gpe:
                 theta_unwound_new = theta_unwound_old + utils.unwinding(theta_wound_new - theta_wound_old)
                 theta_wound_old = theta_wound_new
                 theta_unwound_old = theta_unwound_new
-            if int(ti) >= 100 and int(ti) <= 200:
+            if int(ti) >= tmin and int(ti) <= tmax:
                 flag = True
             if flag is True and i % di == 0:
                 theta_unw.append(theta_unwound_new)
@@ -98,7 +100,7 @@ class gpe:
         dt = time.get('dt')
         di = time.get('di')
         self.sigma = time.get('dt') / self.dx ** 2 * self.gamma0_tilde * (self.p + 1) / 4
-        unwound_sampling = np.zeros((self.N, int(N_input / di) + 1))
+        unwound_sampling = np.zeros((int(N_input / di) + 1))
         for i in range(N_input + 1):
             ti = i * dt * self.tau0
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
@@ -119,7 +121,7 @@ class gpe:
                 theta_unwound_old = theta_unwound_new
             if i % di == 0:
                 time_index = i // di
-                unwound_sampling[:, time_index] = theta_unwound_new
+                unwound_sampling[time_index] = theta_unwound_new[self.N//2, self.N//2]              # Here possibly you might want to update, depending on what you want to extract. Maybe in θ in multiple space points etc
         return unwound_sampling
 
     def time_evolution_psi(self, **time):

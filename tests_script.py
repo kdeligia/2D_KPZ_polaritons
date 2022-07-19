@@ -14,9 +14,18 @@ import model_script
 import itertools
 import pprint
 
+root_path = r'/Users/konstantinosdeligiannis/Desktop'
+obj_path = r'tests_scanning'
+observable_path = os.path.join(root_path, obj_path)
+utils.mkstring(observable_path)
+
+total_tasks = 10
+number_of_cores = 5
+jobs_per_core = total_tasks // number_of_cores
+qutip.settings.num_cpus = number_of_cores
 
 params_init = {}
-params_init['factor'] = [1, 2, 4, 6, 8, 10]                                     # to be used for different discretizations!
+params_init['factor'] = [1, 5, 10]                                     # to be used for different discretizations!
 params_init['l0'] = [4 * 2 ** (1/2)]                                            # μm
 params_init['tau0'] = [int(np.round(params_init.get('l0')[0] ** 2))]            # ps
 params_init['m'] = [8e-5]                                                       # will multiply the electron mass m_el in model_script module
@@ -30,68 +39,52 @@ params_init['ns'] = [3.75]                                                      
 dt = 5e-6
 di = 200
 N_input = 1.25e6
+tmin = 100
+tmax = 200
 tf = N_input * dt * params_init.get('tau0')[0]
 time = {}
+time['tmin'] = tmin
+time['tmax'] = tmax
 time['dt'] = dt
 time['di'] = di
 time['N_input'] = N_input
 
-t = []
-flag = False
-for i in range(0, int(N_input) + 1):
-    ti = i * dt * params_init.get('tau0')[0]
-    if int(ti) >= 100 and int(ti) <= 200:
-        flag = True
-    if flag is True and i % di == 0:
-        t.append(ti)
-print(np.array(t), np.array(t).shape)
 
 keys = params_init.keys()
 values = (params_init[key] for key in keys)
 params = [dict(zip(keys, combination)) for combination in itertools.product(*values)]
-for i in range(len(params)):
-    params[i]['number'] = i + 1
-qutip.settings.num_cpus = len(params)
-
-root_path = r'/home6/konstantinos'
-obj_path = r'convergence tests backup'
-
-if os.path.isdir(root_path) is True and os.path.isdir(root_path + os.sep + obj_path) is False:
-    os.mkdir(root_path + os.sep + obj_path)
-else:
-    pass
 
 
-def evolution(i_dict, path=root_path+os.sep+obj_path):
-    for i in range(len(params)):
-        if params[i]['number'] == i_dict + 1:
-            current_dict = params[i]
-            break
-    factor = current_dict.get('factor')
+def evolution(i_dict):
+    parameters_current = np.take(params, i_dict)
+    full_name = utils.full_id(**parameters_current)
+    current_folder = os.path.join(observable_path, full_name)
+
+    factor = parameters_current.get('factor')
     N = 64 * factor
     dx = 0.5 / factor
-    folder = path + os.sep + 'f' + str(factor)
-    if os.path.isdir(folder) is False:
-        os.mkdir(folder)
-    else:
-        pass
-    gpe = model_script.gpe(N, dx, **current_dict)
-    theta_unwrapped = gpe.time_evolution_spacetime_vortices(**time)
-    full_name = utils.full_id(**current_dict)
-    np.save(folder + os.sep + full_name + '_' + 'theta_unwrapped' + '.npy', theta_unwrapped)
+    current_folder += '_' + 'N' + str(N) + '_' + 'dx' + str(dx)
+    parameters_current['current_folder'] = current_folder
+    utils.mkstring(current_folder)
 
-    x, y = utils.space_grid(N, dx)
-    np.savetxt(path + os.sep + 'N' + str(N) + '_' + 'dx' + str(dx) + '_' + 'unit' + str(current_dict.get('l0')) + '_' + 'xphys' + '.dat', x * current_dict.get('l0'))
-    np.savetxt(path + os.sep + 'N' + str(N) + '_' + 'dx' + str(dx) + '_' + 'unit' + str(current_dict.get('l0')) + '_' + 'yphys' + '.dat', y * current_dict.get('l0'))
-    np.savetxt(path + os.sep + 'Ninput' + str(int(time.get('N_input'))) + '_' + 'dt' + str(time.get('dt')) + '_' + 'unit' + str(current_dict.get('tau0')) + '_' + 'tphys' + '.dat', np.array(t))
-    print('DONE!')
-    print('Discretization')
-    print('N = %.i, dx = %.3f' % (N, dx))
-    print('----------------------')
-    print('Simulations parameters')
-    pprint.pprint(current_dict)
-    print('----------------------')
+    gpe = model_script.gpe(N, dx, **parameters_current)
+    theta_unwrapped = gpe.time_evolution_spacetime_vortices(**time)
+    np.save(current_folder + os.sep + 'N' + str(N) + '_' + 'dx' + str(dx) + '_' + full_name + '_' + 'theta_unwrapped' + '.npy', theta_unwrapped)
     return None
 
 
-parallel_map(evolution, range(len(params)))                                     # Parallel calculation: iterates through all values of the parameters
+parallel_map(evolution, range(len(params)))
+
+# =============================================================================
+# The times associated with sampling are the following:
+# =============================================================================
+'''
+t = []
+flag = False
+for i in range(0, int(N_input) + 1):
+    ti = i * dt * params_init.get('tau0')[0]
+    if int(ti) >= tmin and int(ti) <= tmax:
+        flag = True
+    if flag is True and i % di == 0:
+        t.append(ti)
+'''
