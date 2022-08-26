@@ -33,6 +33,9 @@ class gpe:
         self.gammar_tilde = 0.1 * self.gamma0_tilde
 
         self.Kc = hbar ** 2 / (2 * args.get('m') * melectron * self.epsilon0 * self.l0 ** 2)
+        self.tb0 = 5.8
+        self.J = hbar ** 2 / (2 * args.get('m') * melectron * 2 * (self.dx * self.l0) ** 2)
+
         self.g_tilde = args.get('g') * self.rho0 / self.epsilon0
         self.gr_tilde = args.get('gr') * self.rho0 / self.epsilon0
 
@@ -46,6 +49,9 @@ class gpe:
     def n(self, psi):
         return np.real(psi * np.conjugate(psi))
 
+    def tb_dispersion(self):
+        return self.tb0 - 2 * (self. J / self.epsilon0) * np.cos(self.KX * self.dx) + np.cos(self.KY * self.dx)
+
     def exp_x(self, dt, n):
         if self.g_tilde == 0:
             self.uc_tilde = 0
@@ -53,9 +59,13 @@ class gpe:
             self.uc_tilde = self.g_tilde * (n + 2 * self.p * (self.gr_tilde / self.g_tilde) * (self.gamma0_tilde / self.R_tilde) * (1 / (1 + n / self.ns_tilde)))
         self.rd_tilde = (self.gamma0_tilde / 2) * (self.p / (1 + n / self.ns_tilde) - 1)
         return np.exp(-1j * dt * (self.uc_tilde + 1j * self.rd_tilde))
-
+    '''
     def exp_k(self, dt):
         return np.exp(-1j * dt * (self.KX ** 2 + self.KY ** 2) * (self.Kc - 1j * self.gamma2_tilde / 2))
+    '''
+
+    def exp_k(self, dt):
+        return np.exp(-1j * dt * ((self.KX ** 2 + self.KY ** 2) * (- 1j * self.gamma2_tilde / 2) + self.tb_dispersion()))
 
 # =============================================================================
 # Time evolution
@@ -126,17 +136,20 @@ class gpe:
 
     def time_evolution_psi(self, **time):
         np.random.seed()
-        N_input = time.get('N_input')
+        Nsteps = time.get('Nsteps')
         di = time.get('di')
         dt = time.get('dt')
+        tss = time.get('tss')
+
         self.sigma = time.get('dt') / self.dx ** 2 * self.gamma0_tilde * (self.p + 1) / 4
         isotropic_indices = utils.get_radial_indices(self.x)
         center_indices = isotropic_indices.get('r = ' + str(0))
+
         psi_correlation = []
         n_correlation = []
         n_avg = []
         deltatheta_full = []
-        for i in range(N_input + 1):
+        for i in range(Nsteps + 1):
             ti = i * dt * self.tau0
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             psi_k = fft2(self.psi_x)
@@ -144,8 +157,8 @@ class gpe:
             self.psi_x = ifft2(psi_k)
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
             self.psi_x += np.sqrt(self.sigma) * (np.random.normal(0, 1, (self.N, self.N)) + 1j * np.random.normal(0, 1, (self.N, self.N)))
-            if ti >= 0 and i % di == 0:
-                if ti == 0:
+            if ti >= tss and i % di == 0:
+                if ti == tss:
                     psi_x0t0 = self.psi_x[center_indices[0][0], center_indices[0][1]]
                     n_x0t0 = psi_x0t0 * np.conjugate(psi_x0t0)
                     theta_x0t0 = np.angle(psi_x0t0)
