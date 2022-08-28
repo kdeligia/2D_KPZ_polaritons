@@ -9,6 +9,7 @@ Created on Mon Aug  9 15:36:47 2021
 import numpy as np
 import utils
 from scipy.fftpack import fft2, ifft2
+import matplotlib.pyplot as pl
 
 c = 3e2  # μm ps^-1
 hbar = 658.2119569  # μeV ps
@@ -50,7 +51,7 @@ class gpe:
         return np.real(psi * np.conjugate(psi))
 
     def tb_dispersion(self):
-        return self.tb0 - 2 * (self. J / self.epsilon0) * np.cos(self.KX * self.dx) + np.cos(self.KY * self.dx)
+        return self.tb0 - 2 * (self. J / self.epsilon0) * (np.cos(self.KX * self.dx) + np.cos(self.KY * self.dx))
 
     def exp_x(self, dt, n):
         if self.g_tilde == 0:
@@ -149,6 +150,7 @@ class gpe:
         n_correlation = []
         n_avg = []
         deltatheta_full = []
+
         for i in range(Nsteps + 1):
             ti = i * dt * self.tau0
             self.psi_x *= self.exp_x(0.5 * dt, self.n(self.psi_x))
@@ -162,8 +164,12 @@ class gpe:
                     psi_x0t0 = self.psi_x[center_indices[0][0], center_indices[0][1]]
                     n_x0t0 = psi_x0t0 * np.conjugate(psi_x0t0)
                     theta_x0t0 = np.angle(psi_x0t0)
-                psi_correlation.append(utils.isotropic_avg('psi correlation', self.psi_x, np.conjugate(psi_x0t0), **isotropic_indices))
-                n_correlation.append(utils.isotropic_avg('n correlation', np.sqrt(self.n(self.psi_x)), np.sqrt(n_x0t0), **isotropic_indices))
-                n_avg.append(utils.isotropic_avg('n average', self.n(self.psi_x), None, **isotropic_indices))
-                deltatheta_full.append(utils.isotropic_avg('deltatheta', np.angle(self.psi_x), theta_x0t0, **isotropic_indices))
+                psi_correlation.append(utils.isotropic_avg('psi correlation',
+                                                           self.psi_x, np.conjugate(psi_x0t0), **isotropic_indices))
+                n_correlation.append(utils.isotropic_avg('n correlation',
+                                                         np.sqrt(self.n(self.psi_x)), np.sqrt(n_x0t0), **isotropic_indices))
+                n_avg.append(utils.isotropic_avg('n average',
+                                                 self.n(self.psi_x), None, **isotropic_indices))
+                deltatheta_full.append(utils.isotropic_avg('deltatheta',
+                                                           np.angle(self.psi_x), theta_x0t0, **isotropic_indices))
         return np.array(psi_correlation), np.array(n_correlation), np.array(n_avg), np.exp(1j * np.array(deltatheta_full))

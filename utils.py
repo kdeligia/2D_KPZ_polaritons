@@ -75,9 +75,9 @@ def full_id(**params):
                        'ns', str(ns)).replace('/', '')
 
 
-def mkstring(arg):
+def mksubfolder(string):
     try:
-        os.mkdir(arg)
+        os.mkdir(string)
     except FileExistsError:
         pass
 
