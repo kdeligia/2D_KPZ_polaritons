@@ -99,7 +99,7 @@ def call_avg(**args):
         iteration = 1
         while iteration <= total_tasks / number_of_cores:
             parameters['run'] = iteration
-            print('Currently on iteration %.i of %.i' % (iteration, total_tasks // number_of_cores))
+            print('Currently on iteration %.i of %.i ...' % (iteration, total_tasks // number_of_cores))
             parallel_map(correlation, range(number_of_cores), task_kwargs=parameters, progress_bar=True)
             iteration += 1
         for path in [subfolder_psi_correlation, subfolder_theta_correlation, subfolder_density_correlation, subfolder_density_avg]:
@@ -111,6 +111,9 @@ def call_avg(**args):
 
 call_avg(**params_init)
 
+# =============================================================================
+# Some tests (ignore)
+# =============================================================================
 '''
 rho0 = 1 / params_init.get('l0')[0]**2
 keys = params_init.keys()
@@ -131,16 +134,4 @@ g2 = np.abs(density_correlation)/np.sqrt(np.abs(density_avg)[0,0]*np.abs(density
 import matplotlib.pyplot as pl
 pl.plot(tsample, n)
 pl.plot(tsample, np.ones(len(tsample))*params_init.get('ns')[0]/rho0 * (params_init.get('p')[0] - 1), c='black')
-'''
-
-
-# =============================================================================
-# The times associated with sampling are the following:
-# =============================================================================
-'''
-t=[]
-for i in range(0, int(N_input) + 1, di):
-    ti = i * dt * params_init.get('tau0')[0]
-    if ti >= 0 and i % di == 0:
-        t.append(ti)
 '''
