@@ -18,8 +18,8 @@ obj_path = r'g1_simulations'
 observable_path = os.path.join(root_path, obj_path)
 utils.mksubfolder(observable_path)
 
-total_tasks = 1920
-number_of_cores = 128
+total_tasks = 100
+number_of_cores = 10
 qutip.settings.num_cpus = number_of_cores
 rerun = 1
 
@@ -110,28 +110,3 @@ def call_avg(**args):
 
 
 call_avg(**params_init)
-
-# =============================================================================
-# Some tests (ignore)
-# =============================================================================
-'''
-rho0 = 1 / params_init.get('l0')[0]**2
-keys = params_init.keys()
-values = (params_init[key] for key in keys)
-params = [dict(zip(keys, combination)) for combination in itertools.product(*values)]
-for parameters_current in params:
-    gpe = model_script.gpe(64, 0.5, **parameters_current)
-    #psi_correlation, density_correlation, density_avg, exponential_avg = gpe.time_evolution_psi(**time)
-'''
-
-'''
-g1 = np.abs(psi_correlation)/np.sqrt(np.abs(density_avg)[0,0]*np.abs(density_avg))
-g2 = np.abs(density_correlation)/np.sqrt(np.abs(density_avg)[0,0]*np.abs(density_avg))
-'''
-
-
-'''
-import matplotlib.pyplot as pl
-pl.plot(tsample, n)
-pl.plot(tsample, np.ones(len(tsample))*params_init.get('ns')[0]/rho0 * (params_init.get('p')[0] - 1), c='black')
-'''

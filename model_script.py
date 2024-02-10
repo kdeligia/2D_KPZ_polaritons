@@ -9,7 +9,6 @@ Created on Mon Aug  9 15:36:47 2021
 import numpy as np
 import utils
 from scipy.fftpack import fft2, ifft2
-import matplotlib.pyplot as pl
 
 c = 3e2  # μm ps^-1
 hbar = 658.2119569  # μeV ps
@@ -60,26 +59,24 @@ class gpe:
             self.uc_tilde = self.g_tilde * (n + 2 * self.p * (self.gr_tilde / self.g_tilde) * (self.gamma0_tilde / self.R_tilde) * (1 / (1 + n / self.ns_tilde)))
         self.rd_tilde = (self.gamma0_tilde / 2) * (self.p / (1 + n / self.ns_tilde) - 1)
         return np.exp(-1j * dt * (self.uc_tilde + 1j * self.rd_tilde))
-    '''
-    def exp_k(self, dt):
-        return np.exp(-1j * dt * (self.KX ** 2 + self.KY ** 2) * (self.Kc - 1j * self.gamma2_tilde / 2))
-    '''
 
     def exp_k(self, dt):
-        return np.exp(-1j * dt * ((self.KX ** 2 + self.KY ** 2) * (- 1j * self.gamma2_tilde / 2) + self.tb_dispersion()))
+        return np.exp(-1j * dt * (self.KX ** 2 + self.KY ** 2) * (self.Kc - 1j * self.gamma2_tilde / 2))
 
 # =============================================================================
 # Time evolution
 # =============================================================================
+
     def time_evolution_spacetime_vortices(self, **time):
         np.random.seed()
-        N_input = int(time.get('N_input'))
+        N_input = int(time.get('Nsteps'))
         dt = time.get('dt')
         di = time.get('di')
         tmin = time.get('tmin')
         tmax = time.get('tmax')
         self.sigma = self.gamma0_tilde * (self.p + 1) / 4 * (time.get('dt') / self.dx ** 2)
-        theta_unw = []
+        theta = []
+        density = []
         flag = False
         for i in range(N_input + 1):
             ti = i * dt * self.tau0
@@ -102,8 +99,9 @@ class gpe:
             if int(ti) >= tmin and int(ti) <= tmax:
                 flag = True
             if flag is True and i % di == 0:
-                theta_unw.append(theta_unwound_new)
-        return theta_unw
+                theta.append(theta_wound_new)
+                density.append(self.n(self.psi_x))
+        return theta, density
 
     def time_evolution_theta(self, **time):
         np.random.seed()
@@ -132,7 +130,7 @@ class gpe:
                 theta_unwound_old = theta_unwound_new
             if i % di == 0:
                 time_index = i // di
-                unwound_sampling[time_index] = theta_unwound_new[self.N//2, self.N//2]              # Here possibly you might want to update, depending on what you want to extract. Maybe in θ in multiple space points etc
+                unwound_sampling[time_index] = theta_unwound_new[self.N//2, self.N//2]              # Here possibly you might want to update, depending on what you want to extract. Maybe in θ in multiple space points etc.
         return unwound_sampling
 
     def time_evolution_psi(self, **time):
